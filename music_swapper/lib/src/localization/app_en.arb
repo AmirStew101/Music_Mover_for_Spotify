@@ -1,0 +1,6 @@
+{
+  "appTitle": "music_swapper",
+  "@appTitle": {
+    "description": "The title of the application"
+  }
+}
