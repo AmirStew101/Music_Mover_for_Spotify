@@ -8,7 +8,7 @@ or just undo there recent action.
 import requests, urllib.parse
 
 from datetime import datetime, timedelta
-from flask import Flask, redirect, request, jsonify, session
+from flask import Flask, redirect, request, jsonify
 from flask_cors import CORS
 
 app = Flask(__name__)
@@ -17,19 +17,24 @@ app.secret_key = '234as45-9tvb27418-as987uhld83-1239sad089'
 
 CLIENT_ID = '5e6623ad65b7489b879a2a332c133570'
 CLIENT_SECRET = '4cd9de386b2c4d5882e7cdd283e6a1e3'
-REDIRECT_URI = 'http://localhost:5000/callback'
+SITE_REDIRECT_URI = 'https://amirstew.pythonanywhere.com/callback'
+APP_REDIRECT_URI = "SpotHelper://callback"
 
 AUTH_URL = 'https://accounts.spotify.com/authorize'
 TOKEN_URL = 'https://accounts.spotify.com/api/token'
 API_BASE_URL = 'https://api.spotify.com/v1/'
 
-"""@app.route('/')
-def index():
-    return "Spotify <a href='/login'>Login</a>"""
+REFRESH_MSG = {'status': 'Failed', 'message': 'Need refresh token'}
+LOGGIN_MSG = {'status': 'Failed', 'message': 'Not Logged In'}
+EXPIRES_MSG = {'status': 'Failed', 'message': 'No Expiration time received'}
 
-@app.route('/login', methods=['GET'])
+#For debugging without app use
+# @app.route('/')
+# def index():
+#     return "Spotify <a href='/get-auth-url/not'>Login</a>"
+
+@app.route('/get-auth-url', methods=['GET'])
 def login():
-    print("LOGIN")
     """
     To see playlists: playlist-read-private
     To see playlist tracks: 
@@ -38,20 +43,20 @@ def login():
     To remove tracks from playlist: DELETE
     To create a playlist: playlist-modify-private playlist-modify-public
     """
-    scope = 'playlist-read-private playlist-modify-private playlist-modify-public'
+    scope = 'playlist-read-private playlist-modify-private playlist-modify-public user-library-read user-library-modify user-read-private'
 
     params = {
         'client_id': CLIENT_ID,
         'response_type': 'code',
         'scope': scope,
-        'redirect_uri': REDIRECT_URI,
+        'redirect_uri': SITE_REDIRECT_URI,
         'show_dialog': True #Forces the user to login again for Testing
     }
 
     auth_url = f"{AUTH_URL}?{urllib.parse.urlencode(params)}"
-    print(auth_url)
 
-    return auth_url
+    return jsonify({'status': 'Success', 'data': auth_url})
+
 
 @app.route('/callback')
 def callback():
@@ -62,7 +67,7 @@ def callback():
         req_body = {
             'code': request.args['code'],
             'grant_type': 'authorization_code',
-            'redirect_uri': REDIRECT_URI,
+            'redirect_uri': SITE_REDIRECT_URI,
             'client_id': CLIENT_ID,
             'client_secret': CLIENT_SECRET
         }
@@ -75,67 +80,26 @@ def callback():
     refresh_token = token_info['refresh_token'] #Refresh access token when it expires after one day
     expires_at = datetime.now().timestamp() + token_info['expires_in'] #Num of seconds token will last
 
-    info = {'access_token': access_token, 'refresh_token': refresh_token, 'expires_at': expires_at}
+    info = {'accessToken': access_token, 'refreshToken': refresh_token, 'expiresAt': expires_at}
 
-    return info
+    return jsonify({'status': 'Success', 'data': info})
 
-@app.route('/playlists')
-def get_playlists():
-    if 'access_token' not in session:
-        return redirect('/login')
+#Refreshes the token when called
+@app.route('/refresh-token/<expires_at>/<refresh_token>')
+def refresh_token(expires_at, refresh_token):
+
+    expires_at = float(expires_at)
+
+    if not refresh_token:
+        return REFRESH_MSG
     
-    if datetime.now().timestamp() > session['expires_at']:
-        return redirect('/refresh-token')
+    if not expires_at:
+        return EXPIRES_MSG
     
-    header = {
-        'Authorization': f"Bearer {session['access_token']}"
-    }
-
-    response = requests.get(API_BASE_URL + 'me/playlists', headers=header)
-
-    playlists = response.json()
-    playlist_items = playlists['items']
-    """print("Playlist ID: ", playlist_items[0]['id'])
-    print("Playlist items length: ", len(playlist_items))
-    
-    print("Playlist ID:", item['id'])
-    print("Playlist name:", item['name'])
-    print("Track link for get:", item['tracks']['href'])
-    print("Images:", item['images'], '\n') #Three sizes for the same image"""
-
-    """
-    Return the playlist image, its name, its ID
-    Name & Img shown to user
-    ID for backend search
-    """
-    return jsonify(playlists)
-
-@app.route('/tracks/')
-def get_tracks():
-    if 'access_token' not in session:
-        return redirect('/login')
-    
-    if datetime.now().timestamp() > session['expires_at']:
-        return redirect('/refresh-token')
-    
-    track_link = request.json['track_link']
-
-    header = {
-        'Authorization': f"Bearer {session['access_token']}"
-    }
-
-    response = requests.get(track_link, headers=header)
-    pass
-
-@app.route('/refresh-token')
-def refresh_token():
-    if 'refresh_token' not in session:
-        return redirect('/login')
-    
-    if datetime.now().timestamp() > session['expires_at']:
+    if expires_at:
         req_body = {
             'grant_type': 'refresh_token',
-            'refresh_token': session['refresh_token'],
+            'refresh_token': refresh_token,
             'client_id': CLIENT_ID,
             'client_secret': CLIENT_SECRET
         }
@@ -143,10 +107,364 @@ def refresh_token():
         response = requests.post(TOKEN_URL, data=req_body)
         new_token_info = response.json()
 
-        session['access_token'] = new_token_info['access_token']
-        session['expires_at'] = datetime.now().timestamp() + new_token_info['expires_in']
+        access_token = new_token_info['access_token']
+        expires_at = datetime.now().timestamp() + new_token_info['expires_in']
 
-        return redirect('/playlists')
+        info = {'accessToken': access_token, 'expiresAt': expires_at, 'refreshToken': refresh_token}
 
-if __name__ == "__main__":
-    app.run(host='0.0.0.0', port=5000, debug=True)
+        return jsonify({'status': 'Success', 'data': info})
+    
+    return jsonify({'status': 'Failed', 'message': 'Token doesn\'t need to be refreshed'})
+
+
+@app.route('/get-playlists/<expires_at>/<access_token>')
+def get_playlists(expires_at, access_token):
+    expires_at = float(expires_at)
+
+    if not access_token:
+        return LOGGIN_MSG
+    
+    if not expires_at:
+        return EXPIRES_MSG
+    
+    if expires_at and datetime.now().timestamp() > expires_at:
+        return REFRESH_MSG
+    
+    header = {
+        'Authorization': f"Bearer {access_token}"
+    }
+
+    #TODO: Make loop to get more than 50 playlists
+    getUrl = API_BASE_URL + 'me/playlists?limit=50'
+    response = requests.get(getUrl, headers=header)
+
+    playlists = response.json()
+    playlist_items = playlists['items']
+
+    user_playlists = {}
+
+    i = 1
+    for item in playlist_items:
+        if (item['name'] == ''):
+            unnamed = f'Unnamed {i}'
+            user_playlists[item['id']] = {
+                'title': unnamed, 
+                'link': item['tracks']['href'], 
+                'imageUrl': item['images'], 
+                'snapshotId': item['snapshot_id']}
+            i += 1
+        else:
+            user_playlists[item['id']] = {
+                'title': item['name'], 
+                'link': item['tracks']['href'], 
+                'imageUrl': item['images'], 
+                'snapshotId': item['snapshot_id']}
+
+    """
+    Return the playlist image, its name, its ID
+    Name & Img shown to user
+    ID for backend search
+    """
+    return jsonify({'status': 'Success', 'data': user_playlists})
+
+
+@app.route('/get-tracks-total/<playlist_id>/<expires_at>/<access_token>')
+def get_tracks_total(playlist_id, expires_at, access_token):
+    expires_at = float(expires_at)
+
+    if not access_token:
+        return LOGGIN_MSG
+    
+    if expires_at and datetime.now().timestamp() > expires_at:
+        return REFRESH_MSG
+    
+    elif not expires_at:
+        return EXPIRES_MSG
+    
+    if playlist_id:
+        header = {
+            'Authorization': f"Bearer {access_token}"
+        }
+
+        if playlist_id != 'Liked Songs':
+            #Gets the first item of user playlist for Playlist size
+            getUrl = API_BASE_URL + 'playlists/' + playlist_id + '/tracks?limit=1'
+        else:
+            getUrl = API_BASE_URL + 'me/tracks?limit=1'
+
+        response = requests.get(getUrl, headers= header)
+
+        tracks = response.json()
+        totalItems = tracks['total']
+
+        return jsonify({'status': 'Success', 'totalTracks': totalItems})
+    
+    return jsonify({'status': 'Failed', 'message': 'Missing Playlist ID'})
+
+
+@app.route('/get-all-tracks/<playlist_id>/<expires_at>/<access_token>/<total_tracks>')
+def get_all_tracks(playlist_id, expires_at, access_token, total_tracks):
+    expires_at = float(expires_at)
+    total_tracks = int(total_tracks)
+
+    if not access_token:
+        return LOGGIN_MSG
+    
+    if expires_at and datetime.now().timestamp() > expires_at:
+        return REFRESH_MSG
+    
+    elif not expires_at:
+        return EXPIRES_MSG
+    
+    #Gets all the tracks for the given playlist id
+    if playlist_id:
+        header = {
+            'Authorization': f"Bearer {access_token}"
+        }
+
+        tracks_items = {}
+        playlist_tracks = {}
+        
+        for offset in range(0, total_tracks, 50 ):
+            offsetStr = str(offset)
+
+            if playlist_id != 'Liked Songs':
+                getUrl = API_BASE_URL + 'playlists/' + playlist_id + f'/tracks?limit=50&offset={offsetStr}'
+            else:
+                getUrl = API_BASE_URL + f'me/tracks?limit=50&offset={offsetStr}'
+
+            response = requests.get(getUrl, headers= header)
+            tracks = response.json()
+            tracks_items = tracks['items']
+            
+            """
+            Puts all of a Users tracks in a dictionary 
+            with its associated images, preview_url, and artist
+            """
+            for item in tracks_items:
+                track_title = item['track']['name']
+
+                track_images = item['track']['album']['images']
+                preview_url = item['track']['preview_url']
+                track_artist = item['track']['artists'][0]['name']
+                track_id = item['track']['id']
+
+                playlist_tracks[track_id] = {
+                    'title': track_title,
+                    'imageUrl': track_images, 
+                    'previewUrl': preview_url, 
+                    'artist': track_artist,
+                }
+
+        return jsonify({'status': 'Success', 'data': playlist_tracks})
+    
+    return jsonify({'status': 'Failed', 'message': 'Missing Playlist ID'})
+
+
+@app.route('/move-to-playlists/<origin_id>/<snapshot_id>/<expires_at>/<access_token>', methods=['POST'])
+def move_tracks(origin_id, snapshot_id, expires_at, access_token):
+    expires_at = float(expires_at)
+    tracks = request.json['track_ids']
+    playlist_ids = request.json['playlist_ids']
+
+    if not access_token:
+        return LOGGIN_MSG
+    
+    if not expires_at:
+        return EXPIRES_MSG
+    
+    if expires_at and datetime.now().timestamp() > expires_at:
+        return REFRESH_MSG
+    
+    if origin_id and playlist_ids and tracks:
+        header = {
+                'Authorization': f"Bearer {access_token}",
+                'Content-Type': 'application/json'
+            }
+        
+        trackUris = []
+        likedUris = []
+        items = 0
+
+        for track in tracks:
+            trackUri = 'spotify:track:' + track
+            trackUris.append(trackUri)
+            likedUris.append(track) #Uris for Liked Songs
+
+            if (items % 100) or track == tracks[-1]:
+                addBodyUri = {"uris": trackUris}
+
+                for play_id in playlist_ids:
+                    #Liked Songs track addition
+                    if play_id == 'Liked Songs':
+                        addBodyUri = {'ids': likedUris}
+                        postUrl = f"{API_BASE_URL}me/tracks"
+                        
+                    else:
+                        postUrl = f"{API_BASE_URL}playlists/{play_id}/tracks"
+                        
+                    #Add track to chosen playlist
+                    requests.post(postUrl, headers=header, json=addBodyUri)
+
+                #Delet tracks from old playlist
+                deleteUrl = f"{API_BASE_URL}playlists/{origin_id}/tracks"
+                deleteList = []
+
+                for item in trackUris:
+                    deleteList.append({"uri": item})
+                    
+                #Liked Songs track deletion
+                if postUrl == f"{API_BASE_URL}me/tracks":
+                    deleteUrl = postUrl
+                    deleteBodyUri = {"ids": trackUris}
+
+                else:
+                    deleteBodyUri = {"tracks": deleteList, "snapshotId": snapshot_id}
+                
+                response = requests.delete(deleteUrl, headers=header, json=deleteBodyUri)
+                print(f'Delete Response: {response}')
+
+                trackUris.clear
+
+        return jsonify('Success')
+    
+    return jsonify('Failed')
+
+
+@app.route('/add-to-playlists/<expires_at>/<access_token>')
+def add_tracks(expires_at, access_token):
+    expires_at = float(expires_at)
+    tracks = request.json['track_ids']
+    playlist_ids = request.json['playlist_ids']
+
+    if not access_token:
+        return LOGGIN_MSG
+    
+    if not expires_at:
+        return EXPIRES_MSG
+    
+    if expires_at and datetime.now().timestamp() > expires_at:
+        return REFRESH_MSG
+    
+    if playlist_ids and tracks:
+        header = {
+                'Authorization': f"Bearer {access_token}",
+                'Content-Type': 'application/json'
+            }
+        
+        trackUris = []
+        likedUris = []
+        items = 0
+
+        for track in tracks:
+            addUri = 'spotify:track:' + track
+            trackUris.append(addUri)
+            likedUris.append(track)
+
+            if (items % 100) or track == tracks[-1]:
+                bodyUri = {"uris": trackUris}
+
+                for play_id in playlist_ids:
+                    if play_id != 'Liked Songs':
+                        postUrl = f"{API_BASE_URL}playlists/{play_id}/tracks"
+                    else:
+                        bodyUri = {'ids': likedUris}
+                        postUrl = f"{API_BASE_URL}me/tracks"
+        
+                    #Add track to chosen playlist
+                    requests.post(postUrl, headers=header, json=bodyUri)
+
+                trackUris.clear
+
+    return jsonify('Success')
+
+
+@app.route('/remove-tracks/<origin_id>/<snapshot_id>/<expires_at>/<access_token>', methods=['POST'])
+def remove_tracks(origin_id, snapshot_id, expires_at, access_token):
+    expires_at = float(expires_at)
+    tracks = request.json['track_ids']
+
+    if not access_token:
+        return LOGGIN_MSG
+    
+    if not expires_at:
+        return EXPIRES_MSG
+    
+    if expires_at and datetime.now().timestamp() > expires_at:
+        return REFRESH_MSG
+    
+    if tracks:
+        header = {
+                'Authorization': f"Bearer {access_token}",
+                'Content-Type': 'application/json'
+        }
+        
+        trackUris = []
+        items = 0
+
+        #Handles tracks for Liked Songs
+        if origin_id == 'Liked Songs':
+            for track in tracks:
+                trackUris.append(track)
+
+                if (items % 100) or track == tracks[-1]:
+                    deleteUrl = f"{API_BASE_URL}me/tracks"
+                    deleteBodyUri = {"ids": trackUris}
+
+                response = requests.delete(deleteUrl, headers=header, json=deleteBodyUri)
+                print(f'Delete Response: {response}')
+
+            trackUris.clear()
+
+        #Handles tracks for a Playlist
+        else:
+            for track in tracks:
+                trackUri = 'spotify:track:' + track
+                trackUris.append(trackUri)
+
+                if (items % 100) or track == tracks[-1]:
+                    #Delet tracks from old playlist
+                    deleteUrl = f"{API_BASE_URL}playlists/{origin_id}/tracks"
+                    deleteList = []
+
+                    for item in trackUris:
+                        deleteList.append({"uri": item})
+
+                    deleteBodyUri = {"tracks": deleteList, "snapshotId": snapshot_id}
+
+                response = requests.delete(deleteUrl, headers=header, json=deleteBodyUri)
+                print(f'Delete Response: {response}')
+
+                trackUris.clear()
+
+    return jsonify('Success')
+
+@app.route('/get-user-info/<expires_at>/<access_token>')
+def get_user_info(expires_at, access_token):
+    expires_at = float(expires_at)
+
+    if not access_token:
+        return LOGGIN_MSG
+    
+    if not expires_at:
+        return EXPIRES_MSG
+    
+    if expires_at and datetime.now().timestamp() > expires_at:
+        return REFRESH_MSG
+    
+    header = {
+            'Authorization': f"Bearer {access_token}"
+    }
+
+    getUrl = f"{API_BASE_URL}me"
+    response = requests.get(getUrl, headers=header)
+
+    user_info = response.json()
+    print(user_info)
+    spot_helper_info = {
+        'user_name': user_info['display_name'],
+        'id': user_info['id'],
+        'uri': user_info['uri']
+    }
+
+    return jsonify({'status': 'Success', 'data': spot_helper_info})

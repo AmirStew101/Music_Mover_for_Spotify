@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "662074339029",
+    "project_id": "spot-helper-1688d",
+    "storage_bucket": "spot-helper-1688d.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:662074339029:android:bfa23f10c92738b0cabc5c",
+        "android_client_info": {
+          "package_name": "com.example.music_swapper"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBf9B1pjHVck7ZuQW2kXRkRLMpkw7i75eg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
