@@ -23,7 +23,7 @@ class TracksViewState extends State<TracksView> {
   String userId = '';
   String playlistId = '';
 
-  Map<String, dynamic> tracks = {}; //Tracks for the chosen playlist
+  Map<String, dynamic> allTracks = {}; //Tracks for the chosen playlist
   //All of the selected tracks 
   //key: Track Title
   //values: 'Chosen' as bool & Track ID
@@ -57,9 +57,9 @@ class TracksViewState extends State<TracksView> {
     }
 
     //Fills Users tracks from the Database
-    tracks = await getPlaylistTracksData(userId, playlistId);
+    allTracks = await getPlaylistTracksData(userId, playlistId);
 
-    if (tracks.isNotEmpty){
+    if (allTracks.isNotEmpty){
       loaded = true;
     }
     else{
@@ -70,7 +70,7 @@ class TracksViewState extends State<TracksView> {
 
   //Gets the users tracks for the selected Playlist
   Future<void> fetchSpotifyTracks() async {
-    if (tracks.isEmpty){
+    if (allTracks.isEmpty){
       debugPrint('\nCalling Spot');
       //Checks if Token needs to be refreshed
       receivedCall = await checkRefresh(receivedCall, false); 
@@ -84,14 +84,14 @@ class TracksViewState extends State<TracksView> {
       }
 
       if (totalTracks > 0) {
-        tracks = await getSpotifyPlaylistTracks(
+        allTracks = await getSpotifyPlaylistTracks(
             playlistId,
             receivedCall['expiresAt'],
             receivedCall['accessToken'],
             totalTracks); //gets user tracks for playlist
 
           //Adds tracks to database for faster retreival later
-          for (var track in tracks.entries){
+          for (var track in allTracks.entries){
             await checkUserTrackData(userId, track, playlistId);
           }
       }
@@ -105,32 +105,40 @@ class TracksViewState extends State<TracksView> {
     for (var element in chosenTracks) {
       String trackName = element.key;
       bool trackState = element.value['chosen'];
+      String trackId = element.value['id'];
       Map<String, dynamic> selectMap = {'chosen': trackState, 'id': element.value['id']};
 
       //Track is in Searched Tracks but it was unchecked in Widget
       //Track is removed from Searched tracks
-      if (selectedTracks.containsKey(trackName) && trackState == false) {
-        selectedTracks.remove(element.key);
+      if (selectedTracks.containsValue(trackId) && trackState == false) {
+        selectedTracks.removeWhere((key, value) => value['id'] == trackId);
       }
       //Track is not in Searched Tracks but it was checked in Widget
       //Adds the Track to Searched Tracks
-      if (!selectedTracks.containsKey(trackName) && trackState == true) {
+      if (!selectedTracks.containsValue(trackId) && trackState == true) {
         selectedTracks.putIfAbsent(element.key, () => selectMap);
       }
     }
   }
 
   void deleteRefresh(Map<String, dynamic> chosenTracks) {
-    List<dynamic> tracksRemove = chosenTracks.values.toList();
+    //Get all the tracks the user chose to be deleted
+    List<String> tracksRemove = [];
+    for (var track in chosenTracks.entries){
+      tracksRemove.add(track.value['id']);
+    }
+
+    //deleteTracksData(String userId, List<Strings> trackIds);
     
-    for (var track in tracksRemove) {
-      tracks.remove(track);
-      selectedTracks.remove(track);
+    for (var trackId in tracksRemove) {
+      allTracks.remove(trackId);
+      selectedTracks.removeWhere((key, value) => value['id'] == trackId);
       totalTracks--;
     }
     setState(() {});
   }
 
+  //Gets Tracks from Spotify to update database
   Future<void> refreshTracks() async{
     debugPrint('Refresh Tracks');
 
@@ -146,11 +154,16 @@ class TracksViewState extends State<TracksView> {
 
     if (totalTracks > 0) {
       //gets user tracks for playlist
-      tracks = await getSpotifyPlaylistTracks(
+      allTracks = await getSpotifyPlaylistTracks(
           playlistId,
           receivedCall['expiresAt'],
           receivedCall['accessToken'],
           totalTracks);
+
+      //Adds tracks to database for faster retreival later
+      for (var track in allTracks.entries){
+        await checkUserTrackData(userId, track, playlistId);
+      }
     }
     setState(() {
       //Update Playlists
@@ -177,7 +190,7 @@ class TracksViewState extends State<TracksView> {
                 onPressed: () async {
                   List<MapEntry<String, dynamic>> queryResult = await showSearch(
                       context: context,
-                      delegate: TracksSearchDelegate(tracks, selectedTracks));
+                      delegate: TracksSearchDelegate(allTracks, selectedTracks));
 
                   for (var result in queryResult){
                     if (result.value['chosen']){
@@ -200,7 +213,7 @@ class TracksViewState extends State<TracksView> {
               return TrackListWidget(
                 playlistId: playlistId,
                 receivedCall: receivedCall,
-                tracks: tracks,
+                allTracks: allTracks,
                 selectedTracks: selectedTracks,
                 sendTracks: receiveValue,
                 refreshTracks: refreshTracks,

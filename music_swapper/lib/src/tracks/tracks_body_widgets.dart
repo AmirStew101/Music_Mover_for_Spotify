@@ -7,7 +7,7 @@ import 'package:music_swapper/utils/tracks_requests.dart';
 //Creates the state to update tracks the user selected
 //Receives all the users tracks for the selected playlist
 class TrackListWidget extends StatefulWidget {
-  final Map<String, dynamic> tracks;
+  final Map<String, dynamic> allTracks;
   final Map<String, dynamic> selectedTracks;
   final void Function(List<MapEntry<String, bool>>) sendTracks;
   final Map<String, dynamic> receivedCall;
@@ -15,7 +15,7 @@ class TrackListWidget extends StatefulWidget {
   final Future<void> Function() refreshTracks;
   
   const TrackListWidget({
-    required this.tracks, 
+    required this.allTracks, 
     required this.selectedTracks,
     required this.sendTracks,
     required this.receivedCall,
@@ -30,14 +30,15 @@ class TrackListWidget extends StatefulWidget {
 //Main functionality for displaying, updating, and listening to previews of tracks
 class TrackListState extends State<TrackListWidget> {
   //Map of the track with key = 'track name' and value = {images:, previewUrl:, artist:}
-  Map<String, dynamic> tracks = {};
+  Map<String, dynamic> allTracks = {};
   Map<String, dynamic> receivedCall = {};
-  late Future<void> Function() refreshTracks;
+  late Future<void> Function() refreshTracks; //Function for updating users tracks
 
   final audioPlayer = AudioPlayer(); //Used to play previewUrl
 
-  late List<MapEntry<String, bool>> selectedList = []; //Stores Track Name & if its Selected
-  late List<MapEntry<String, bool>> playingList = []; //User selected song to preview
+  //Key: Track Title & values: if 'chosen' bool & ID
+  late List<MapEntry<String, dynamic>> selectedList = [];
+  late List<MapEntry<String, dynamic>> playingList = []; //User selected song to preview
 
   //Function to send selected tracks to main body
   late void Function(List<MapEntry<String, bool>>) sendTracks;
@@ -51,18 +52,18 @@ class TrackListState extends State<TrackListWidget> {
     super.initState();
     sendTracks = widget.sendTracks;
     refreshTracks = widget.refreshTracks;
-    tracks = widget.tracks;
-    Map<String, dynamic> searchedTracks = widget.selectedTracks;
+    allTracks = widget.allTracks;
+    Map<String, dynamic> chosenTracks = widget.selectedTracks;
 
-    if (tracks.isNotEmpty) {
-      selectedList = List.generate(tracks.length, (index) {
-        String name = tracks.entries.elementAt(index).key;
-        bool state = searchedTracks[name] != null;
+    if (allTracks.isNotEmpty) {
+      selectedList = List.generate(allTracks.length, (index) {
+        String name = allTracks.entries.elementAt(index).value['title'];
+        bool state = chosenTracks[name]['chosen'] != null;
         return MapEntry(name, state);
       });
 
-      playingList = List.generate(tracks.length, (index) {
-        String name = tracks.entries.elementAt(index).key;
+      playingList = List.generate(allTracks.length, (index) {
+        String name = allTracks.entries.elementAt(index).key;
         bool state = false;
         return MapEntry(name, state);
       });
@@ -92,9 +93,9 @@ class TrackListState extends State<TrackListWidget> {
       onRefresh: refreshTracks, 
       child: Stack(children: [
       ListView.builder(
-            itemCount: tracks.length,
+            itemCount: allTracks.length,
             itemBuilder: (context, index) {
-              final trackMap = tracks.entries.elementAt(index);
+              final trackMap = allTracks.entries.elementAt(index);
               final trackName = trackMap.value['title'];
               final trackImage = trackMap.value?['imageUrl'] ?? '';
               final trackPrevUrl = trackMap.value?['previewUrl'] ?? '';
@@ -152,15 +153,15 @@ class TrackListState extends State<TrackListWidget> {
 
                       //Selects all the check boxes
                       if (selectAll) {
-                        for (int i = 0; i < tracks.length; i++) {
-                          MapEntry<String, dynamic> trackEntry = tracks.entries.elementAt(i);
+                        for (int i = 0; i < allTracks.length; i++) {
+                          MapEntry<String, dynamic> trackEntry = allTracks.entries.elementAt(i);
                           selectedList[i] = MapEntry(trackEntry.key, true);
                         }
                         sendTracks(selectedList);
                       } else {
                         //Deselects all check boxes
-                        for (int i = 0; i < tracks.length; i++) {
-                          MapEntry<String, dynamic> trackEntry = tracks.entries.elementAt(i);
+                        for (int i = 0; i < allTracks.length; i++) {
+                          MapEntry<String, dynamic> trackEntry = allTracks.entries.elementAt(i);
                           selectedList[i] = MapEntry(trackEntry.key, false);
                         }
                         sendTracks(selectedList);

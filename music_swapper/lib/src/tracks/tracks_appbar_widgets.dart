@@ -2,14 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:music_swapper/utils/universal_widgets.dart';
 
 class TracksSearchDelegate extends SearchDelegate {
-  List<MapEntry<String, dynamic>> searchResults = []; //Will have a key: track name & value: artist name
+  //Will have a key: track name & value: Artist & ID
+  List<MapEntry<String, dynamic>> searchResults = [];
   
   Map<String, dynamic> playlistTracks = {}; //All of the users tracks for the playlist
 
   bool artistFilter = false;
   
   //Tracks user has selected in Search or Body
-  //Key: Track Id, Value: {title & bool if 'chosen'}
+  //Key: Track Title, Value: {ID & bool if 'chosen'}
   List<MapEntry<String, dynamic>> chosenTracks = [];
 
   //Gets all the tracks for the playlist from tracks
