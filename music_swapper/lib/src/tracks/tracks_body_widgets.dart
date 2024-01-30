@@ -8,7 +8,7 @@ import 'package:music_swapper/utils/tracks_requests.dart';
 //Receives all the users tracks for the selected playlist
 class TrackListWidget extends StatefulWidget {
   final Map<String, dynamic> tracks;
-  final Map<String, dynamic> searchedTracks;
+  final Map<String, dynamic> selectedTracks;
   final void Function(List<MapEntry<String, bool>>) sendTracks;
   final Map<String, dynamic> receivedCall;
   final String playlistId;
@@ -16,7 +16,7 @@ class TrackListWidget extends StatefulWidget {
   
   const TrackListWidget({
     required this.tracks, 
-    required this.searchedTracks,
+    required this.selectedTracks,
     required this.sendTracks,
     required this.receivedCall,
     required this.playlistId,
@@ -52,7 +52,7 @@ class TrackListState extends State<TrackListWidget> {
     sendTracks = widget.sendTracks;
     refreshTracks = widget.refreshTracks;
     tracks = widget.tracks;
-    Map<String, dynamic> searchedTracks = widget.searchedTracks;
+    Map<String, dynamic> searchedTracks = widget.selectedTracks;
 
     if (tracks.isNotEmpty) {
       selectedList = List.generate(tracks.length, (index) {
@@ -74,7 +74,7 @@ class TrackListState extends State<TrackListWidget> {
     setState(() {
     for (int i = 0; i < selectedList.length; i++){
       MapEntry<String, bool> item = selectedList[i];
-      bool trackSelected = widget.searchedTracks.containsKey(item.key);
+      bool trackSelected = widget.selectedTracks.containsKey(item.key);
       if (trackSelected){
         selectedList[i] = MapEntry(item.key, true);
       }

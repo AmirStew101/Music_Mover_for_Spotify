@@ -80,35 +80,53 @@ class OptionsMenu extends StatelessWidget {
 
 final userRepo = Get.put(UserRepository());
 
-Future<bool> checkTrackData(String userId, String trackName, String playlistId) async{
+//Check if User has track in their collection and if it is connected to given playlist
+//Creates Track and/or Playlist connection if either doesn't exist
+Future<void> checkUserTrackData(String userId, MapEntry<String, dynamic> track, String playlistId) async{
   final userRepo = Get.put(UserRepository());
 
-  bool has = await userRepo.hasTrack(userId, trackName, playlistId);
+  String trackId = track.key;
+  bool has = await userRepo.hasTrack(userId, trackId);
 
   if (!has){
-    userRepo.createTrackDoc(userId, trackName, playlistId);
-  }
+    TrackModel newTrack = TrackModel(
+      playlistIds: [], 
+      trackId: trackId, 
+      imageUrl: track.value['imageUrl'], 
+      artist: track.value['artist'], 
+      title: track.value['title']);
 
-  return has;
+    userRepo.createTrackDoc(userId, newTrack, trackId);
+    userRepo.addTrackPlaylist(userId, trackId, playlistId);
+  }
 }
 
-checkPlaylists(Map<String, dynamic> playlists, String userId){
+//Get a list of track names for a given playlits then get there details from
+//the tracks collection using the names
+Future<Map<String, dynamic>> getPlaylistTracksData(String userId, String playlistId) async{
+  final userRepo = Get.put(UserRepository());
+
+  final tracks = userRepo.getTracks(userId, playlistId);
+
+  return tracks;
+}
+
+
+Future<void> checkPlaylists(Map<String, dynamic> playlists, String userId) async{
   for (var item in playlists.entries){
     dynamic value = item.value;
     PlaylistModel playModel = PlaylistModel(
-      title: item.key, 
-      playlistId: value['id'], 
+      title: value['title'], 
+      playlistId: item.key, 
       link: value['link'], 
-      imageUrl: value['images'], 
-      snapshotId: value['snapshotId'],
-      tracks: []);
+      imageUrl: value['imageUrl'], 
+      snapshotId: value['snapshotId']);
 
-    checkPlaylistData(userId, playModel);
+    await checkPlaylistData(userId, playModel);
   }
-
 }
 
-getDatabasePlaylists(String userId) async{
+Future<Map<String, dynamic>> getDatabasePlaylists(String userId) async{
   Map<String, dynamic> allPlaylists = await userRepo.getPlaylists(userId);
   return allPlaylists;
 }
@@ -124,6 +142,7 @@ Future<bool> checkPlaylistData(String userId, PlaylistModel playlist) async{
 
   return has;
 }
+
 
 Future<UserModel> checkUserData(double expiresAt, String accessToken) async {
   final userRepo = Get.put(UserRepository());
@@ -157,6 +176,7 @@ Future<UserModel> checkUserData(double expiresAt, String accessToken) async {
   }
   throw Exception('Error getting User info');
 }
+
 
 String modifyBadQuery(String query){
   List badInput = ['\\', ';', '\'', '"', '@', '|'];

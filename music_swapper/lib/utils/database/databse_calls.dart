@@ -7,23 +7,29 @@ import 'package:music_swapper/utils/database/database_model.dart';
 class UserRepository extends GetxController {
   static UserRepository get instance => Get.find();
   final usersRef = FirebaseFirestore.instance.collection('Users');
-  final playlistColl  = 'playlists';
+  final playlistColl  = 'Playlists';//Collection name for Users Playlists
+  final tracksColl = 'Tracks'; //Collection name for Users Tracks
 
-  hasUser(UserModel user) async {
-    final DocumentSnapshot<Map<String, dynamic>> userExists = await usersRef.doc(user.spotifyId).get();
+  Future<bool> hasUser(UserModel user) async {
+    try{
+      final DocumentSnapshot<Map<String, dynamic>> userExists = await usersRef.doc(user.spotifyId).get();
 
-    if (userExists.exists) {
-      return true;
+      if (userExists.exists) {
+        return true;
+      }
+      return false;
     }
-    return false;
+    catch (e){
+        debugPrint('Caught Error in database_calls.dart Function hasUser $e');
+    }
+    throw Exception('Escaped return in hasUser');
   }
 
-  createUser(UserModel user) async {
+  Future<void> createUser(UserModel user) async {
     try {
       await usersRef.doc(user.spotifyId).set(user.toJson());
 
       PlaylistModel likedSongs = const PlaylistModel(
-        tracks: [], 
         title: 'Liked Songs', 
         playlistId: 'Liked Songs', 
         link: '', 
@@ -31,45 +37,44 @@ class UserRepository extends GetxController {
         snapshotId: '');
 
       await createPlaylist(user.spotifyId, likedSongs);
-    } catch (e) {
-      debugPrint('Caught Error: ${e.toString()}');
+    } 
+    catch (e) {
+      debugPrint('Caught Error in database_calls.dart Function createUser $e');
     }
   }
 
+
   //Check if Playlist is in collections
-  hasPlaylist(String userId, String playlistId) async{
-    QuerySnapshot<Map<String, dynamic>> hasPlaylists = await usersRef
-    .doc(userId)
-    .collection(playlistColl)
-    .get();
-
-    if (hasPlaylists.docs.isNotEmpty){
-      final playlistRef = usersRef
-      .doc(userId)
-      .collection(playlistColl);
-
-      DocumentSnapshot<Map<String, dynamic>> hasPlaylist = await playlistRef.doc(playlistId).get();
+  Future<bool> hasPlaylist(String userId, String playlistId) async{
+    try{
+      final playlistRef = usersRef.doc(userId).collection(playlistColl);
+      final hasPlaylist = await playlistRef.doc(playlistId).get(); 
 
       if (hasPlaylist.exists){
-        return true;
+          return true;
       }
+
+      return false;
     }
-    return false;
+    catch (e){
+      debugPrint('Caught Error in database_calls.dart Function hasPlaylist $e');
+    }
+    throw Exception('Escaped return in hasPlaylist');
   }
 
   //Add all Playlists as collections to database
-  createPlaylist(String userId, PlaylistModel playlist) async{
+  Future<void> createPlaylist(String userId, PlaylistModel playlist) async{
     try{
     final playlistRef = usersRef.doc(userId).collection(playlistColl);
     await playlistRef.doc(playlist.playlistId).set(playlist.toJson());
     }
     catch (e){
-      debugPrint('Caught Error during createPlaylist $e');
+      debugPrint('Caught Error in database_calls.dart Function createPlaylist $e');
     }
 
   }
 
-  getPlaylists(String userId) async{
+  Future<Map<String, dynamic>> getPlaylists(String userId) async{
     try {
       //Gets all the Docs in the Playlist Ref
       QuerySnapshot<Map<String, dynamic>> playlistDocs = await usersRef.doc(userId).collection(playlistColl).get();
@@ -83,62 +88,87 @@ class UserRepository extends GetxController {
       return allPlaylists;
     }
     catch (e){
-      debugPrint('Caught Error in getPlaylists: $e');
+      debugPrint('Caught Error in database_calls.dart Function getPlaylists: $e');
     }
+    throw Exception('Escaped return in getPlaylists');
   }
 
-  //Check if Track is in Playlist in database
-  hasTrack(String userId, String trackName, String playlistId) async{
-    try{
-      if (await hasPlaylist(userId, playlistId)){
-        final collectionRef = usersRef.doc(userId).collection(playlistColl);
-        final playlistRef = await collectionRef.doc(playlistId).get();
-        final tracksList = playlistRef.data()?['tracks']; //If the document has a 'tracks' field it receives it
 
-        if(tracksList != null){
-          if (tracksList.contains(trackName)){
-            return true;
-          }
-        }
+  //Check if Track is in Users Playlist in database
+ Future<bool> hasTrack(String userId, String trackId) async{
+    try{
+      final tracksRef = usersRef.doc(userId).collection(tracksColl);
+      final hasTrack = await tracksRef.doc(trackId).get();
+
+      if (hasTrack.exists){
+        return true;
       }
+
+      return false;
     }
     catch (e){
-      debugPrint('Caught Error in hasTrack: $e');
+      debugPrint('Caught Error in database_calls.dart Function hasTrack: $e');
     }
 
     debugPrint('Playlist doesn\'t have track');
     return false;
   }
 
-  //Add Playlist Tracks to Playlists collection in database
-  createTrackDoc(String userId, String trackName, String playlistId) async{
+  //Add Track to Tracks Collection
+  Future<void> createTrackDoc(String userId, TrackModel track, String trackId) async{
     try{
-      final playlistRef = usersRef.doc(userId).collection(playlistColl);
-      final playlist = await playlistRef.doc(playlistId).get();
-
-      List<dynamic> currTracks = playlist.data()?['tracks'];
-      currTracks.add(trackName);
-
-      await playlistRef.doc(playlistId).update({'tracks': currTracks});
+      final trackRef = usersRef.doc(userId).collection(tracksColl);
+      await trackRef.doc(trackId).set(track.toJson());
     }
     catch (e){
-      debugPrint('Caught Error in creatTrackDoc: $e');
+      debugPrint('Caught Error in database_calls.dart Function creatTrackDoc: $e');
     }
   }
 
-  getTracks(String userId, String playlistId) async{
+  //Adds a connection to a Playlist for a Track
+  Future<void> addTrackPlaylist(String userId, String trackId, String playlistId) async{
     try{
-      final playlistRef =  usersRef.doc(userId).collection(playlistColl);
-    final playlist = await playlistRef.doc(playlistId).get();
+    final tracksRef = usersRef.doc(userId).collection(tracksColl);
+    final trackFields = await tracksRef.doc(trackId).get();
 
-    Map<String, dynamic> tracks = playlist.data()?['tracks'];
-    debugPrint('\nTracks: $tracks');
-    //return tracks
+    List<dynamic> playlistIds = trackFields.data()?['playlistIds'];
+
+    if (!playlistIds.contains(playlistId)){
+      playlistIds.add(playlistId);
+      
+      await tracksRef.doc(trackId).update({'playlistIds': playlistIds});
+    }
+
+    }
+    catch (e){
+      debugPrint('Caught Error in database_calls.dart Function addTrackPlaylist: $e');
+    }
+  }
+
+  //Get track names for a given playlist
+  Future<Map<String, dynamic>> getTracks(String userId, String playlistId) async{
+    try{
+      final tracksDocs = await usersRef.doc(userId).collection(tracksColl).get();
+      Map<String, dynamic> playlistTracks = {};
+
+      final data = tracksDocs.docs.where((element) => element.data()['playlistIds'].contains(playlistId));
+      debugPrint('Data: $data');
+
+      // for (var track in tracksDocs.docs){
+      //   Map<String, dynamic> trackData = track.data();
+      //   List<dynamic> playlistIds = trackData['playlistIds'];
+
+      //   if (playlistIds.contains(playlistId)){
+
+      //   }
+      // }
+      return playlistTracks;
+
     }
     catch (e){
       debugPrint('Caught Error in database_calls function getTracks: $e');
     }
-
+    throw Exception('Escaped return in getTracks');
   }
 
 }

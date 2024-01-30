@@ -8,7 +8,6 @@ import 'package:http/http.dart' as http;
 Future<Map<String, dynamic>> getSpotifyTracksTotal(String playlistId, double expiresAt, String accessToken) async{
   try{
     final getTotalUrl = '$hosted/get-tracks-total/$playlistId/$expiresAt/$accessToken';
-    debugPrint('Get Total Url: $getTotalUrl');
     final response = await http.get(Uri.parse(getTotalUrl));
 
     if (response.statusCode == 200){
@@ -30,10 +29,13 @@ Future<Map<String, dynamic>> getSpotifyPlaylistTracks(String playlistId, double 
 
     if (response.statusCode == 200){
       final responseDecoded = json.decode(response.body);
+      Map<String, dynamic> tracks = responseDecoded['data'];
 
-      return responseDecoded;
+      tracks = getPlatformTrackImages(tracks);
+      return tracks;
     }
-    debugPrint('Error Status code: ${response.statusCode}');
+
+    debugPrint('Error Status code: ${response.statusCode}: $response');
   }
   catch (e){
     debugPrint('Caught Error in getSpotifyPlaylistTracks $e');
@@ -44,11 +46,13 @@ Future<Map<String, dynamic>> getSpotifyPlaylistTracks(String playlistId, double 
 
 Map<String, dynamic> getPlatformTrackImages(Map<String, dynamic> tracks) {
   Map<String, dynamic> images = {};
+
   if (Platform.isAndroid || Platform.isIOS) {
+
     //Goes through each Playlist {name '', ID '', Link '', Images [{}]} and takes the Images
     for (var item in tracks.entries) {
-      List imagesList =
-          item.value['imageUrl']; //The Image list for the current Playlist
+
+      List<dynamic> imagesList = item.value['imageUrl']; //The Image list for the current Playlist
       int middleIndex = 0; //position of the smallest image in the list
 
       if (imagesList.length > 2) {
@@ -58,20 +62,25 @@ Map<String, dynamic> getPlatformTrackImages(Map<String, dynamic> tracks) {
       images.putIfAbsent(item.key, () {
         Map<String, dynamic> itemValMap = item.value;
         Map<String, dynamic> entry = {};
+
         entry.addAll({
           'title': item.value['title'],
           'imageUrl': item.value['imageUrl'][middleIndex]['url'],
           'previewUrl': itemValMap['previewUrl'],
           'artist': itemValMap['artist']
         });
+
         return entry;
       });
     }
+
     return images;
-  } else if (Platform.isMacOS || Platform.isWindows) {
+  } 
+  else if (Platform.isMacOS || Platform.isWindows) {
+
     for (var item in tracks.entries) {
-      List imagesList =
-          item.value['imageUrl']; //The Image list for the current Playlist
+      //The Image list for the current Playlist
+      List<dynamic> imagesList =item.value['imageUrl']; 
       int largestIndex = 0; //position of the largest image in the list
 
       if (imagesList.length > 1) {
@@ -97,10 +106,11 @@ Map<String, dynamic> getPlatformTrackImages(Map<String, dynamic> tracks) {
           'previewUrl': itemValMap['previewUrl'],
           'artist': itemValMap['artist']
         });
+
         return entry;
       });
-
     }
+
     return images;
   }
   throw Exception("Failed Platform is not supported");
@@ -139,17 +149,19 @@ Future<void> addTracksRequest(List<String> tracks, List<String> playlistIds, dou
 }
 
 Future<void> removeTracksRequest(List<String> tracks, String originId, String snapshotId, double expiresAt, String accessToken) async{
-  final removeTracksUrl ='$hosted/remove-tracks/$originId/$snapshotId/$expiresAt/$accessToken';
+  try{    
+    final removeTracksUrl ='$hosted/remove-tracks/$originId/$snapshotId/$expiresAt/$accessToken';
 
-  final response = await http.post(
-    Uri.parse(removeTracksUrl),
-    headers: {
-    'Content-Type': 'application/json'
-    },
-    body: jsonEncode({'track_ids': tracks})
-  );
-
-  if (response.statusCode != 200){
-    throw Exception('Error trying to remove tracks');
+    final response = await http.post(
+      Uri.parse(removeTracksUrl),
+      headers: {
+      'Content-Type': 'application/json'
+      },
+      body: jsonEncode({'trackIds': tracks})
+    );
+    debugPrint('Response: ${response.statusCode} ${response.body}');
+  }
+  catch (e){
+    debugPrint('Caught Error in tracks_requests.dart in removeTracksRequest $e');
   }
 }

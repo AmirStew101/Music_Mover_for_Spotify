@@ -38,6 +38,8 @@ class ImageGridState extends State<ImageGridWidget> {
 
     playlists.addAll(await getSpotifyPlaylists(receivedCall['expiresAt'], receivedCall['accessToken']));
 
+    checkPlaylists(playlists, userId);
+
     setState(() {
       //Update Playlists
     });
@@ -57,134 +59,85 @@ class ImageGridState extends State<ImageGridWidget> {
           crossAxisSpacing: 8, //Spacing between Col
           mainAxisSpacing: 8, //Spacing between rows
         ),
-        itemCount: playlists.length + 1,
+        itemCount: playlists.length,
         itemBuilder: (context, index) {
-          //Makes the Liked Songs Playlist Grid item for the user
-          //Liked songs Playlist can't be automatically added
-          if (index == 0) {
-            return Column(children: [
-              //Interactable Image grid to navigate to Tracks of playlist
-              InkWell(
-                onTap: () {
-                  Map<String, dynamic> homeArgs = {
-                    'currentPlaylist': {'Liked Songs': 'Liked Songs'},
-                    'callback': receivedCall,
-                    'user': userId,
-                  };
-                  Navigator.restorablePushNamed(context, TracksView.routeName, arguments: homeArgs);
-                },
-                child: Column(children: [
+          //Gets the Map items by index with the extra item in mind
+          final item = playlists.entries.elementAt(index);
+          final String imageName = item.value['title'];
+          String imageUrl = item.value['imageUrl'];
 
-                  //Playlist Image from assets
-                  Align(
-                    alignment: Alignment.topCenter,
-                    child: Image.asset(
-                      likedImage,
-                      fit: BoxFit.cover,
-                      height: 154,
-                      width: 155,
+          return Column(children: [
+            //Displays Images that can be clicked
+            InkWell(
+              onTap: () {
+                MapEntry<String, dynamic> currEntry = playlists.entries.firstWhere((element) => element.value['title'] == imageName);
+                Map<String, dynamic> currentPlaylist = {currEntry.key: currEntry.value};
+                
+                Map<String, dynamic> homeArgs = {
+                  'currentPlaylist': currentPlaylist,
+                  'callback': receivedCall,
+                  'user': userId,
+                };
+                Navigator.restorablePushNamed(context, TracksView.routeName, arguments: homeArgs);
+              },
+              //Aligns the image over its title
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+
+                  //Playlist has an image url to display
+                  if (!imageUrl.contains('asset'))
+                    //Playlist Image
+                    Align(
+                      //Aligns the Image
+                      alignment: Alignment.topCenter,
+                      child: Image.network(
+                        imageUrl,
+                        fit: BoxFit.cover,
+                        height: 154,
+                        width: 155,
+                      ),
                     ),
-                  ),
+
+                  //PLaylist doesn't have an image to display or its the Liked Songs playlist
+                  if (imageUrl.contains('asset'))
+                    Align(
+                      //Aligns the Image
+                      alignment: Alignment.topCenter,
+                      child: Image(
+                        image: AssetImage(imageUrl),
+                        fit: BoxFit.cover,
+                        height: 154,
+                        width: 155,
+                      ),
+                    ),
 
                   //Playlist Name
-                  const Align(
+                  Align(
+                    //Aligns the Image's Name
                     alignment: Alignment.center,
                     child: Text(
-                      'Liked Songs',
-                      style: TextStyle(
+                      key: const Key('assetImage'),
+                      imageName,
+                      style: const TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.bold,
                       ),
-                      overflow: TextOverflow.ellipsis,
+                      overflow: TextOverflow
+                          .ellipsis, //Displays (...) when ovefloed
                     ),
-                  ),
-
-                  //Divider line underneath Name
-                  const Divider(
-                    height: 1,
-                    color: Colors.grey,
                   )
-                ]),
-              )
-            ]);
-          } 
-          //Automatically creates grid elements for the rest of the users Playlists
-          else { 
-            //Gets the Map items by index with the extra item in mind
-            final item = playlists.entries.elementAt(index - 1);
-            final String imageName = item.value['title'];
-            String imageUrl = item.value['imageUrl'];
-
-            return Column(children: [
-              //Displays Images that can be clicked
-              InkWell(
-                onTap: () {
-                  MapEntry<String, dynamic> currEntry = playlists.entries.firstWhere((element) => element.value['title'] == imageName);
-                  Map<String, dynamic> currentPlaylist = {currEntry.key: currEntry.value};
-                  
-                  Map<String, dynamic> homeArgs = {
-                    'currentPlaylist': currentPlaylist,
-                    'callback': receivedCall,
-                    'user': userId,
-                  };
-                  Navigator.restorablePushNamed(context, TracksView.routeName, arguments: homeArgs);
-                },
-                //Aligns the image over its title
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    //Playlist has an image url to display
-                    if (item.value['imageUrl'] != assetImage || item.value['imageUrl'] != likedImage)
-                      //Playlist Image
-                      Align(
-                        //Aligns the Image
-                        alignment: Alignment.topCenter,
-                        child: Image.network(
-                          imageUrl,
-                          fit: BoxFit.cover,
-                          height: 154,
-                          width: 155,
-                        ),
-                      ),
-                    //PLaylist doesn't have an image to display or its the Liked Songs playlist
-                    if (item.value['imageUrl'] == assetImage || item.value['imageUrl'] == likedImage)
-                      Align(
-                        //Aligns the Image
-                        alignment: Alignment.topCenter,
-                        child: Image.asset(
-                          imageUrl,
-                          fit: BoxFit.cover,
-                          height: 154,
-                          width: 155,
-                        ),
-                      ),
-
-                    //Playlist Name
-                    Align(
-                      //Aligns the Image's Name
-                      alignment: Alignment.center,
-                      child: Text(
-                        imageName,
-                        style: const TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.bold,
-                        ),
-                        overflow: TextOverflow
-                            .ellipsis, //Displays (...) when ovefloed
-                      ),
-                    )
-                  ],
-                ),
+                ],
               ),
-              
-              //Playlist Divider underlining the Name
-              const Divider(
-                height: 1,
-                color: Colors.grey,
-              )
-            ]);
-          }
+            ),
+            
+            //Playlist Divider underlining the Name
+            const Divider(
+              height: 1,
+              color: Colors.grey,
+            )
+          ]);
         })
         );
   }

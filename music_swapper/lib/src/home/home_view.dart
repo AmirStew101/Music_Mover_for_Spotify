@@ -39,7 +39,8 @@ class HomeViewState extends State<HomeView> {
 
     playlists = await getDatabasePlaylists(userId);
 
-    if (playlists.isEmpty){ 
+    if (playlists.isEmpty){
+      debugPrint('\nNeeded Spotify\n');
       try{
         bool forceRefresh = false;
         //Checks to make sure Tokens are up to date before making a Spotify request

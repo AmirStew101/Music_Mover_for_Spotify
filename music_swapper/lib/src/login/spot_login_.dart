@@ -43,7 +43,7 @@ Future<WebViewController> initiateLogin(BuildContext context) async {
         ..setJavaScriptMode(JavaScriptMode.unrestricted)
         ..setNavigationDelegate(NavigationDelegate(
           onPageStarted: (String url) {
-            debugPrint('Page started loading: $url');
+            debugPrint('Page started loading:');
           },
           onProgress: (int progress) {
             debugPrint('Spotify Login Loading (progress: $progress%)');

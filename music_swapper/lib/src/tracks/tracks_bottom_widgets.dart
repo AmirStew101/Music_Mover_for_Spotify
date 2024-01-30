@@ -67,13 +67,14 @@ class TracksBottomBar extends StatelessWidget {
 
     Future<void> removeTracks() async {
 
-    String currentId = currentPlaylist.entries.single.value['id'];
+    String currentId = currentPlaylist.entries.single.key;
     String currentSnapId = currentPlaylist.entries.single.value['snapshotId'];
+    debugPrint('Current PLaylist: ${currentPlaylist.entries.single.value['snapshotId']}');
     
     //Get Ids for selected tracks
     List<String> trackIds = [];
     for (var track in tracks.entries) {
-      trackIds.add(track.value['id']);
+      trackIds.add(track.key);
     }
 
     receivedCall = await checkRefresh(receivedCall, false);

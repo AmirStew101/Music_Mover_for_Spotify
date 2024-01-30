@@ -222,7 +222,6 @@ def get_all_tracks(playlist_id, expires_at, access_token, total_tracks):
             'Authorization': f"Bearer {access_token}"
         }
 
-        tracks_items = {}
         playlist_tracks = {}
         
         for offset in range(0, total_tracks, 50 ):
@@ -233,31 +232,36 @@ def get_all_tracks(playlist_id, expires_at, access_token, total_tracks):
             else:
                 getUrl = API_BASE_URL + f'me/tracks?limit=50&offset={offsetStr}'
 
-            response = requests.get(getUrl, headers= header)
-            tracks = response.json()
-            tracks_items = tracks['items']
-            
-            """
-            Puts all of a Users tracks in a dictionary 
-            with its associated images, preview_url, and artist
-            """
-            for item in tracks_items:
-                track_title = item['track']['name']
+            response = requests.get(getUrl, headers=header)
 
-                track_images = item['track']['album']['images']
-                preview_url = item['track']['preview_url']
-                track_artist = item['track']['artists'][0]['name']
-                track_id = item['track']['id']
+            if response.status_code == 200:
+                tracks = response.json()
+                tracks_items = tracks['items']
+                
+                """
+                Puts all of a Users tracks in a dictionary 
+                with its associated images, preview_url, and artist
+                """
+                for item in tracks_items:
+                    track_id = item['track']['id']
 
-                playlist_tracks[track_id] = {
-                    'title': track_title,
-                    'imageUrl': track_images, 
-                    'previewUrl': preview_url, 
-                    'artist': track_artist,
-                }
+                    if track_id is not None:
+                        track_title = item['track']['name']
+                        track_images = item['track']['album']['images']
+
+                        preview_url = item['track']['preview_url']
+                        
+                        track_artist = item['track']['artists'][0]['name']
+
+                        playlist_tracks[track_id] = {
+                            'title': track_title,
+                            'imageUrl': track_images, 
+                            'artist': track_artist,
+                            'preview_url': preview_url,
+                        }
 
         return jsonify({'status': 'Success', 'data': playlist_tracks})
-    
+           
     return jsonify({'status': 'Failed', 'message': 'Missing Playlist ID'})
 
 
@@ -382,7 +386,8 @@ def add_tracks(expires_at, access_token):
 @app.route('/remove-tracks/<origin_id>/<snapshot_id>/<expires_at>/<access_token>', methods=['POST'])
 def remove_tracks(origin_id, snapshot_id, expires_at, access_token):
     expires_at = float(expires_at)
-    tracks = request.json['track_ids']
+    tracks = request.json['trackIds']
+    print(f'Track Ids: {tracks}')
 
     if not access_token:
         return LOGGIN_MSG
@@ -411,8 +416,8 @@ def remove_tracks(origin_id, snapshot_id, expires_at, access_token):
                     deleteUrl = f"{API_BASE_URL}me/tracks"
                     deleteBodyUri = {"ids": trackUris}
 
-                response = requests.delete(deleteUrl, headers=header, json=deleteBodyUri)
-                print(f'Delete Response: {response}')
+                    response = requests.delete(deleteUrl, headers=header, json=deleteBodyUri)
+                    print(f'Delete Response: {response}')
 
             trackUris.clear()
 
@@ -432,8 +437,8 @@ def remove_tracks(origin_id, snapshot_id, expires_at, access_token):
 
                     deleteBodyUri = {"tracks": deleteList, "snapshotId": snapshot_id}
 
-                response = requests.delete(deleteUrl, headers=header, json=deleteBodyUri)
-                print(f'Delete Response: {response}')
+                    response = requests.delete(deleteUrl, headers=header, json=deleteBodyUri)
+                    print(f'Delete Response: {response.json()}')
 
                 trackUris.clear()
 
@@ -468,3 +473,6 @@ def get_user_info(expires_at, access_token):
     }
 
     return jsonify({'status': 'Success', 'data': spot_helper_info})
+
+if __name__ == "__main__":
+    app.run(debug=True)

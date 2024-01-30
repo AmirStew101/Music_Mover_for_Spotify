@@ -27,8 +27,10 @@ class TrackModel{
   final String? previewUrl;
   final String artist;
   final String title;
+  final List playlistIds;
 
   const TrackModel({
+    required this.playlistIds,
     required this.trackId,
     required this.imageUrl,
     this.previewUrl,
@@ -38,11 +40,11 @@ class TrackModel{
 
   toJson(){
     return {
-      'trackId': trackId,
       'imageUrl': imageUrl,
       'previewUrl': previewUrl,
       'artist': artist,
       'title': title,
+      'playlistIds': playlistIds,
     };
   }
 }
@@ -52,11 +54,9 @@ class PlaylistModel {
   final String link;
   final String imageUrl;
   final String snapshotId;
-  final List tracks;
   final String title;
 
   const PlaylistModel({
-    required this.tracks,
     required this.title,
     required this.playlistId,
     required this.link,
@@ -70,7 +70,6 @@ class PlaylistModel {
       'link': link,
       'imageUrl': imageUrl,
       'snapshotId': snapshotId,
-      'tracks': tracks,
     };
   }
 }
