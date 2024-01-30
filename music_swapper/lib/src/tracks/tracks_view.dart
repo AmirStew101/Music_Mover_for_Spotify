@@ -34,12 +34,6 @@ class TracksViewState extends State<TracksView> {
   bool loaded = false; //Tracks loaded status
   bool selectAll = false;
 
-  @override
-  void initState() {
-    super.initState();
-    fetchDatabaseTracks();
-  }
-
   Future<void> fetchDatabaseTracks() async{
       //Seperates the arguments passed to this page
     Map<String, dynamic> widgetArgs = widget.multiArgs;

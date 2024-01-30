@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:music_swapper/src/select_playlists/select_widgets.dart';
 import 'package:music_swapper/utils/playlists_requests.dart';
 import 'package:music_swapper/src/select_playlists/select_appbar.dart';
+import 'package:music_swapper/utils/universal_widgets.dart';
 
 class SelectPlaylistsWidget extends StatefulWidget {
   static const routeName = '/SelectPlaylists';
@@ -34,20 +35,28 @@ class SelectPlaylistsState extends State<SelectPlaylistsWidget> {
     currentPlaylist = multiArgs['currentPlaylist'];
     option = multiArgs['option'];
     userId = multiArgs['user'];
-
-    fetchPlaylists();
   }
 
-  Future<void> fetchPlaylists() async {
+  Future<void> fetchDatabasePlaylists() async{
+    final Map<String, dynamic> multiArgs = widget.multiArgs;
+    receivedCall = multiArgs['callback'];
+    userId = multiArgs['user'];
+
+    playlists = await getDatabasePlaylists(userId);
+
+    if (playlists.isEmpty){
+      await fetchSpotifyPlaylists();
+    }
+  }
+
+  Future<void> fetchSpotifyPlaylists() async {
     bool forceRefresh = false;
     receivedCall = await checkRefresh(receivedCall, forceRefresh);
 
-    final response = await getSpotifyPlaylists(
-        receivedCall['expiresAt'] as double, receivedCall['accessToken']);
+    playlists = await getSpotifyPlaylists(receivedCall['expiresAt'], receivedCall['accessToken']);
 
-    if (response['status'] == 'Success') {
-      playlists = response['data'];
-    }
+    //Checks all playlists if they are in database
+    checkPlaylists(playlists, userId);
   }
 
   //Updates the list of Playlists the user selected
@@ -97,7 +106,7 @@ class SelectPlaylistsState extends State<SelectPlaylistsWidget> {
         ],
       ),
       body: FutureBuilder<void>(
-        future: fetchPlaylists(),
+        future: fetchDatabasePlaylists(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.done) {
             return SelectBodyWidget(

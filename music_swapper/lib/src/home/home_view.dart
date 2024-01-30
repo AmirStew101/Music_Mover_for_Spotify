@@ -24,39 +24,41 @@ class HomeViewState extends State<HomeView> {
 
   Map<String, dynamic> playlists = {}; //all the users playlists
   bool loaded = false;
+  bool error = false;
 
-  @override
-  void initState() {
-    super.initState();
-    fetchPlaylists();
-  }
-
-  //Gets all the Users Playlists and platform specific images
-  Future<void> fetchPlaylists() async {
+  Future<void> fetchDatabasePlaylists() async{
     final Map<String, dynamic> multiArgs = widget.multiArgs;
     receivedCall = multiArgs['callback'];
     userId = multiArgs['user'];
 
     playlists = await getDatabasePlaylists(userId);
 
-    if (playlists.isEmpty){
-      debugPrint('\nNeeded Spotify\n');
-      try{
-        bool forceRefresh = false;
-        //Checks to make sure Tokens are up to date before making a Spotify request
-        receivedCall = await checkRefresh(receivedCall, forceRefresh);
+    if (playlists.isNotEmpty){
+      loaded = true;
+    }
+    else{
+      await fetchSpotifyPlaylists();
+    }
+  }
 
-        playlists = await getSpotifyPlaylists(receivedCall['expiresAt'], receivedCall['accessToken']);
+  //Gets all the Users Playlists and platform specific images
+  Future<void> fetchSpotifyPlaylists() async {
+    debugPrint('\nNeeded Spotify\n');
+    try{
+      bool forceRefresh = false;
+      //Checks to make sure Tokens are up to date before making a Spotify request
+      receivedCall = await checkRefresh(receivedCall, forceRefresh);
 
-        //Checks all playlists if they are in database
-        checkPlaylists(playlists, userId);
-      }
-      catch (e){
-        debugPrint('Caught an exception in Home fetchPlaylists: $e');
-      }
+      playlists = await getSpotifyPlaylists(receivedCall['expiresAt'], receivedCall['accessToken']);
+
+      //Checks all playlists if they are in database
+      checkPlaylists(playlists, userId);
+    }
+    catch (e){
+      debugPrint('Caught an exception in Home fetchPlaylists: $e');
+      error = true;
     }
     loaded = true; //Future methods have complete
-
   }
 
   //The main Widget for the page
@@ -92,11 +94,19 @@ class HomeViewState extends State<HomeView> {
         ],
       ),
       body: FutureBuilder<void>(
-        future: fetchPlaylists(),
+        future: fetchDatabasePlaylists(),
         builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.done && loaded) {
+          if (snapshot.connectionState == ConnectionState.done && loaded && !error) {
             return ImageGridWidget(receivedCall: receivedCall, playlists: playlists, userId: userId,);
-          } else {
+          }
+          else if(error){
+            return Center(child: Text(
+              'Error retreiving Playlists from Spotify',
+              textAlign: TextAlign.center,
+              selectionColor: Colors.redAccent.shade200),
+            );
+          }
+          else {
             return const Center(child: CircularProgressIndicator());
           }
         },

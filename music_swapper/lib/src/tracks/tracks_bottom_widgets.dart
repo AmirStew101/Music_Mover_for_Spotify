@@ -6,20 +6,20 @@ import 'package:music_swapper/utils/tracks_requests.dart';
 
 // ignore: must_be_immutable
 class TracksBottomBar extends StatelessWidget {
-  TracksBottomBar(
-      {
+  TracksBottomBar({
       required this.currentPlaylist,
       required this.tracks,
       required this.receivedCall,
       required this.refreshTracks,
       required this.userId,
       super.key
-      });
+  });
+
   final Map<String, dynamic> currentPlaylist;
   final Map<String, dynamic> tracks;
-  Map<String, dynamic> receivedCall;
   final String userId;
   final void Function(Map<String, dynamic> chosenTracks) refreshTracks;
+  Map<String, dynamic> receivedCall;
 
   @override
   Widget build(BuildContext context) {
@@ -27,18 +27,22 @@ class TracksBottomBar extends StatelessWidget {
       backgroundColor: const Color.fromARGB(255, 6, 163, 11),
       items: const [
         BottomNavigationBarItem(
-            icon: Icon(Icons.drive_file_move_rtl_rounded),
-            label: 'Move to Playlists'),
+          icon: Icon(Icons.drive_file_move_rtl_rounded),
+          label: 'Move to Playlists'),
+
         BottomNavigationBarItem(
           icon: Icon(Icons.add),
           label: 'Add to Playlists',
         ),
+
         BottomNavigationBarItem(
           icon: Icon(Icons.delete),
           label: 'Remove',
-        )
+        ),
       ],
       onTap: (value) {
+
+        //Move to playlist(s) Index
         if (value == 0) {
           final multiArgs = {
             'callback': receivedCall,
@@ -48,7 +52,9 @@ class TracksBottomBar extends StatelessWidget {
             'user': userId,
           };
           Navigator.restorablePushNamed(context, SelectPlaylistsWidget.routeName, arguments: multiArgs);
-        } else if (value == 1) {
+        } 
+        //Add to playlist(s) index
+        else if (value == 1) {
           final multiArgs = {
             'callback': receivedCall,
             'tracks': tracks,
@@ -57,7 +63,9 @@ class TracksBottomBar extends StatelessWidget {
             'user': userId,
           };
           Navigator.restorablePushNamed(context, SelectPlaylistsWidget.routeName, arguments: multiArgs);
-        } else {
+        } 
+        //Remove from current playlist
+        else {
           removeTracks();
           refreshTracks(tracks);
         }
@@ -65,20 +73,20 @@ class TracksBottomBar extends StatelessWidget {
     );
   }
 
-    Future<void> removeTracks() async {
+  Future<void> removeTracks() async {
 
-    String currentId = currentPlaylist.entries.single.key;
-    String currentSnapId = currentPlaylist.entries.single.value['snapshotId'];
-    debugPrint('Current PLaylist: ${currentPlaylist.entries.single.value['snapshotId']}');
-    
-    //Get Ids for selected tracks
-    List<String> trackIds = [];
-    for (var track in tracks.entries) {
-      trackIds.add(track.key);
-    }
+  String currentId = currentPlaylist.entries.single.key;
+  String currentSnapId = currentPlaylist.entries.single.value['snapshotId'];
+  debugPrint('Current PLaylist: ${currentPlaylist.entries.single.value['snapshotId']}');
 
-    receivedCall = await checkRefresh(receivedCall, false);
-    removeTracksRequest(trackIds, currentId, currentSnapId, receivedCall['expiresAt'], receivedCall['accessToken']);
+  //Get Ids for selected tracks
+  List<String> trackIds = [];
+  for (var track in tracks.entries) {
+    trackIds.add(track.key);
+  }
+
+  receivedCall = await checkRefresh(receivedCall, false);
+  removeTracksRequest(trackIds, currentId, currentSnapId, receivedCall['expiresAt'], receivedCall['accessToken']);
   }
   
 }

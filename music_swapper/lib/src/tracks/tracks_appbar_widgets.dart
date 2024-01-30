@@ -27,7 +27,6 @@ class TracksSearchDelegate extends SearchDelegate {
       Map<String, dynamic> selectedMap = {'chosen': (tracksSelected[key] != null), 'id': key};
       chosenTracks.add(MapEntry(trackTitle, selectedMap));
     });
-
   }
   
   @override

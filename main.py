@@ -387,7 +387,6 @@ def add_tracks(expires_at, access_token):
 def remove_tracks(origin_id, snapshot_id, expires_at, access_token):
     expires_at = float(expires_at)
     tracks = request.json['trackIds']
-    print(f'Track Ids: {tracks}')
 
     if not access_token:
         return LOGGIN_MSG
