@@ -4,7 +4,6 @@ import 'package:music_swapper/utils/database/database_model.dart';
 import 'package:music_swapper/utils/playlists_requests.dart';
 import 'package:music_swapper/utils/tracks_requests.dart';
 
-// ignore: must_be_immutable
 class TracksBottomBar extends StatelessWidget {
   TracksBottomBar({
       required this.currentPlaylist,
@@ -19,7 +18,7 @@ class TracksBottomBar extends StatelessWidget {
   final Map<String, dynamic> tracks;
   final String userId;
   final void Function(Map<String, dynamic> chosenTracks) refreshTracks;
-  Map<String, dynamic> receivedCall;
+  final Map<String, dynamic> receivedCall;
 
   @override
   Widget build(BuildContext context) {
@@ -42,6 +41,9 @@ class TracksBottomBar extends StatelessWidget {
       ],
       onTap: (value) {
 
+        if (value == 0){
+
+        }
         //Move to playlist(s) Index
         if (value == 0) {
           final multiArgs = {
@@ -66,14 +68,14 @@ class TracksBottomBar extends StatelessWidget {
         } 
         //Remove from current playlist
         else {
-          removeTracks();
+          removeTracks(receivedCall);
           refreshTracks(tracks);
         }
       },
     );
   }
 
-  Future<void> removeTracks() async {
+  Future<void> removeTracks(Map<String, dynamic> callback) async {
 
   String currentId = currentPlaylist.entries.single.key;
   String currentSnapId = currentPlaylist.entries.single.value['snapshotId'];
@@ -85,7 +87,7 @@ class TracksBottomBar extends StatelessWidget {
     trackIds.add(track.key);
   }
 
-  receivedCall = await checkRefresh(receivedCall, false);
+  callback = await checkRefresh(receivedCall, false);
   removeTracksRequest(trackIds, currentId, currentSnapId, receivedCall['expiresAt'], receivedCall['accessToken']);
   }
   

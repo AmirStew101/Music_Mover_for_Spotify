@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:music_swapper/utils/globals.dart';
 import 'package:http/http.dart' as http;
 
-Future<Map<String, dynamic>> getSpotifyTracksTotal(String playlistId, double expiresAt, String accessToken) async{
+Future<int> getSpotifyTracksTotal(String playlistId, double expiresAt, String accessToken) async{
   try{
     final getTotalUrl = '$hosted/get-tracks-total/$playlistId/$expiresAt/$accessToken';
     final response = await http.get(Uri.parse(getTotalUrl));
@@ -13,7 +13,7 @@ Future<Map<String, dynamic>> getSpotifyTracksTotal(String playlistId, double exp
     if (response.statusCode == 200){
       final responseDecoded = json.decode(response.body);
 
-      return responseDecoded;
+      return responseDecoded['totalTracks'];
     }
   }
   catch (e){
@@ -45,48 +45,35 @@ Future<Map<String, dynamic>> getSpotifyPlaylistTracks(String playlistId, double 
 }
 
 Map<String, dynamic> getPlatformTrackImages(Map<String, dynamic> tracks) {
-  Map<String, dynamic> images = {};
+  //The chosen image url
+  String imageUrl = '';
 
   if (Platform.isAndroid || Platform.isIOS) {
-
     //Goes through each Playlist {name '', ID '', Link '', Images [{}]} and takes the Images
     for (var item in tracks.entries) {
-
-      List<dynamic> imagesList = item.value['imageUrl']; //The Image list for the current Playlist
+      List imagesList = item.value['imageUrl']; //The Image list for the current Playlist
       int middleIndex = 0; //position of the smallest image in the list
 
       if (imagesList.length > 2) {
         middleIndex = imagesList.length ~/ 2;
       }
 
-      images.putIfAbsent(item.key, () {
-        Map<String, dynamic> itemValMap = item.value;
-        Map<String, dynamic> entry = {};
-
-        entry.addAll({
-          'title': item.value['title'],
-          'imageUrl': item.value['imageUrl'][middleIndex]['url'],
-          'previewUrl': itemValMap['previewUrl'],
-          'artist': itemValMap['artist']
-        });
-
-        return entry;
-      });
+      imageUrl = item.value['imageUrl'][middleIndex]['url'];
+      tracks[item.key]['imageUrl'] = imageUrl;
     }
 
-    return images;
+    return tracks;
   } 
   else if (Platform.isMacOS || Platform.isWindows) {
 
     for (var item in tracks.entries) {
       //The Image list for the current Playlist
-      List<dynamic> imagesList =item.value['imageUrl']; 
+      List<dynamic> imagesList = item.value['imageUrl']; 
       int largestIndex = 0; //position of the largest image in the list
+      int largest = 0;
+      int index = 0;
 
       if (imagesList.length > 1) {
-        int largest = 0;
-        int index = 0;
-
         //Iterates through the current Image Map {height, url, width} for the largest image
         for (var image in imagesList) {
           if (image['height'] > largest) {
@@ -97,21 +84,11 @@ Map<String, dynamic> getPlatformTrackImages(Map<String, dynamic> tracks) {
         }
       }
 
-      images.putIfAbsent(item.key, () {
-        Map<String, dynamic> itemValMap = item.value;
-        Map<String, dynamic> entry = {};
-        entry.addAll({
-          'title': item.value['title'],
-          'images': item.value['images'][largestIndex]['url'],
-          'previewUrl': itemValMap['previewUrl'],
-          'artist': itemValMap['artist']
-        });
-
-        return entry;
-      });
+      imageUrl = item.value['images'][largestIndex]['url'];
+      tracks[item.key]['imageUrl'] = imageUrl;
     }
 
-    return images;
+    return tracks;
   }
   throw Exception("Failed Platform is not supported");
 }

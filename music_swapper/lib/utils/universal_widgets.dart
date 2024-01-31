@@ -96,8 +96,8 @@ Future<void> checkUserTrackData(String userId, MapEntry<String, dynamic> track, 
       artist: track.value['artist'], 
       title: track.value['title']);
 
-    userRepo.createTrackDoc(userId, newTrack, trackId);
-    userRepo.addTrackPlaylist(userId, trackId, playlistId);
+    await userRepo.createTrackDoc(userId, newTrack, trackId);
+    await userRepo.addTrackPlaylist(userId, trackId, playlistId);
   }
 }
 
@@ -106,7 +106,8 @@ Future<void> checkUserTrackData(String userId, MapEntry<String, dynamic> track, 
 Future<Map<String, dynamic>> getPlaylistTracksData(String userId, String playlistId) async{
   final userRepo = Get.put(UserRepository());
 
-  final tracks = userRepo.getTracks(userId, playlistId);
+  final tracks = await userRepo.getTracks(userId, playlistId);
+  debugPrint('Database Tracks Total: ${tracks.length}');
 
   return tracks;
 }

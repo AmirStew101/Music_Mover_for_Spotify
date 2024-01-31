@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:music_swapper/src/home/home_appbar.dart';
 import 'package:music_swapper/utils/database/database_model.dart';
 import 'package:music_swapper/utils/playlists_requests.dart';
-import 'package:music_swapper/src/home/home_widgets.dart';
+import 'package:music_swapper/src/home/home_body.dart';
 import 'package:music_swapper/src/tracks/tracks_view.dart';
 import 'package:music_swapper/utils/universal_widgets.dart';
 
@@ -52,7 +53,7 @@ class HomeViewState extends State<HomeView> {
       playlists = await getSpotifyPlaylists(receivedCall['expiresAt'], receivedCall['accessToken']);
 
       //Checks all playlists if they are in database
-      checkPlaylists(playlists, userId);
+      await checkPlaylists(playlists, userId);
     }
     catch (e){
       debugPrint('Caught an exception in Home fetchPlaylists: $e');

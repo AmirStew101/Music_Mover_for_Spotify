@@ -152,16 +152,23 @@ class UserRepository extends GetxController {
       Map<String, dynamic> playlistTracks = {};
 
       final data = tracksDocs.docs.where((element) => element.data()['playlistIds'].contains(playlistId));
-      debugPrint('Data: $data');
+      for (var doc in tracksDocs.docs){
+        //All the playlists the current track is in
+        List<dynamic> playlistIds = doc.data()['playlistIds'];
 
-      // for (var track in tracksDocs.docs){
-      //   Map<String, dynamic> trackData = track.data();
-      //   List<dynamic> playlistIds = trackData['playlistIds'];
+        if (playlistIds.contains(playlistId)){
+          String trackId = doc.id;
 
-      //   if (playlistIds.contains(playlistId)){
+          //Data that makes up a track
+          Map<String, dynamic> trackMap = {
+            'title': doc.data()['title'], 
+            'artist': doc.data()['artist'], 
+            'previewUrl': doc.data()['previewUrl'] ?? '', 
+            'imageUrl': doc.data()['imageUrl']};
 
-      //   }
-      // }
+          playlistTracks.putIfAbsent(trackId, () => trackMap);
+        }
+      }
       return playlistTracks;
 
     }

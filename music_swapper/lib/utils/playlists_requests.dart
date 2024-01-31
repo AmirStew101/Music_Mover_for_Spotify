@@ -12,6 +12,7 @@ Future<Map<String, dynamic>> getSpotifyPlaylists(double expiresAt, String access
   final response = await http.get(Uri.parse(getPlaylistsUrl));
   if (response.statusCode == 200){
     final responseDecode = json.decode(response.body);
+    
     if (responseDecode['status'] == 'Success'){
       Map<String, dynamic> playlists = responseDecode['data'];
       playlists = getPlaylistImages(playlists);
@@ -28,7 +29,10 @@ Future<Map<String, dynamic>> getSpotifyPlaylists(double expiresAt, String access
 
 //Gives each playlist the image size based on current platform
 Map<String, dynamic> getPlaylistImages(Map<String, dynamic> playlists) {
-  Map<String, dynamic> images = {};
+
+  //The chosen image url
+  String imageUrl = '';
+
   if (Platform.isAndroid || Platform.isIOS) {
     //Goes through each Playlist and takes the Image size based on current users platform
     for (var item in playlists.entries) {
@@ -41,16 +45,19 @@ Map<String, dynamic> getPlaylistImages(Map<String, dynamic> playlists) {
 
       //Some Playlists have no images this checks if a Playlist has images or not
       if (imagesList.isNotEmpty) {
-        images.putIfAbsent(item.key, () => item.value['imageUrl'][middleIndex]['url']);
-        playlists[item.key]['imageUrl'] = images[item.key];
-      } else {
-        images.putIfAbsent(item.key, () => 'assets/images/no_image.png');
-        playlists[item.key]['imageUrl'] = images[item.key];
+        imageUrl = item.value['imageUrl'][middleIndex]['url'];
+        playlists[item.key]['imageUrl'] = imageUrl;
+      } 
+      else {
+        imageUrl = 'assets/images/no_image.png';
+        playlists[item.key]['imageUrl'] = imageUrl;
       }
+
     }
     return playlists;
   } 
   else if (Platform.isMacOS || Platform.isWindows) {
+
     for (var item in playlists.entries) {
       List imagesList = item.value['imageUrl']; //The Image list for the current Playlist
       int largestIndex = 0; //position of the largest image in the list
@@ -71,11 +78,11 @@ Map<String, dynamic> getPlaylistImages(Map<String, dynamic> playlists) {
 
       //Some Playlists have no images this checks if a Playlist has images or not
       if (imagesList.isNotEmpty) {
-        images.putIfAbsent(item.key, () => item.value['imageUrl'][largestIndex]['url']);
-        playlists[item.key]['imageUrl'] = images[item.key];
+        imageUrl = item.value['imageUrl'][largestIndex]['url'];
+        playlists[item.key]['imageUrl'] = imageUrl;
       } else {
-        images.putIfAbsent(item.key, () => 'assets/images/no_image.png');
-        playlists[item.key]['imageUrl'] = images[item.key];
+        imageUrl = 'assets/images/no_image.png';
+        playlists[item.key]['imageUrl'] = imageUrl;
       }
     }
     return playlists;

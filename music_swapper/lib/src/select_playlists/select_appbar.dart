@@ -4,22 +4,25 @@ import 'package:music_swapper/utils/universal_widgets.dart';
 
 class SelectPlaylistSearchDelegate extends SearchDelegate {
   List<String> searchResults = []; //Names of each playlist
-  List<MapEntry<String, bool>> selectedList = [];
+  List<MapEntry<String, dynamic>> selectedList = [];
 
   //Search Constructor setting the search results to the Playlist names
-  SelectPlaylistSearchDelegate(Map<String, dynamic> playlists,List<MapEntry<String, dynamic>> selectedPlaylists) {
-    for (var item in playlists.entries) {
-      searchResults.add(item.key);
-      selectedList.add(MapEntry(item.key, false));
+  SelectPlaylistSearchDelegate(Map<String, dynamic> playlists, List<MapEntry<String, dynamic>> selectedPlaylists) {
+    if (selectedPlaylists.isNotEmpty){
+      selectedList = selectedPlaylists;
+      playlists.forEach((key, value) {
+        searchResults.add(value['title']);
+      });
     }
-    for (var outItem in selectedPlaylists){
-      for (int i = 0; i  < selectedList.length; i++){
-        if (outItem.key == selectedList[i].key){
-          selectedList[i] = MapEntry(outItem.key, true);
-        }
-      }
-    }
+    else{
+      playlists.forEach((key, value) {
+        searchResults.add(value['title']);
 
+        Map<String, dynamic> selectMap = {'chosen': false, 'title': value['title']};
+        selectedPlaylists.add(MapEntry(key, selectMap));
+      });
+    }
+    
     debugPrint('Selected List: $selectedList\n');
   }
 
@@ -30,7 +33,7 @@ class SelectPlaylistSearchDelegate extends SearchDelegate {
         onPressed: () {
           close(context, selectedList);
         },
-      );
+  );
 
   //Icons on the Right side of the Search Bar
   @override
@@ -49,6 +52,7 @@ class SelectPlaylistSearchDelegate extends SearchDelegate {
   //What happens after a query is selected
   @override
   Widget buildResults(BuildContext context) {
+
     query = modifyBadQuery(query);
     if (searchResults.contains(query)) {
       close(context, selectedList);
@@ -77,27 +81,38 @@ class SelectPlaylistSearchDelegate extends SearchDelegate {
     //Creates the list of Suggestions for the user
     return StatefulBuilder(
       builder: (context, setState) {
+
         return ListView.builder(
           itemCount: suggestions.length,
           itemBuilder: (context, index) {
             final suggestion = suggestions[index];
+
             return ListTile(
               leading: Checkbox(
                   onChanged: (value) {
-                    String playlistName = selectedList[index].key;
-                    bool isSelected = selectedList[index].value;
+                    String playTitle = selectedList[index].value['title'];
+                    bool chosen = selectedList[index].value['chosen'];
+                    String playId = selectedList[index].key;
+
+                    Map<String, dynamic> playMap = {'chosen': chosen, 'title': playTitle};
+
                     setState((){
-                    selectedList[index] = MapEntry(playlistName, !isSelected);
+                    selectedList[index] = MapEntry(playId, playMap);
                     });
                   },
-                  value: selectedList[index].value),
+                  value: selectedList[index].value,
+              ),
               title: Text(suggestion, textScaler: const TextScaler.linear(1.2)),
+
               onTap: () {
-                String playlistName = selectedList[index].key;
-                bool isSelected = selectedList[index].value;
+                String playTitle = selectedList[index].value['title'];
+                bool chosen = selectedList[index].value['chosen'];
+                String playId = selectedList[index].key;
+
+                Map<String, dynamic> playMap = {'chosen': chosen, 'title': playTitle};
 
                 setState((){
-                selectedList[index] = MapEntry(playlistName, !isSelected);
+                selectedList[index] = MapEntry(playId, playMap);
                 });
               },
             );

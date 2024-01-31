@@ -21,11 +21,11 @@ class TracksSearchDelegate extends SearchDelegate {
     tracks.forEach((key, value) {
       String trackTitle = value['title'];
 
-      Map<String, dynamic> searchMap = {'artist': value['artist'], 'id': key};
-      searchResults.add(MapEntry(trackTitle, searchMap));
+      Map<String, dynamic> searchMap = {'artist': value['artist'], 'title': trackTitle};
+      searchResults.add(MapEntry(key, searchMap));
 
-      Map<String, dynamic> selectedMap = {'chosen': (tracksSelected[key] != null), 'id': key};
-      chosenTracks.add(MapEntry(trackTitle, selectedMap));
+      Map<String, dynamic> selectedMap = {'chosen': (tracksSelected[key] != null), 'title': trackTitle};
+      chosenTracks.add(MapEntry(key, selectedMap));
     });
   }
   
@@ -91,7 +91,7 @@ class TracksSearchDelegate extends SearchDelegate {
     //& compares it to the users input
     List<MapEntry<String, dynamic>> trackSuggestions = searchResults
     .where((searchResult) {
-      final result = searchResult.key.toLowerCase();
+      final result = searchResult.value['title'].toLowerCase() as String;
       query = modifyBadQuery(query);
       final input = query.toLowerCase();
 
@@ -137,13 +137,14 @@ class TracksSearchDelegate extends SearchDelegate {
           return ListView.builder(
             itemCount: trackSuggestions.length,
             itemBuilder: (context, index) {
-              //Suggestion has key: Track Title & Values: Artist, Track ID
+              //Suggestion has key: Id Title & Values: Artist, Track title
               final suggestion = trackSuggestions[index];
-              bool isSelected = chosenTracks[index].value['chosen'];
-              String trackId = chosenTracks[index].value['id'];
-              String trackName = suggestion.key;
 
-              Map<String, dynamic> chosenMap = {'chosen': !isSelected, 'id': trackId};
+              bool isSelected = chosenTracks[index].value['chosen'];
+              String trackId = suggestion.key;
+              String trackTitle = suggestion.value['title'];
+
+              Map<String, dynamic> chosenMap = {'chosen': !isSelected, 'Title': trackTitle};
 
               return ListTile(
 
@@ -153,21 +154,21 @@ class TracksSearchDelegate extends SearchDelegate {
                 //Keeps track of tracks user selects
                 onChanged: (value) {
                   setState(() {
-                    chosenTracks[index] = MapEntry(trackName, chosenMap);
+                    chosenTracks[index] = MapEntry(trackId, chosenMap);
                   });
                 },),
 
                 //Track name and Artist
                 title: Text(
-                  suggestion.key, 
+                  suggestion.value['title'], 
                   textScaler: const TextScaler.linear(1.2)),
 
-                subtitle: Text('By: ${suggestion.value}',
+                subtitle: Text('By: ${suggestion.value['artist']}',
                     textScaler: const TextScaler.linear(0.8)),
                 //Keeps track of tracks user selected
                 onTap: () {
                   setState(() {
-                    chosenTracks[index] = MapEntry(trackName, chosenMap);
+                    chosenTracks[index] = MapEntry(trackId, chosenMap);
                   });
                 },
               );
@@ -184,32 +185,33 @@ class TracksSearchDelegate extends SearchDelegate {
           itemCount: artistSuggestions.length, //Shows a max of 6 suggestions
           itemBuilder: (context, index) {
             final suggestion = artistSuggestions[index];
-            bool isSelected = chosenTracks[index].value['chosen'];
-            String trackId = chosenTracks[index].value['id'];
-            String trackName = suggestion.key;
 
-            Map<String, dynamic> chosenMap = {'chosen': !isSelected, 'id': trackId};
+            bool isSelected = chosenTracks[index].value['chosen'];
+            String trackId = suggestion.key;
+            String trackTitle = suggestion.value['title'];
+
+            Map<String, dynamic> chosenMap = {'chosen': !isSelected, 'title': trackTitle};
 
             return ListTile(
               leading: Checkbox(
                 value: isSelected,
                 onChanged: (value) {
                   setState(() {
-                    chosenTracks[index] = MapEntry(trackName, chosenMap);
+                    chosenTracks[index] = MapEntry(trackId, chosenMap);
                   });
                 },
               ),
               title: Text(
-                suggestion.key,
+                suggestion.value['title'],
                 textScaler: const TextScaler.linear(1.2)),
 
               subtitle: Text(
-                'By: ${suggestion.value}',
+                'By: ${suggestion.value['artist']}',
                 textScaler: const TextScaler.linear(0.8)),
 
               onTap: () {
                 setState((){
-                  chosenTracks[index] = MapEntry(trackName, chosenMap);
+                  chosenTracks[index] = MapEntry(trackId, chosenMap);
                 });
               },
             );

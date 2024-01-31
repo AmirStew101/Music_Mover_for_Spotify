@@ -9,7 +9,9 @@ import 'package:music_swapper/utils/universal_widgets.dart';
 
 class TracksView extends StatefulWidget {
   static const routeName = '/tracksView';
+
   const TracksView({super.key, required this.multiArgs});
+
   final Map<String, dynamic> multiArgs;
 
   @override
@@ -25,8 +27,8 @@ class TracksViewState extends State<TracksView> {
 
   Map<String, dynamic> allTracks = {}; //Tracks for the chosen playlist
   //All of the selected tracks 
-  //key: Track Title
-  //values: 'Chosen' as bool & Track ID
+  //key: Track ID
+  //values: 'Chosen' as bool & Track Title
   Map<String, dynamic> selectedTracks = {}; 
   String playlistName = '';
 
@@ -35,7 +37,8 @@ class TracksViewState extends State<TracksView> {
   bool selectAll = false;
 
   Future<void> fetchDatabaseTracks() async{
-      //Seperates the arguments passed to this page
+    debugPrint('\nCalling Database');
+    //Seperates the arguments passed to this page
     Map<String, dynamic> widgetArgs = widget.multiArgs;
     currentPlaylist = widgetArgs['currentPlaylist'];
     receivedCall = widgetArgs['callback'];
@@ -54,7 +57,9 @@ class TracksViewState extends State<TracksView> {
     allTracks = await getPlaylistTracksData(userId, playlistId);
 
     if (allTracks.isNotEmpty){
+      totalTracks = allTracks.length;
       loaded = true;
+      debugPrint('\nLoaded');
     }
     else{
       await fetchSpotifyTracks();
@@ -65,29 +70,27 @@ class TracksViewState extends State<TracksView> {
   //Gets the users tracks for the selected Playlist
   Future<void> fetchSpotifyTracks() async {
     if (allTracks.isEmpty){
-      debugPrint('\nCalling Spot');
-      //Checks if Token needs to be refreshed
-      receivedCall = await checkRefresh(receivedCall, false); 
-      final responseTotal = await getSpotifyTracksTotal(playlistId, receivedCall['expiresAt'], receivedCall['accessToken']);
+      try{
+        debugPrint('\nCalling Spot');
+        //Checks if Token needs to be refreshed
+        receivedCall = await checkRefresh(receivedCall, false); 
+        totalTracks = await getSpotifyTracksTotal(playlistId, receivedCall['expiresAt'], receivedCall['accessToken']);
 
-      if (responseTotal['status'] == 'Success') {
-        totalTracks = responseTotal['totalTracks'];
-      } 
-      else {
-        throw Exception('Failed to get Tracks total');
+        if (totalTracks > 0) {
+          allTracks = await getSpotifyPlaylistTracks(
+              playlistId,
+              receivedCall['expiresAt'],
+              receivedCall['accessToken'],
+              totalTracks); //gets user tracks for playlist
+
+            //Adds tracks to database for faster retreival later
+            for (var track in allTracks.entries){
+              await checkUserTrackData(userId, track, playlistId);
+            }
+        }
       }
-
-      if (totalTracks > 0) {
-        allTracks = await getSpotifyPlaylistTracks(
-            playlistId,
-            receivedCall['expiresAt'],
-            receivedCall['accessToken'],
-            totalTracks); //gets user tracks for playlist
-
-          //Adds tracks to database for faster retreival later
-          for (var track in allTracks.entries){
-            await checkUserTrackData(userId, track, playlistId);
-          }
+      catch (e){
+        debugPrint('Caught Error while trying to fetch tracks in tracks view \n$e');
       }
     }
 
@@ -97,20 +100,21 @@ class TracksViewState extends State<TracksView> {
   //Updates the chosen tracks function argument for TrackListWidget
   void receiveValue(List<MapEntry<String, dynamic>> chosenTracks) {
     for (var element in chosenTracks) {
-      String trackName = element.key;
+      String trackTitle = element.value['title'];
       bool trackState = element.value['chosen'];
-      String trackId = element.value['id'];
-      Map<String, dynamic> selectMap = {'chosen': trackState, 'id': element.value['id']};
+      String trackId = element.key;
+
+      Map<String, dynamic> selectMap = {'chosen': trackState, 'title': trackTitle};
 
       //Track is in Searched Tracks but it was unchecked in Widget
       //Track is removed from Searched tracks
-      if (selectedTracks.containsValue(trackId) && trackState == false) {
-        selectedTracks.removeWhere((key, value) => value['id'] == trackId);
+      if (selectedTracks.containsKey(trackId) && trackState == false) {
+        selectedTracks.removeWhere((key, value) => key == trackId);
       }
       //Track is not in Searched Tracks but it was checked in Widget
       //Adds the Track to Searched Tracks
-      if (!selectedTracks.containsValue(trackId) && trackState == true) {
-        selectedTracks.putIfAbsent(element.key, () => selectMap);
+      if (!selectedTracks.containsKey(trackId) && trackState == true) {
+        selectedTracks[trackId] = selectMap;
       }
     }
   }
@@ -119,14 +123,14 @@ class TracksViewState extends State<TracksView> {
     //Get all the tracks the user chose to be deleted
     List<String> tracksRemove = [];
     for (var track in chosenTracks.entries){
-      tracksRemove.add(track.value['id']);
+      tracksRemove.add(track.key);
     }
 
     //deleteTracksData(String userId, List<Strings> trackIds);
     
     for (var trackId in tracksRemove) {
       allTracks.remove(trackId);
-      selectedTracks.removeWhere((key, value) => value['id'] == trackId);
+      selectedTracks.removeWhere((key, value) => key == trackId);
       totalTracks--;
     }
     setState(() {});
@@ -137,14 +141,7 @@ class TracksViewState extends State<TracksView> {
     debugPrint('Refresh Tracks');
 
     receivedCall = await checkRefresh(receivedCall, false);
-    final responseTotal = await getSpotifyTracksTotal(playlistId, receivedCall['expiresAt'], receivedCall['accessToken']);
-
-    if (responseTotal['status'] == 'Success') {
-      totalTracks = responseTotal['totalTracks'];
-    } 
-    else {
-      throw Exception('Failed to get Tracks total');
-    }
+    totalTracks = await getSpotifyTracksTotal(playlistId, receivedCall['expiresAt'], receivedCall['accessToken']);
 
     if (totalTracks > 0) {
       //gets user tracks for playlist
@@ -188,7 +185,7 @@ class TracksViewState extends State<TracksView> {
 
                   for (var result in queryResult){
                     if (result.value['chosen']){
-                      selectedTracks.putIfAbsent(result.key, () => result.value);
+                      selectedTracks[result.key] = result.value;
                     }
                   }
                   setState(() {
@@ -201,9 +198,7 @@ class TracksViewState extends State<TracksView> {
         body: FutureBuilder<void>(
           future: fetchDatabaseTracks(),
           builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.done &&
-                loaded &&
-                totalTracks > 0) {
+            if (snapshot.connectionState == ConnectionState.done && loaded && totalTracks > 0) {
               return TrackListWidget(
                 playlistId: playlistId,
                 receivedCall: receivedCall,

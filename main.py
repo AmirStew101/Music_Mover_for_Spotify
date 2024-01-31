@@ -249,16 +249,16 @@ def get_all_tracks(playlist_id, expires_at, access_token, total_tracks):
                         track_title = item['track']['name']
                         track_images = item['track']['album']['images']
 
-                        preview_url = item['track']['preview_url']
+                        preview_url = item['track']['preview_url'] or ''
                         
                         track_artist = item['track']['artists'][0]['name']
-
-                        playlist_tracks[track_id] = {
-                            'title': track_title,
-                            'imageUrl': track_images, 
-                            'artist': track_artist,
-                            'preview_url': preview_url,
-                        }
+                        if track_artist and track_images and track_title:
+                            playlist_tracks[track_id] = {
+                                'title': track_title,
+                                'imageUrl': track_images, 
+                                'artist': track_artist,
+                                'preview_url': preview_url,
+                            }
 
         return jsonify({'status': 'Success', 'data': playlist_tracks})
            

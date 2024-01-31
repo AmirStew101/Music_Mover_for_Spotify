@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:music_swapper/src/select_playlists/select_widgets.dart';
+import 'package:music_swapper/src/select_playlists/select_body.dart';
+import 'package:music_swapper/src/select_playlists/select_bottom.dart';
 import 'package:music_swapper/utils/playlists_requests.dart';
 import 'package:music_swapper/src/select_playlists/select_appbar.dart';
 import 'package:music_swapper/utils/universal_widgets.dart';
@@ -24,7 +25,8 @@ class SelectPlaylistsState extends State<SelectPlaylistsWidget> {
   bool selectAll = false;
   Map<String, dynamic> playlists = {};
   
-  List<MapEntry<String, String>> selectedPlaylists = []; //Stores the Name and ID of the selected playlists
+  //Stores Key: playlist ID w/ Values: Title & bool of if 'chosen'
+  List<MapEntry<String, dynamic>> selectedPlaylists = [];
 
   @override
   void initState() {
@@ -60,18 +62,8 @@ class SelectPlaylistsState extends State<SelectPlaylistsWidget> {
   }
 
   //Updates the list of Playlists the user selected
-  void receiveSelected(List<MapEntry<String, bool>> playlistsSelected) {
-    selectedPlaylists.clear();
-    for (var item in playlistsSelected) {
-      String playId = playlists[item.key]['id'];
-      String playName = item.key;
-      bool selected = item.value;
-
-      //Playlist is selected and not in selected Playlist List
-      if (selected && !selectedPlaylists.contains(MapEntry(playName, playId))) {
-        selectedPlaylists.add(MapEntry(playName, playId));
-      }
-    }
+  void receiveSelected(List<MapEntry<String, dynamic>> playlistsSelected) {
+    selectedPlaylists = playlistsSelected;
   }
 
   @override
@@ -84,20 +76,16 @@ class SelectPlaylistsState extends State<SelectPlaylistsWidget> {
           textAlign: TextAlign.center,
         ),
         actions: [
+
           //Search Button
           IconButton(
               icon: const Icon(Icons.search),
               onPressed: () async {
-                final List<MapEntry<String, dynamic>> result = await showSearch(
+                List<MapEntry<String, dynamic>> result = await showSearch(
                     context: context,
                     delegate: SelectPlaylistSearchDelegate(playlists, selectedPlaylists)
                 );
-                selectedPlaylists.clear();
-                  for (var item in result){
-                      if (item.value){
-                        selectedPlaylists.add(MapEntry(item.key ,playlists[item.key]['id']) );
-                      }
-                  }
+                selectedPlaylists = result;
                 setState(() {
                   debugPrint('Selected $selectedPlaylists');
                   //Update Selected Playlists
@@ -126,7 +114,7 @@ class SelectPlaylistsState extends State<SelectPlaylistsWidget> {
           selectedPlaylists: selectedPlaylists,
           currentPlaylist: currentPlaylist,
           chosenSongs: chosenTracks,
-          callback: receivedCall,
+          receivedCall: receivedCall,
           userId: userId),
     );
   }

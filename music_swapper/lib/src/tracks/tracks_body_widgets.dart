@@ -30,14 +30,15 @@ class TrackListWidget extends StatefulWidget {
 
 //Main functionality for displaying, updating, and listening to previews of tracks
 class TrackListState extends State<TrackListWidget> {
-  //Map of the track with key = 'track name' and value = {images:, previewUrl:, artist:}
+
+  //Map of the track with key = 'Track ID' and value = {images:, previewUrl:, artist:, title:}
   Map<String, dynamic> allTracks = {};
   Map<String, dynamic> receivedCall = {};
   late Future<void> Function() refreshTracks; //Function for updating users tracks
 
   final audioPlayer = AudioPlayer(); //Used to play previewUrl
 
-  //Key: Track Title & values: if 'chosen' bool & ID
+  //Key: Track ID & values: if 'chosen' bool & Title
   late List<MapEntry<String, dynamic>> selectedTracks = [];
   late List<MapEntry<String, dynamic>> playingList = []; //User selected song to preview
 
@@ -65,19 +66,22 @@ class TrackListState extends State<TrackListWidget> {
         bool selected = false;
 
         //If the track is already selected from past widget
-        if (chosenTracks[trackId]){
+        if (chosenTracks[trackId] != null){
           selected = true;
         }
 
-        Map<String, dynamic> selectMap = {'chosen': selected, 'id': trackId};
+        Map<String, dynamic> selectMap = {'chosen': selected, 'title': trackTitle};
 
-        return MapEntry(trackTitle, selectMap);
+        return MapEntry(trackId, selectMap);
       });
 
       playingList = List.generate(allTracks.length, (index) {
         String trackTitle = allTracks.entries.elementAt(index).value['title'];
-        bool state = false;
-        return MapEntry(trackTitle, state);
+        String trackId = allTracks.entries.elementAt(index).key;
+
+        Map<String, dynamic> playMap = {'chosen': false, 'title': trackTitle};
+
+        return MapEntry(trackId, playMap);
       });
     }
   }
@@ -100,7 +104,6 @@ class TrackListState extends State<TrackListWidget> {
     final screenWidth = MediaQuery.of(context).size.width;
     final screenHeight = MediaQuery.of(context).size.height;
     
-
     return RefreshIndicator(
       onRefresh: refreshTracks,
 
@@ -110,10 +113,17 @@ class TrackListState extends State<TrackListWidget> {
             itemCount: allTracks.length,
             itemBuilder: (context, index) {
               final trackMap = allTracks.entries.elementAt(index);
-              final trackName = trackMap.value['title'];
-              final trackImage = trackMap.value?['imageUrl'];
+
+              //Used for displaying track information
+              final trackTitle = trackMap.value['title'];
+              final trackImage = trackMap.value['imageUrl'];
               final trackPrevUrl = trackMap.value?['previewUrl'] ?? '';
-              final trackArtist = trackMap.value?['artist'];
+              final trackArtist = trackMap.value['artist'];
+
+              //Used to update Selected Tracks
+              bool chosen = selectedTracks[index].value['chosen'];
+              String trackId = selectedTracks[index].key;
+              Map<String, dynamic> selectMap = {'chosen': !chosen, 'title': trackTitle};
 
               //Alligns the songs as a Column
               return Column(children: [
@@ -121,11 +131,7 @@ class TrackListState extends State<TrackListWidget> {
                 InkWell(
                     onTap: () {
                       setState(() {
-                        bool chosen = selectedTracks[index].value['chosen'];
-                        String trackId = selectedTracks[index].key;
-                        Map<String, dynamic> selectMap = {'chosen': !chosen, 'id': trackId};
-                        
-                        selectedTracks[index] = MapEntry(trackName, selectMap);
+                        selectedTracks[index] = MapEntry(trackId, selectMap);
                         sendTracks(selectedTracks);
                       });
                     },
@@ -143,7 +149,7 @@ class TrackListState extends State<TrackListWidget> {
                         child: TrackRowsWidget(
                           selectedTracks: selectedTracks, 
                           index: index, 
-                          trackName: trackName,
+                          trackTitle: trackTitle,
                           trackArtist: trackArtist, 
                           playingList: playingList, 
                           trackPrevUrl: trackPrevUrl, 
@@ -181,9 +187,9 @@ class TrackListState extends State<TrackListWidget> {
                           String trackTitle = selectedTracks[i].value['title'];
                           String trackId = selectedTracks[i].key;
 
-                          Map<String, dynamic> selectMap = {'chosen': true, 'id': trackId};
+                          Map<String, dynamic> selectMap = {'chosen': true, 'title': trackTitle};
 
-                          selectedTracks[i] = MapEntry(trackTitle, selectMap);
+                          selectedTracks[i] = MapEntry(trackId, selectMap);
                         }
                         sendTracks(selectedTracks);
                       } 
@@ -193,9 +199,9 @@ class TrackListState extends State<TrackListWidget> {
                           String trackTitle = selectedTracks[i].value['title'];
                           String trackId = selectedTracks[i].key;
 
-                          Map<String, dynamic> selectMap = {'chosen': false, 'id': trackId};
+                          Map<String, dynamic> selectMap = {'chosen': false, 'title': trackTitle};
 
-                          selectedTracks[i] = MapEntry(trackTitle, selectMap);
+                          selectedTracks[i] = MapEntry(trackId, selectMap);
                         }
                         sendTracks(selectedTracks);
                       }
@@ -212,7 +218,7 @@ class TrackRowsWidget extends StatefulWidget {
   const TrackRowsWidget({
     required this.selectedTracks, 
     required this.index, 
-    required this.trackName,
+    required this.trackTitle,
     required this.trackArtist, 
     required this.playingList, 
     required this.trackPrevUrl,
@@ -222,7 +228,7 @@ class TrackRowsWidget extends StatefulWidget {
 
   final List<MapEntry<String, dynamic>> selectedTracks;
   final int index;
-  final String trackName;
+  final String trackTitle;
   final String trackArtist;
   final List<MapEntry<String, dynamic>> playingList;
   final String trackPrevUrl;
@@ -236,7 +242,7 @@ class TrackRowsWidget extends StatefulWidget {
 class TrackRows extends State<TrackRowsWidget> {
   List<MapEntry<String, dynamic>> selectedTracks = [];
   int index = 0;
-  String trackName = '';
+  String trackTitle = '';
   String trackArtist = '';
   List<MapEntry<String, dynamic>> playingList = [];
   String trackPrevUrl = '';
@@ -248,7 +254,7 @@ class TrackRows extends State<TrackRowsWidget> {
     super.initState();
     selectedTracks = widget.selectedTracks;
     index = widget.index;
-    trackName = widget.trackName;
+    trackTitle = widget.trackTitle;
     trackArtist = widget.trackArtist;
     playingList = widget.playingList;
     trackPrevUrl = widget.trackPrevUrl;
@@ -265,9 +271,9 @@ class TrackRows extends State<TrackRowsWidget> {
           setState(() {
             bool chosen = selectedTracks[index].value['chosen'];
             String trackId = selectedTracks[index].key;
-            Map<String, dynamic> selectMap = {'chosen': !chosen, 'id': trackId};
+            Map<String, dynamic> selectMap = {'chosen': !chosen, 'title': trackTitle};
             
-            selectedTracks[index] = MapEntry(trackName, selectMap);
+            selectedTracks[index] = MapEntry(trackId, selectMap);
             sendTracks(selectedTracks);
           });
         },
@@ -280,7 +286,7 @@ class TrackRows extends State<TrackRowsWidget> {
               Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             //Name of the Track shown to user
             Text(
-              trackName,
+              trackTitle,
               textScaler: const TextScaler.linear(1.2),
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(color: Color.fromARGB(255, 6, 163, 11)),
