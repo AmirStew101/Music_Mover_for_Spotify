@@ -19,7 +19,7 @@ Future<int> getSpotifyTracksTotal(String playlistId, double expiresAt, String ac
   catch (e){
     debugPrint('Caught Error in getSpotifyTracksTotal: $e');
   }
-  throw Exception('Error getting Spotify tracks total');
+  return 0;
 }
 
 Future<Map<String, dynamic>> getSpotifyPlaylistTracks(String playlistId, double expiresAt, String accessToken, int totalTracks) async {
@@ -93,20 +93,27 @@ Map<String, dynamic> getPlatformTrackImages(Map<String, dynamic> tracks) {
   throw Exception("Failed Platform is not supported");
 }
 
-Future<void> moveTracksRequest(List<String> tracks, String originId, String snapshotId, List<String> playlistIds, double expiresAt, String accessToken) async {
-  final moveTracksUrl ='$hosted/move-to-playlists/$originId/$snapshotId/$expiresAt/$accessToken';
+Future<bool> moveTracksRequest(List<String> tracks, String originId, String snapshotId, List<String> playlistIds, double expiresAt, String accessToken) async {
+  if(originId == 'Liked Songs'){
+    originId = 'Liked_Songs';
+    snapshotId = 'Liked_Songs';
+  }
+  final moveTracksUrl ='$ngrok/move-to-playlists/$originId/$snapshotId/$expiresAt/$accessToken';
 
   final response = await http.post(
     Uri.parse(moveTracksUrl),
     headers: {
     'Content-Type': 'application/json'
     },
-    body: jsonEncode({'track_ids': tracks, 'playlist_ids': playlistIds})
+    body: jsonEncode({'trackIds': tracks, 'playlistIds': playlistIds})
   );
 
   if (response.statusCode != 200){
-    throw Exception('Error trying to move tracks');
+    debugPrint('Failed to Move Tracks');
+    return false;
   }
+  debugPrint('Moved Tracks');
+  return true;
 }
 
 Future<void> addTracksRequest(List<String> tracks, List<String> playlistIds, double expiresAt, String accessToken) async {
@@ -117,7 +124,7 @@ Future<void> addTracksRequest(List<String> tracks, List<String> playlistIds, dou
     headers: {
     'Content-Type': 'application/json'
     },
-    body: jsonEncode({'track_ids': tracks, 'playlist_ids': playlistIds})
+    body: jsonEncode({'trackIds': tracks, 'playlistIds': playlistIds})
   );
 
   if (response.statusCode != 200){

@@ -4,7 +4,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:music_swapper/src/about/about.dart';
 import 'package:music_swapper/src/home/home_view.dart';
 import 'package:music_swapper/src/login/spot_login_view.dart';
-import 'package:music_swapper/src/select_playlists/select_playlists.dart';
+import 'package:music_swapper/src/select_playlists/select_playlists_view.dart';
 import 'package:music_swapper/src/tracks/tracks_view.dart';
 import 'package:music_swapper/src/start/start.dart';
 
@@ -84,9 +84,9 @@ class MyApp extends StatelessWidget {
                   case AboutView.routeName:
                     final Map<String, dynamic> multiArgs = routeSettings.arguments as Map<String, dynamic>;
                     return AboutView(multiArgs: multiArgs,);
-                  case SelectPlaylistsWidget.routeName:
+                  case SelectPlaylistsViewWidget.routeName:
                     final Map<String, dynamic> multiArgs = routeSettings.arguments as Map<String, dynamic>;
-                    return SelectPlaylistsWidget(multiArgs: multiArgs);
+                    return SelectPlaylistsViewWidget(multiArgs: multiArgs);
                   default:
                     return const StartView();
                 }

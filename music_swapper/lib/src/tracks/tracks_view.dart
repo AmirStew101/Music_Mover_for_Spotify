@@ -1,8 +1,9 @@
+import 'package:another_flushbar/flushbar.dart';
 import 'package:flutter/material.dart';
+import 'package:music_swapper/src/select_playlists/select_playlists_view.dart';
 import 'package:music_swapper/utils/database/database_model.dart';
 import 'package:music_swapper/utils/playlists_requests.dart';
 import 'package:music_swapper/src/tracks/tracks_body_widgets.dart';
-import 'package:music_swapper/src/tracks/tracks_bottom_widgets.dart';
 import 'package:music_swapper/utils/tracks_requests.dart';
 import 'package:music_swapper/src/tracks/tracks_appbar_widgets.dart';
 import 'package:music_swapper/utils/universal_widgets.dart';
@@ -22,27 +23,28 @@ class TracksViewState extends State<TracksView> {
   //Passed arguments
   Map<String, dynamic> currentPlaylist = {};
   Map<String, dynamic> receivedCall = {}; //Received Spotify callback arguments as Map
-  String userId = '';
+  Map<String, dynamic> user = {};
   String playlistId = '';
 
   Map<String, dynamic> allTracks = {}; //Tracks for the chosen playlist
   //All of the selected tracks 
   //key: Track ID
-  //values: 'Chosen' as bool & Track Title
-  Map<String, dynamic> selectedTracks = {}; 
+  //values: Track Title, Artist, Image Url, PreviewUrl
+  Map<String, dynamic> selectedTracksMap = {}; 
   String playlistName = '';
 
   int totalTracks = -1;
   bool loaded = false; //Tracks loaded status
   bool selectAll = false;
 
-  Future<void> fetchDatabaseTracks() async{
-    debugPrint('\nCalling Database');
+  @override
+  void initState(){
+    super.initState();
     //Seperates the arguments passed to this page
     Map<String, dynamic> widgetArgs = widget.multiArgs;
     currentPlaylist = widgetArgs['currentPlaylist'];
     receivedCall = widgetArgs['callback'];
-    userId = widgetArgs['user'];
+    user = widgetArgs['user'];
 
     if (currentPlaylist['Liked Songs'] != null) {
       playlistId = 'Liked Songs';
@@ -53,8 +55,13 @@ class TracksViewState extends State<TracksView> {
       playlistName = currentPlaylist.entries.single.value['title'];
     }
 
+  }
+
+  Future<void> fetchDatabaseTracks() async{
+    debugPrint('\nCalling Database');
+
     //Fills Users tracks from the Database
-    allTracks = await getPlaylistTracksData(userId, playlistId);
+    allTracks = await getDatabaseTracks(user['id'], playlistId);
 
     if (allTracks.isNotEmpty){
       totalTracks = allTracks.length;
@@ -72,6 +79,7 @@ class TracksViewState extends State<TracksView> {
     if (allTracks.isEmpty){
       try{
         debugPrint('\nCalling Spot');
+
         //Checks if Token needs to be refreshed
         receivedCall = await checkRefresh(receivedCall, false); 
         totalTracks = await getSpotifyTracksTotal(playlistId, receivedCall['expiresAt'], receivedCall['accessToken']);
@@ -84,9 +92,7 @@ class TracksViewState extends State<TracksView> {
               totalTracks); //gets user tracks for playlist
 
             //Adds tracks to database for faster retreival later
-            for (var track in allTracks.entries){
-              await checkUserTrackData(userId, track, playlistId);
-            }
+            await syncPlaylistTracksData(user['id'], allTracks, playlistId);
         }
       }
       catch (e){
@@ -100,74 +106,62 @@ class TracksViewState extends State<TracksView> {
   //Updates the chosen tracks function argument for TrackListWidget
   void receiveValue(List<MapEntry<String, dynamic>> chosenTracks) {
     for (var element in chosenTracks) {
-      String trackTitle = element.value['title'];
       bool trackState = element.value['chosen'];
       String trackId = element.key;
 
-      Map<String, dynamic> selectMap = {'chosen': trackState, 'title': trackTitle};
-
       //Track is in Searched Tracks but it was unchecked in Widget
       //Track is removed from Searched tracks
-      if (selectedTracks.containsKey(trackId) && trackState == false) {
-        selectedTracks.removeWhere((key, value) => key == trackId);
+      if (selectedTracksMap.containsKey(trackId) && trackState == false) {
+        selectedTracksMap.removeWhere((key, value) => key == allTracks[trackId]);
       }
       //Track is not in Searched Tracks but it was checked in Widget
       //Adds the Track to Searched Tracks
-      if (!selectedTracks.containsKey(trackId) && trackState == true) {
-        selectedTracks[trackId] = selectMap;
+      if (!selectedTracksMap.containsKey(trackId) && trackState == true) {
+        selectedTracksMap[trackId] = allTracks[trackId];
       }
     }
   }
 
-  void deleteRefresh(Map<String, dynamic> chosenTracks) {
-    //Get all the tracks the user chose to be deleted
-    List<String> tracksRemove = [];
-    for (var track in chosenTracks.entries){
-      tracksRemove.add(track.key);
-    }
+  Future<void> deleteRefresh() async{
+    debugPrint('Delete Refresh');
+    loaded = false;
 
-    //deleteTracksData(String userId, List<Strings> trackIds);
-    
-    for (var trackId in tracksRemove) {
-      allTracks.remove(trackId);
-      selectedTracks.removeWhere((key, value) => key == trackId);
-      totalTracks--;
-    }
-    setState(() {});
-  }
+    selectedTracksMap.clear();
 
-  //Gets Tracks from Spotify to update database
-  Future<void> refreshTracks() async{
-    debugPrint('Refresh Tracks');
+    await fetchDatabaseTracks();
 
-    receivedCall = await checkRefresh(receivedCall, false);
-    totalTracks = await getSpotifyTracksTotal(playlistId, receivedCall['expiresAt'], receivedCall['accessToken']);
-
-    if (totalTracks > 0) {
-      //gets user tracks for playlist
-      allTracks = await getSpotifyPlaylistTracks(
-          playlistId,
-          receivedCall['expiresAt'],
-          receivedCall['accessToken'],
-          totalTracks);
-
-      //Adds tracks to database for faster retreival later
-      for (var track in allTracks.entries){
-        await checkUserTrackData(userId, track, playlistId);
-      }
-    }
     setState(() {
-      //Update Playlists
+      //Update Tracks
     });
   }
 
+  Future<void> removeTracks(Map<String, dynamic> callback) async {
+
+  String playlistId = currentPlaylist.entries.single.key;
+  String snapId = currentPlaylist.entries.single.value['snapshotId'];
+  debugPrint('Selected $selectedTracksMap');
+
+  //Get Ids for selected tracks
+  List<String> trackIds = [];
+  for (var track in selectedTracksMap.entries) {
+    trackIds.add(track.key);
+  }
+
+  final updateCallback = await checkRefresh(receivedCall, false);
+  setState(() {
+    //Refresh callback
+    callback = updateCallback;
+  });
+  await removeTracksRequest(trackIds, playlistId, snapId, updateCallback['expiresAt'], updateCallback['accessToken']);
+  await removeDatabaseTracks(user['id'], trackIds, playlistId);
+  }
 
   //Main body of the page
   @override
   Widget build(BuildContext context) {
     return Scaffold(
         appBar: AppBar(
-          leading: OptionsMenu(callback: receivedCall, userId: userId),
+          leading: OptionsMenu(callback: receivedCall, user: user),
           backgroundColor: const Color.fromARGB(255, 6, 163, 11),
           title: Text(
             playlistName, //Playlist Name
@@ -181,11 +175,11 @@ class TracksViewState extends State<TracksView> {
                 onPressed: () async {
                   List<MapEntry<String, dynamic>> queryResult = await showSearch(
                       context: context,
-                      delegate: TracksSearchDelegate(allTracks, selectedTracks));
+                      delegate: TracksSearchDelegate(allTracks, selectedTracksMap));
 
                   for (var result in queryResult){
                     if (result.value['chosen']){
-                      selectedTracks[result.key] = result.value;
+                      selectedTracksMap[result.key] = result.value;
                     }
                   }
                   setState(() {
@@ -198,16 +192,18 @@ class TracksViewState extends State<TracksView> {
         body: FutureBuilder<void>(
           future: fetchDatabaseTracks(),
           builder: (context, snapshot) {
+            //Playlist has tracks and Tracks finished loading
             if (snapshot.connectionState == ConnectionState.done && loaded && totalTracks > 0) {
               return TrackListWidget(
                 playlistId: playlistId,
                 receivedCall: receivedCall,
                 allTracks: allTracks,
-                selectedTracks: selectedTracks,
+                selectedTracksMap: selectedTracksMap,
+                user: user,
                 sendTracks: receiveValue,
-                refreshTracks: refreshTracks,
               );
             } 
+            //Playlist doesn't have Tracks
             else if (loaded && totalTracks <= 0) {
               return const Center(
                   child: Text(
@@ -215,7 +211,8 @@ class TracksViewState extends State<TracksView> {
                 textScaler: TextScaler.linear(2),
                 textAlign: TextAlign.center,
               ));
-            } 
+            }
+            //Tracks are loading
             else {
               return const Center(
                   child: Column(
@@ -228,12 +225,83 @@ class TracksViewState extends State<TracksView> {
             }
           },
         ),
-        bottomNavigationBar: TracksBottomBar(
-          currentPlaylist: currentPlaylist,
-          tracks: selectedTracks,
-          receivedCall: receivedCall,
-          userId: userId,
-          refreshTracks: deleteRefresh,
-        ));
+        bottomNavigationBar: tracksBottomBar(),
+      );
   }
+
+
+  Widget tracksBottomBar(){
+      return BottomNavigationBar(
+        backgroundColor: const Color.fromARGB(255, 6, 163, 11),
+        items: const [
+          //Oth item in List
+          BottomNavigationBarItem(
+            icon: Icon(Icons.drive_file_move_rtl_rounded),
+            label: 'Move to Playlists'),
+
+          //1st item in List
+          BottomNavigationBarItem(
+            icon: Icon(Icons.add),
+            label: 'Add to Playlists',
+          ),
+
+          //2nd item in List
+          BottomNavigationBarItem(
+            icon: Icon(Icons.delete),
+            label: 'Remove',
+          ),
+        ],
+        onTap: (value) async {
+          //Move to playlist(s) Index
+          if (value == 0 && selectedTracksMap.isNotEmpty) {
+            debugPrint('Selected: $selectedTracksMap');
+            final multiArgs = {
+              'callback': receivedCall,
+              'selectedTracks': selectedTracksMap,
+              'currentPlaylist': currentPlaylist,
+              'option': 'move',
+              'user': user,
+            };
+            Navigator.restorablePushNamed(context, SelectPlaylistsViewWidget.routeName, arguments: multiArgs);
+          }
+          //Add to playlist(s) index
+          else if (value == 1 && selectedTracksMap.isNotEmpty) {
+            final multiArgs = {
+              'callback': receivedCall,
+              'selectedTracks': selectedTracksMap,
+              'currentPlaylist': currentPlaylist,
+              'option': 'add',
+              'user': user,
+            };
+            Navigator.restorablePushNamed(context, SelectPlaylistsViewWidget.routeName, arguments: multiArgs);
+          } 
+          //Removes track(s) from current playlist
+          else if (value == 2 && selectedTracksMap.isNotEmpty){
+            int tracksDeleted = selectedTracksMap.length;
+            String playlistTitle = currentPlaylist.values.single['title'];
+
+            await removeTracks(receivedCall);
+            await deleteRefresh();
+
+            // ignore: use_build_context_synchronously
+            Flushbar(
+              title: 'Success Message',
+              duration: const Duration(seconds: 3),
+              flushbarPosition: FlushbarPosition.TOP,
+              message: 'Deleted $tracksDeleted tracks from $playlistTitle',
+            ).show(context);
+          }
+
+          else {
+            Flushbar(
+              title: 'Failed Message',
+              duration: const Duration(seconds: 2),
+              flushbarPosition: FlushbarPosition.TOP,
+              message: 'No tracks selected',
+            ).show(context);
+          }
+        },
+      );
+  }
+
 }

@@ -5,26 +5,27 @@ import 'package:get/get.dart';
 import 'package:http/http.dart' as http;
 import 'package:music_swapper/utils/globals.dart';
 
-Future<Map<String, dynamic>> getSpotifyPlaylists(double expiresAt, String accessToken) async {
+Future<Map<String, dynamic>> getSpotifyPlaylists(double expiresAt, String accessToken, String username) async {
   try {
-  final getPlaylistsUrl = '$hosted/get-playlists/$expiresAt/$accessToken';
+    final getPlaylistsUrl = '$hosted/get-playlists/$expiresAt/$accessToken';
 
-  final response = await http.get(Uri.parse(getPlaylistsUrl));
-  if (response.statusCode == 200){
-    final responseDecode = json.decode(response.body);
-    
-    if (responseDecode['status'] == 'Success'){
-      Map<String, dynamic> playlists = responseDecode['data'];
-      playlists = getPlaylistImages(playlists);
-      return playlists;
+    final response = await http.get(Uri.parse(getPlaylistsUrl));
+    if (response.statusCode == 200){
+      final responseDecode = json.decode(response.body);
+      
+      if (responseDecode['status'] == 'Success'){
+        Map<String, dynamic> playlists = responseDecode['data'];
+        playlists.removeWhere((key, value) => value['owner'] != username && key != 'Liked Songs');
+        playlists = getPlaylistImages(playlists);
+        return playlists;
+      }
     }
-  }
   }
   catch (e){
     debugPrint('Caught Error while in getSpotifyPlaylists: $e');
   }
 
-  throw Exception('Failed to get playlists');
+  throw Exception('Failed to get playlists in playlists_requests.dart');
 }
 
 //Gives each playlist the image size based on current platform
@@ -91,34 +92,47 @@ Map<String, dynamic> getPlaylistImages(Map<String, dynamic> playlists) {
 }
 
 Future<Map<String, dynamic>> spotRefreshToken(double expiresAt, String refreshToken) async {
-  final refreshUrl = '$hosted/refresh-token/$expiresAt/$refreshToken';
+  debugPrint('Spotify Refresh');
+  try{
+    final refreshUrl = '$ngrok/refresh-token/$expiresAt/$refreshToken';
 
-  final response = await http.get(Uri.parse(refreshUrl));
-  final responseDecode = json.decode(response.body);
+    final response = await http.get(Uri.parse(refreshUrl));
+    final responseDecode = json.decode(response.body);
 
-  if (responseDecode['status'] == 'Success') {
-    Map<String, dynamic> info = responseDecode['data'];
-    return info;
-  } else {
-    return responseDecode;
+    if (responseDecode['status'] == 'Success') {
+      Map<String, dynamic> info = responseDecode['data'];
+      return info;
+    } else {
+      return responseDecode;
+    }
   }
+  catch (e){
+    debugPrint('Caught Error in spotRefreshToken: $e');
+  }
+  throw Exception('Error trying to refresh Tokens in playlists_requests.dart');
 }
 
 //Checks if the Token has expired
 Future<Map<String, dynamic>> checkRefresh(Map<String, dynamic> checkCall, bool forceRefresh) async {
-  //Get the current time in seconds to be the same as in Python
-  double currentTime = DateTime.now().millisecondsSinceEpoch.toDouble() / 1000;
+  try{
+    //Get the current time in seconds to be the same as in Python
+    double currentTime = DateTime.now().millisecondsSinceEpoch.toDouble() / 1000;
 
-  //Checks if the token is expired and gets a new one if so
-  if (currentTime > checkCall['expiresAt'] || forceRefresh) {
-    final response = await spotRefreshToken(checkCall['expiresAt'], checkCall['refreshToken']);
+    //Checks if the token is expired and gets a new one if so
+    if (currentTime > checkCall['expiresAt'] || forceRefresh) {
+      final response = await spotRefreshToken(checkCall['expiresAt'], checkCall['refreshToken']);
 
-    //The function deals with the status if response has a status token is still good
-    //response without status is the new token data
-    if (!response.containsKey('status')) {
-      checkCall = response;
+      //The function deals with the status if response has a status token is still good
+      //response without status is the new token data
+      if (!response.containsKey('status')) {
+        checkCall = response;
+      }
     }
-  }
 
-  return checkCall;
+    return checkCall;
+  }
+  catch (e){
+    debugPrint('Caught Error in checkRefresh: $e');
+  }
+  throw Exception('Error trying to check callback in playlists_requests.dart');
 }

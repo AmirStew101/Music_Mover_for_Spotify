@@ -21,7 +21,7 @@ class HomeView extends StatefulWidget {
 //State widget for the Home screen
 class HomeViewState extends State<HomeView> {
   Map<String, dynamic> receivedCall = {}; //required passed callback variable
-  String userId = '';
+  Map<String, dynamic> user = {};
 
   Map<String, dynamic> playlists = {}; //all the users playlists
   bool loaded = false;
@@ -30,11 +30,11 @@ class HomeViewState extends State<HomeView> {
   Future<void> fetchDatabasePlaylists() async{
     final Map<String, dynamic> multiArgs = widget.multiArgs;
     receivedCall = multiArgs['callback'];
-    userId = multiArgs['user'];
+    user = multiArgs['user'];
 
-    playlists = await getDatabasePlaylists(userId);
+    playlists = await getDatabasePlaylists(user['id']);
 
-    if (playlists.isNotEmpty){
+    if (playlists.isNotEmpty && playlists.length > 1){
       loaded = true;
     }
     else{
@@ -50,10 +50,10 @@ class HomeViewState extends State<HomeView> {
       //Checks to make sure Tokens are up to date before making a Spotify request
       receivedCall = await checkRefresh(receivedCall, forceRefresh);
 
-      playlists = await getSpotifyPlaylists(receivedCall['expiresAt'], receivedCall['accessToken']);
+      playlists = await getSpotifyPlaylists(receivedCall['expiresAt'], receivedCall['accessToken'], user['username']);
 
       //Checks all playlists if they are in database
-      await checkPlaylists(playlists, userId);
+      await syncPlaylists(playlists, user['id']);
     }
     catch (e){
       debugPrint('Caught an exception in Home fetchPlaylists: $e');
@@ -68,7 +68,7 @@ class HomeViewState extends State<HomeView> {
     return Scaffold(
       appBar: AppBar(
         //The Options Menu containing other navigation options
-        leading:  OptionsMenu(callback: receivedCall, userId: userId),
+        leading:  OptionsMenu(callback: receivedCall, user: user),
         centerTitle: true,
         automaticallyImplyLeading: false, //Prevents back arrow
         backgroundColor: const Color.fromARGB(255, 6, 163, 11),
@@ -98,7 +98,7 @@ class HomeViewState extends State<HomeView> {
         future: fetchDatabasePlaylists(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.done && loaded && !error) {
-            return ImageGridWidget(receivedCall: receivedCall, playlists: playlists, userId: userId,);
+            return ImageGridWidget(receivedCall: receivedCall, playlists: playlists, user: user,);
           }
           else if(error){
             return Center(child: Text(
@@ -122,7 +122,7 @@ class HomeViewState extends State<HomeView> {
     Map<String, dynamic> homeArgs = {
                     'currentPlaylist': currentPlaylist,
                     'callback': receivedCall,
-                    'user': userId,
+                    'user': user,
     };
     Navigator.restorablePushNamed(context, TracksView.routeName, arguments: homeArgs);
   }

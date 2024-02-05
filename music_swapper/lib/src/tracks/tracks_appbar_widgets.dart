@@ -11,21 +11,21 @@ class TracksSearchDelegate extends SearchDelegate {
   
   //Tracks user has selected in Search or Body
   //Key: Track Title, Value: {ID & bool if 'chosen'}
-  List<MapEntry<String, dynamic>> chosenTracks = [];
+  List<MapEntry<String, dynamic>> chosenTracksList = [];
 
   //Gets all the tracks for the playlist from tracks
   //Gets all the selected Tracks from previous widget
-  TracksSearchDelegate(Map<String, dynamic> tracks, Map<String, dynamic> tracksSelected) {
-    playlistTracks = tracks;
+  TracksSearchDelegate(Map<String, dynamic> allTracks, Map<String, dynamic> tracksSelectedMap) {
+    playlistTracks = allTracks;
 
-    tracks.forEach((key, value) {
+    allTracks.forEach((key, value) {
       String trackTitle = value['title'];
 
       Map<String, dynamic> searchMap = {'artist': value['artist'], 'title': trackTitle};
       searchResults.add(MapEntry(key, searchMap));
 
-      Map<String, dynamic> selectedMap = {'chosen': (tracksSelected[key] != null), 'title': trackTitle};
-      chosenTracks.add(MapEntry(key, selectedMap));
+      Map<String, dynamic> selectedMap = {'chosen': (tracksSelectedMap[key] != null), 'title': trackTitle};
+      chosenTracksList.add(MapEntry(key, selectedMap));
     });
   }
   
@@ -35,7 +35,7 @@ class TracksSearchDelegate extends SearchDelegate {
     return IconButton(
       icon: const Icon(Icons.arrow_back),
       onPressed: () {
-        close(context, chosenTracks);
+        close(context, chosenTracksList);
       },
     );
   }
@@ -70,7 +70,7 @@ class TracksSearchDelegate extends SearchDelegate {
         icon: const Icon(Icons.cancel),
         onPressed: () {
           if (query.isEmpty) {
-            close(context, chosenTracks);
+            close(context, chosenTracksList);
           } else {
             query = '';
           }
@@ -81,7 +81,7 @@ class TracksSearchDelegate extends SearchDelegate {
 
   @override
   Widget buildResults(BuildContext context) {
-    close(context, chosenTracks);
+    close(context, chosenTracksList);
     return const Center(child: Text('No Matching Results', textScaler: TextScaler.linear(2)));
   }
 
@@ -140,7 +140,7 @@ class TracksSearchDelegate extends SearchDelegate {
               //Suggestion has key: Id Title & Values: Artist, Track title
               final suggestion = trackSuggestions[index];
 
-              bool isSelected = chosenTracks[index].value['chosen'];
+              bool isSelected = chosenTracksList[index].value['chosen'];
               String trackId = suggestion.key;
               String trackTitle = suggestion.value['title'];
 
@@ -154,7 +154,7 @@ class TracksSearchDelegate extends SearchDelegate {
                 //Keeps track of tracks user selects
                 onChanged: (value) {
                   setState(() {
-                    chosenTracks[index] = MapEntry(trackId, chosenMap);
+                    chosenTracksList[index] = MapEntry(trackId, chosenMap);
                   });
                 },),
 
@@ -168,7 +168,7 @@ class TracksSearchDelegate extends SearchDelegate {
                 //Keeps track of tracks user selected
                 onTap: () {
                   setState(() {
-                    chosenTracks[index] = MapEntry(trackId, chosenMap);
+                    chosenTracksList[index] = MapEntry(trackId, chosenMap);
                   });
                 },
               );
@@ -186,7 +186,7 @@ class TracksSearchDelegate extends SearchDelegate {
           itemBuilder: (context, index) {
             final suggestion = artistSuggestions[index];
 
-            bool isSelected = chosenTracks[index].value['chosen'];
+            bool isSelected = chosenTracksList[index].value['chosen'];
             String trackId = suggestion.key;
             String trackTitle = suggestion.value['title'];
 
@@ -197,7 +197,7 @@ class TracksSearchDelegate extends SearchDelegate {
                 value: isSelected,
                 onChanged: (value) {
                   setState(() {
-                    chosenTracks[index] = MapEntry(trackId, chosenMap);
+                    chosenTracksList[index] = MapEntry(trackId, chosenMap);
                   });
                 },
               ),
@@ -211,7 +211,7 @@ class TracksSearchDelegate extends SearchDelegate {
 
               onTap: () {
                 setState((){
-                  chosenTracks[index] = MapEntry(trackId, chosenMap);
+                  chosenTracksList[index] = MapEntry(trackId, chosenMap);
                 });
               },
             );

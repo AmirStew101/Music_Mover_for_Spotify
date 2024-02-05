@@ -52,12 +52,12 @@ Future<WebViewController> initiateLogin(BuildContext context) async {
             if (request.url.startsWith('$hosted/callback') && (Platform.isAndroid || Platform.isIOS)) {
               callback = await getCallback(request.url);
               
-              final UserModel user = await checkUserData(callback['expiresAt'], callback['accessToken']);
-              final String userId = user.spotifyId;
+              final UserModel userModel = await syncUserData(callback['expiresAt'], callback['accessToken']);
+              final Map<String, dynamic> user = {'id': userModel.spotifyId, 'username': userModel.username, 'uri': userModel.uri};
 
               Map<String, dynamic> multiArgs = {
                 'callback': callback,
-                'user': userId,
+                'user': user,
               };
 
               // ignore: use_build_context_synchronously

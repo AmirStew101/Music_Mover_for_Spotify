@@ -3,27 +3,35 @@ import 'package:flutter/material.dart';
 import 'package:music_swapper/utils/universal_widgets.dart';
 
 class SelectPlaylistSearchDelegate extends SearchDelegate {
-  List<String> searchResults = []; //Names of each playlist
+  List<MapEntry<String, dynamic>> searchResults = []; //Names of each playlist
   List<MapEntry<String, dynamic>> selectedList = [];
 
   //Search Constructor setting the search results to the Playlist names
-  SelectPlaylistSearchDelegate(Map<String, dynamic> playlists, List<MapEntry<String, dynamic>> selectedPlaylists) {
-    if (selectedPlaylists.isNotEmpty){
-      selectedList = selectedPlaylists;
+  SelectPlaylistSearchDelegate(Map<String, dynamic> playlists, Map<String, dynamic> selectedPlaylistsMap) {
+    if (selectedPlaylistsMap.isNotEmpty){
       playlists.forEach((key, value) {
-        searchResults.add(value['title']);
+        searchResults.add(MapEntry(key, value['title']));
+
+        bool chosen = false;
+        String playlistTitle = value['title'];
+
+        Map<String, dynamic> selectMap = {'chosen': chosen, 'title': playlistTitle};
+
+        if (selectedPlaylistsMap.containsKey(key)){
+          chosen = true;
+        }
+
+        selectedList.add(MapEntry(key, selectMap));
       });
     }
     else{
       playlists.forEach((key, value) {
-        searchResults.add(value['title']);
+        searchResults.add(MapEntry(key, value['title']));
 
         Map<String, dynamic> selectMap = {'chosen': false, 'title': value['title']};
-        selectedPlaylists.add(MapEntry(key, selectMap));
+        selectedList.add(MapEntry(key, selectMap));
       });
     }
-    
-    debugPrint('Selected List: $selectedList\n');
   }
 
   //What Icons on the Left side of the Search Bar
@@ -64,8 +72,8 @@ class SelectPlaylistSearchDelegate extends SearchDelegate {
   Widget buildSuggestions(BuildContext context) {
     //Creates a list of suggestions based on users Playlist names
     //& compares it to the users input
-    List<String> suggestions = searchResults.where((searchResult) {
-      final result = searchResult.toLowerCase();
+    List<MapEntry<String, dynamic>> suggestions = searchResults.where((searchResult) {
+      final result = searchResult.value.toLowerCase();
       query = modifyBadQuery(query);
       final input = query.toLowerCase();
 
@@ -86,33 +94,30 @@ class SelectPlaylistSearchDelegate extends SearchDelegate {
           itemCount: suggestions.length,
           itemBuilder: (context, index) {
             final suggestion = suggestions[index];
+            String playTitle = suggestion.value;
+            bool chosen = selectedList[index].value['chosen'];
+            String playId = suggestion.key;
+
+            Map<String, dynamic> playMap = {'chosen': !chosen, 'title': playTitle};
 
             return ListTile(
               leading: Checkbox(
                   onChanged: (value) {
-                    String playTitle = selectedList[index].value['title'];
-                    bool chosen = selectedList[index].value['chosen'];
-                    String playId = selectedList[index].key;
-
-                    Map<String, dynamic> playMap = {'chosen': chosen, 'title': playTitle};
-
                     setState((){
-                    selectedList[index] = MapEntry(playId, playMap);
+                      debugPrint('Checkbox clicked: $playTitle');
+                      selectedList[index] = MapEntry(playId, playMap);
                     });
                   },
-                  value: selectedList[index].value,
+
+                  value: chosen,
               ),
-              title: Text(suggestion, textScaler: const TextScaler.linear(1.2)),
+
+              title: Text(playTitle, textScaler: const TextScaler.linear(1.2)),
 
               onTap: () {
-                String playTitle = selectedList[index].value['title'];
-                bool chosen = selectedList[index].value['chosen'];
-                String playId = selectedList[index].key;
-
-                Map<String, dynamic> playMap = {'chosen': chosen, 'title': playTitle};
-
                 setState((){
-                selectedList[index] = MapEntry(playId, playMap);
+                  debugPrint('Box clicked: $playTitle');
+                  selectedList[index] = MapEntry(playId, playMap);
                 });
               },
             );

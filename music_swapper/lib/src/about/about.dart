@@ -11,11 +11,11 @@ class AboutView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     Map<String, dynamic> callback = multiArgs['callback'];
-    String userId = multiArgs['user'];
+    Map<String, dynamic> user = multiArgs['user'];
 
     return Scaffold(
       appBar: AppBar(
-        leading: OptionsMenu(callback: callback, userId: userId),
+        leading: OptionsMenu(callback: callback, user: user),
         centerTitle: true,
         backgroundColor: const Color.fromARGB(255, 6, 163, 11),
         title: const Text(

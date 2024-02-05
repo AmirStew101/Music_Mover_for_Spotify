@@ -1,9 +1,12 @@
 
+// ignore_for_file: use_build_context_synchronously
+
 import 'package:another_flushbar/flushbar.dart';
 import 'package:flutter/material.dart';
 import 'package:music_swapper/src/tracks/tracks_view.dart';
 import 'package:music_swapper/utils/playlists_requests.dart';
 import 'package:music_swapper/utils/tracks_requests.dart';
+import 'package:music_swapper/utils/universal_widgets.dart';
 
 class SelectBottom extends StatelessWidget {
   const SelectBottom(
@@ -12,7 +15,7 @@ class SelectBottom extends StatelessWidget {
       required this.currentPlaylist,
       required this.option,
       required this.receivedCall,
-      required this.userId,
+      required this.user,
       super.key});
 
   final String option;
@@ -20,35 +23,38 @@ class SelectBottom extends StatelessWidget {
   final List<MapEntry<String, dynamic>> selectedPlaylists; //Name and ID of selected playlist
   final Map<String, dynamic> chosenSongs;
   final Map<String, dynamic> receivedCall;
-  final String userId;
+  final Map<String, dynamic> user;
 
   //Moves or Adds the selected tracks to the desired playlists
   Future<void> handleOptionSelect(Map<String, dynamic> callback) async {
-    String currentId = currentPlaylist.entries.single.value['id'];
+    String currentId = currentPlaylist.entries.single.key;
     String currentSnapId = currentPlaylist.entries.single.value['snapshotId'];
 
     //Get Ids for selected tracks
     List<String> trackIds = [];
     for (var track in chosenSongs.entries) {
-      trackIds.add(track.value['id']);
+      trackIds.add(track.key);
     }
+    debugPrint('Track ids: $trackIds');
 
     //Get Ids for selected Ids
-    List<String> selectedIds = [];
-    for (var entries in selectedPlaylists) {
-      selectedIds.add(entries.value);
+    List<String> playlistIds = [];
+    for (var playlist in selectedPlaylists) {
+      playlistIds.add(playlist.key);
     }
+    debugPrint('Selected Playlists: $selectedPlaylists');
 
     //Move tracks to Playlists
     if (option == 'move') {
       callback = await checkRefresh(callback, false);
-      moveTracksRequest(trackIds, currentId, currentSnapId, selectedIds, callback['expiresAt'], callback['accessToken']);
+      await moveTracksRequest(trackIds, currentId, currentSnapId, playlistIds, callback['expiresAt'], callback['accessToken']);
+      await syncPlaylistTracksData(user['id'], chosenSongs, currentId);
     }
     //Adds tracks to Playlists
     else {
       callback = await checkRefresh(callback, false);
-      addTracksRequest(trackIds, selectedIds, callback['expiresAt'],
-          callback['accessToken']);
+      await addTracksRequest(trackIds, playlistIds, callback['expiresAt'], callback['accessToken']);
+      await syncPlaylistTracksData(user['id'], chosenSongs, currentId);
     }
   }
 
@@ -57,7 +63,7 @@ class SelectBottom extends StatelessWidget {
     Map<String, dynamic> multiArgs = {
       'currentPlaylist': currentPlaylist,
       'callback': callback,
-      'user': userId,
+      'user': user,
       };
       Navigator.popAndPushNamed(context, TracksView.routeName, arguments: multiArgs);
   }
@@ -68,20 +74,14 @@ class SelectBottom extends StatelessWidget {
     String optionText = 'Move Songs to Playlist(s)';
 
     int totalChosen = chosenSongs.length;
-    int totalPlaylists = 0;
 
     //Sets variables for User Notification
-    totalPlaylists = selectedPlaylists.length;
-
-    List chosenPLaylists = [];
-    for (var element in selectedPlaylists) { 
-      chosenPLaylists.add(element.value['title']);
-    }
+    int totalPlaylists = selectedPlaylists.length;
 
      //Message to display to the user
     String optionMsg = (option == 'move')
-          ? 'Successfully moved $totalChosen songs to $chosenPLaylists playlists'
-          : 'Successfully added $totalChosen songs to $chosenPLaylists playlists';
+          ? 'Successfully moved $totalChosen songs to $totalPlaylists playlists'
+          : 'Successfully added $totalChosen songs to $totalPlaylists playlists';
 
     if (option == 'add') {
       optionIcon = const Icon(Icons.add);
@@ -91,16 +91,18 @@ class SelectBottom extends StatelessWidget {
     return BottomAppBar(
       child: InkWell(
         onTap: () async {
-          handleOptionSelect(receivedCall);
-          navigateToTracks(context, receivedCall);
+          if (chosenSongs.isNotEmpty){
+            await handleOptionSelect(receivedCall);
+            navigateToTracks(context, receivedCall);
 
-          //Notification for the User alerting them to the result
-          Flushbar(
-            title: 'Success Message',
-            duration: const Duration(seconds: 5),
-            flushbarPosition: FlushbarPosition.TOP,
-            message: optionMsg,
-          ).show(context);
+            //Notification for the User alerting them to the result
+            Flushbar(
+              title: 'Success Message',
+              duration: const Duration(seconds: 5),
+              flushbarPosition: FlushbarPosition.TOP,
+              message: optionMsg,
+            ).show(context);
+          }
         },
 
         child: Row(
@@ -111,22 +113,10 @@ class SelectBottom extends StatelessWidget {
           Text(optionText),
           IconButton(
             icon: optionIcon,
-            onPressed: () {
-
-              if (option == 'move') {
-                handleOptionSelect(receivedCall);
-                navigateToTracks(context, receivedCall);
-
-                Flushbar(
-                  title: 'Success Message',
-                  duration: const Duration(seconds: 5),
-                  flushbarPosition: FlushbarPosition.TOP,
-                  message: optionMsg,
-                ).show(context);
-              }
-              //Option was Add
-              else {
-                handleOptionSelect(receivedCall);
+            onPressed: () async {
+              if (chosenSongs.isNotEmpty){
+                //Option was to Move tracks
+                await handleOptionSelect(receivedCall);
                 navigateToTracks(context, receivedCall);
 
                 Flushbar(

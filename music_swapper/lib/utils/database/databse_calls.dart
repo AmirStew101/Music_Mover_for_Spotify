@@ -1,3 +1,4 @@
+
 import 'package:another_flushbar/flushbar.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
@@ -45,21 +46,45 @@ class UserRepository extends GetxController {
 
 
   //Check if Playlist is in collections
-  Future<bool> hasPlaylist(String userId, String playlistId) async{
+  Future<void> syncUserPlaylists(String userId, Map<String, dynamic> spotifyPlaylists) async{
     try{
+      debugPrint('Syncing Playlists');
       final playlistRef = usersRef.doc(userId).collection(playlistColl);
-      final hasPlaylist = await playlistRef.doc(playlistId).get(); 
+      final playlistDocs = await playlistRef.get();
 
-      if (hasPlaylist.exists){
-          return true;
+      //Removes playlists from database that are not in Spotify
+      for (var playlistDoc in playlistDocs.docs){
+        final playlistId = playlistDoc.id;
+
+        if (!spotifyPlaylists.containsKey(playlistId)){
+          await removePlaylist(userId, playlistId);
+          debugPrint('Removing ${playlistDoc.data()['title']}');
+        }
       }
 
-      return false;
+      //Adds playlists to database that are in Spotify
+      for (var spotPlaylist in spotifyPlaylists.entries){
+        final playlistId = spotPlaylist.key;
+        final dataPlaylist = await playlistRef.doc(playlistId).get();
+
+        if (!dataPlaylist.exists){
+
+          PlaylistModel playlistModel = PlaylistModel(
+          title: spotPlaylist.value['title'], 
+          playlistId: playlistId, 
+          link: spotPlaylist.value['link'], 
+          imageUrl: spotPlaylist.value['imageUrl'], 
+          snapshotId: spotPlaylist.value['snapshotId']);
+
+          createPlaylist(userId, playlistModel);
+          debugPrint('Adding ${playlistModel.title}');
+        }
+      }
+
     }
     catch (e){
       debugPrint('Caught Error in database_calls.dart Function hasPlaylist $e');
     }
-    throw Exception('Escaped return in hasPlaylist');
   }
 
   //Add all Playlists as collections to database
@@ -93,57 +118,34 @@ class UserRepository extends GetxController {
     throw Exception('Escaped return in getPlaylists');
   }
 
+  Future<void> removePlaylist(String userId, String playlistId) async{
+    try{    
+      final playlistRef = usersRef.doc(userId).collection(playlistColl);
+      await playlistRef.doc(playlistId).delete(); //Removes PLaylist from collection
 
-  //Check if Track is in Users Playlist in database
- Future<bool> hasTrack(String userId, String trackId) async{
-    try{
       final tracksRef = usersRef.doc(userId).collection(tracksColl);
-      final hasTrack = await tracksRef.doc(trackId).get();
+      final tracksDocs = await tracksRef.get();
 
-      if (hasTrack.exists){
-        return true;
+      //Removes all of the Playlist's track connections
+      if (tracksDocs.docs.isNotEmpty){      
+        for (var trackDoc in tracksDocs.docs){
+          final trackId = trackDoc.id;
+
+          final trackField = await tracksRef.doc(trackId).get();
+          List<dynamic> playlistIds = trackField.data()?['playlistIds'];
+
+          if (playlistIds.contains(playlistId)){
+            await removePLaylistTrack(userId, trackId, playlistId);
+          }
+        }
       }
-
-      return false;
     }
     catch (e){
-      debugPrint('Caught Error in database_calls.dart Function hasTrack: $e');
+      debugPrint('Error Removing Playlist: $e');
     }
 
-    debugPrint('Playlist doesn\'t have track');
-    return false;
   }
 
-  //Add Track to Tracks Collection
-  Future<void> createTrackDoc(String userId, TrackModel track, String trackId) async{
-    try{
-      final trackRef = usersRef.doc(userId).collection(tracksColl);
-      await trackRef.doc(trackId).set(track.toJson());
-    }
-    catch (e){
-      debugPrint('Caught Error in database_calls.dart Function creatTrackDoc: $e');
-    }
-  }
-
-  //Adds a connection to a Playlist for a Track
-  Future<void> addTrackPlaylist(String userId, String trackId, String playlistId) async{
-    try{
-    final tracksRef = usersRef.doc(userId).collection(tracksColl);
-    final trackFields = await tracksRef.doc(trackId).get();
-
-    List<dynamic> playlistIds = trackFields.data()?['playlistIds'];
-
-    if (!playlistIds.contains(playlistId)){
-      playlistIds.add(playlistId);
-      
-      await tracksRef.doc(trackId).update({'playlistIds': playlistIds});
-    }
-
-    }
-    catch (e){
-      debugPrint('Caught Error in database_calls.dart Function addTrackPlaylist: $e');
-    }
-  }
 
   //Get track names for a given playlist
   Future<Map<String, dynamic>> getTracks(String userId, String playlistId) async{
@@ -178,4 +180,105 @@ class UserRepository extends GetxController {
     throw Exception('Escaped return in getTracks');
   }
 
+  //Check if Track is in Users Playlist in database
+ Future<void> syncPlaylistTracks(String userId, Map<String, dynamic> spotifyTracks, String playlistId) async{
+    try{
+      final tracksRef = usersRef.doc(userId).collection(tracksColl);
+      final trackDocs = await tracksRef.get();
+
+      //Compares each track with tracks in Spotify playlist
+      for (var trackDoc in trackDocs.docs){
+        final trackId = trackDoc.id;
+
+        //Remove playlist ID from Tracks playlistIds
+        if (!spotifyTracks.containsKey(trackId)){
+          await removePLaylistTrack(userId, trackId, playlistId);
+        }
+      }
+
+      //Adds Spotify Tracks to database 
+      for (var track in spotifyTracks.entries){
+        String trackId = track.key;
+        bool hasTrack = trackDocs.docs.any((doc) => doc.id == trackId);
+
+        //Updates Tracks playlistIds by adding current playlistId
+        if (hasTrack){
+          await addPlaylistTrack(userId, trackId, playlistId);
+        }
+        //Creates a new Track with given playlistId connection
+        else{
+          TrackModel newTrack = TrackModel(
+            playlistIds: [playlistId], 
+            trackId: trackId, 
+            imageUrl: track.value['imageUrl'], 
+            artist: track.value['artist'], 
+            title: track.value['title']);
+
+          await createTrackDoc(userId, newTrack, playlistId);
+        }
+      }
+    }
+    catch (e){
+      debugPrint('Caught Error in database_calls.dart Function syncPlaylistTracks: $e');
+    }
+  }
+
+  //Add Track to Tracks Collection
+  Future<void> createTrackDoc(String userId, TrackModel trackModel, String playlistId) async{
+    try{
+      final trackRef = usersRef.doc(userId).collection(tracksColl);
+
+      //Creates the track document with the tracks ID as the key & fills the fields with track data
+      await trackRef.doc(trackModel.trackId).set(trackModel.toJson());
+
+      //Adds the playlist to Tracks playlistIds
+      await addPlaylistTrack(userId, trackModel.trackId, playlistId);
+    }
+    catch (e){
+      debugPrint('Caught Error in database_calls.dart Function creatTrackDoc: $e');
+    }
+  }
+
+  //Adds a connection to a Playlist for a Track
+  Future<void> addPlaylistTrack(String userId, String trackId, String playlistId) async{
+    try{
+    final tracksRef = usersRef.doc(userId).collection(tracksColl);
+    final trackFields = await tracksRef.doc(trackId).get();
+
+    List<dynamic> playlistIds = trackFields.data()?['playlistIds'];
+
+    if (!playlistIds.contains(playlistId)){
+      playlistIds.add(playlistId);
+      
+      await tracksRef.doc(trackId).update({'playlistIds': playlistIds});
+    }
+
+    }
+    catch (e){
+      debugPrint('Caught Error in database_calls.dart Function addTrackPlaylist: $e');
+    }
+  }
+
+  //Removes the playlist connection in the database
+  Future<void> removePLaylistTrack(String userId, String trackId, String playlistId) async{
+    final tracksRef = usersRef.doc(userId).collection(tracksColl);
+    final track = await tracksRef.doc(trackId).get();
+
+    if (track.exists){
+      List<dynamic> playlistIds = track.data()?['playlistIds'];
+      playlistIds.remove(playlistId);
+
+      //Updates Collection if track is connected to one of the users playlist
+      if (playlistIds.isNotEmpty){
+        tracksRef.doc(trackId).update({'playlistIds': playlistIds});
+      }
+      //Removes track from Collection if user has removed the Track from all playlists
+      else{
+        tracksRef.doc(trackId).delete();
+      }
+    }
+
+
+
+  }
 }

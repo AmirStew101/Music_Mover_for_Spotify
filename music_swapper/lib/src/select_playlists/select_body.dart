@@ -10,20 +10,20 @@ class SelectBodyWidget extends StatefulWidget {
   const SelectBodyWidget(
       {super.key,
       required this.currentPlaylist,
-      required this.selectedPlaylists,
+      required this.selectedPlaylistsMap,
       required this.playlists,
       required this.receivedCall,
       required this.sendSelected,
-      required this.userId,
+      required this.user,
       }
   );
 
-  final List<MapEntry<String, dynamic>> selectedPlaylists;
+  final Map<String, dynamic> selectedPlaylistsMap;
   final Map<String, dynamic> currentPlaylist;
   final Map<String, dynamic> playlists;
   final Map<String, dynamic> receivedCall;
   final void Function(List<MapEntry<String, dynamic>>) sendSelected;
-  final String userId;
+  final Map<String, dynamic> user;
 
   @override
   State<SelectBodyWidget> createState() => SelectBodyState();
@@ -35,11 +35,11 @@ class SelectBodyState extends State<SelectBodyWidget> {
   Map<String, dynamic> playlists = {};
   Map<String, dynamic> currentPlaylist = {};
   Map<String, dynamic> receivedCall = {};
-  String userId = '';
+  Map<String, dynamic> user = {};
   late final void Function(List<MapEntry<String, dynamic>>) sendSelected;
 
   List<MapEntry<String, dynamic>> selectedPlaylists = [];
-  String currentTitle = '';
+  String currentId = '';
   bool selectAll = false;
 
   @override
@@ -49,9 +49,27 @@ class SelectBodyState extends State<SelectBodyWidget> {
     sendSelected = widget.sendSelected;
     currentPlaylist = widget.currentPlaylist;
     receivedCall = widget.receivedCall;
-    selectedPlaylists = widget.selectedPlaylists;
-    currentTitle = currentPlaylist.entries.single.key;
-    userId = widget.userId;
+    currentId = currentPlaylist.entries.single.key;
+    user = widget.user;
+    Map<String, dynamic> receivedSelected = widget.selectedPlaylistsMap;
+
+    selectedPlaylists = List.generate(playlists.length, (index) {
+        MapEntry currPlaylist = playlists.entries.elementAt(index);
+
+        String playlistTitle = currPlaylist.value['title'];
+        String playlistId = currPlaylist.key;
+        bool selected = false;
+
+        if (receivedSelected.containsKey(playlistId)){
+          debugPrint('Selected $playlistTitle');
+          selected = true;
+        }
+
+        Map<String, dynamic> selectMap = {'chosen': selected, 'title': playlistTitle};
+
+        return MapEntry(playlistId, selectMap);
+    });
+
   }
 
   Future<void> refreshPlaylists() async {
@@ -60,16 +78,19 @@ class SelectBodyState extends State<SelectBodyWidget> {
     //Checks to make sure Tokens are up to date before making a Spotify request
     receivedCall = await checkRefresh(receivedCall, forceRefresh);
 
-    playlists = await getSpotifyPlaylists(receivedCall['expiresAt'], receivedCall['accessToken']);
+    playlists = await getSpotifyPlaylists(receivedCall['expiresAt'], receivedCall['accessToken'], user['username']);
 
     //Checks all playlists if they are in database
-    await checkPlaylists(playlists, userId);
+    await syncPlaylists(playlists, user['id']);
 
     playlists.forEach((key, value) {
       //Gets the current 'chosen' value by checking if selectedList has the playlist
       //And if it is marked as true
       //returns true when playlist 'chosen' is true and false in any other case
-      bool chosen = selectedPlaylists.contains(MapEntry(key, {'chosen': true, 'title': value['title']})); 
+      bool chosen = selectedPlaylists.contains(MapEntry(key, {'chosen': true, 'title': value['title']}));
+      if (chosen){
+        debugPrint('Refesh chosen ${value['title']}');
+      }
       Map<String, dynamic> selectMap = {'chosen': chosen, 'title': value['title']};
 
       selectedPlaylists.add(MapEntry(key, selectMap));
@@ -100,33 +121,34 @@ class SelectBodyState extends State<SelectBodyWidget> {
                 MapEntry<String, dynamic> playEntry = playlists.entries.elementAt(index);
                 String playTitle = playEntry.value['title'];
                 String playId = playEntry.key;
+                bool chosen = selectedPlaylists[index].value['chosen'];
+                Map<String, dynamic> selectMap = {'chosen': !chosen, 'title': playTitle};
 
+                if (currentId == playId){
+                  return Container();
+                }
+                else{
                   return InkWell(
                       onTap: () {
                         setState(() {
-                          bool chosen = selectedPlaylists[index].value['chosen'];
-                          Map<String, dynamic> selectMap = {'chosen': !chosen, 'title': playTitle};
-
                           selectedPlaylists[index] = MapEntry(playId, selectMap);
                         });
                         sendSelected(selectedPlaylists);
                       },
-
                       child: ListTile(
-                          leading: Checkbox(
-                            value: selectedPlaylists[index].value,
-                            onChanged: (value) {
-                              setState(() {
-                                bool chosen = selectedPlaylists[index].value['chosen'];
-                                Map<String, dynamic> selectMap = {'chosen': !chosen, 'title': playTitle};
-
-                                selectedPlaylists[index] = MapEntry(playId, selectMap);
-                              });
-                              sendSelected(selectedPlaylists);
-                            },
-                          ),
-
-                          title: Text(playTitle)));
+                        leading: Checkbox(
+                          value: chosen,
+                          onChanged: (value) {
+                            setState(() {
+                              selectedPlaylists[index] = MapEntry(playId, selectMap);
+                            });
+                            sendSelected(selectedPlaylists);
+                          },
+                        ),
+                        title: Text(playTitle),
+                      ),
+                    );
+                }
               },
             ),
             // Hovering "Select All" button

@@ -7,10 +7,10 @@ import 'package:music_swapper/utils/playlists_requests.dart';
 import 'package:music_swapper/utils/universal_widgets.dart';
 
 class ImageGridWidget extends StatefulWidget{
-  const ImageGridWidget({required this.receivedCall, required this.playlists, required this.userId, super.key});
+  const ImageGridWidget({required this.receivedCall, required this.playlists, required this.user, super.key});
   final Map<String, dynamic> receivedCall;
   final Map<String, dynamic> playlists;
-  final String userId;
+  final Map<String, dynamic> user;
 
   @override
   State<ImageGridWidget> createState() => ImageGridState();
@@ -20,14 +20,14 @@ class ImageGridWidget extends StatefulWidget{
 class ImageGridState extends State<ImageGridWidget> {
   Map<String, dynamic> receivedCall = {};
   Map<String, dynamic> playlists = {};
-  String userId = '';
+  Map<String, dynamic> user = {};
 
   @override
   void initState(){
     super.initState();
     receivedCall = widget.receivedCall;
     playlists = widget.playlists;
-    userId = widget.userId;
+    user = widget.user;
   }
 
   Future<void> refreshPlaylists() async {
@@ -36,9 +36,9 @@ class ImageGridState extends State<ImageGridWidget> {
     //Checks to make sure Tokens are up to date before making a Spotify request
     receivedCall = await checkRefresh(receivedCall, forceRefresh);
 
-    playlists.addAll(await getSpotifyPlaylists(receivedCall['expiresAt'], receivedCall['accessToken']));
+    playlists = await getSpotifyPlaylists(receivedCall['expiresAt'], receivedCall['accessToken'], user['username']);
 
-    await checkPlaylists(playlists, userId);
+    await syncPlaylists(playlists, user['id']);
 
     setState(() {
       //Update Playlists
@@ -74,7 +74,7 @@ class ImageGridState extends State<ImageGridWidget> {
                 Map<String, dynamic> homeArgs = {
                   'currentPlaylist': currentPlaylist,
                   'callback': receivedCall,
-                  'user': userId,
+                  'user': user,
                 };
                 Navigator.restorablePushNamed(context, TracksView.routeName, arguments: homeArgs);
               },

@@ -12,9 +12,9 @@ import 'package:music_swapper/utils/globals.dart';
 import 'package:http/http.dart' as http;
 
 class OptionsMenu extends StatelessWidget {
-  const OptionsMenu({required this.callback, required this.userId, super.key});
+  const OptionsMenu({required this.callback, required this.user, super.key});
   final Map<String, dynamic> callback;
-  final String userId;
+  final Map<String, dynamic> user;
 
   @override
   Widget build(BuildContext context) {
@@ -58,7 +58,7 @@ class OptionsMenu extends StatelessWidget {
         if (value == 'home') {
           Map<String, dynamic> multiArgs = {
                 'callback': callback,
-                'user': userId,
+                'user': user,
               };
           Navigator.restorablePushNamed(context, HomeView.routeName, arguments: multiArgs);
         } else if (value == 'settings') {
@@ -66,7 +66,7 @@ class OptionsMenu extends StatelessWidget {
         } else if (value == 'about') {
           Map<String, dynamic> multiArgs = {
                 'callback': callback,
-                'user': userId,
+                'user': user,
               };
           Navigator.restorablePushNamed(context, AboutView.routeName,
               arguments: multiArgs);
@@ -80,30 +80,23 @@ class OptionsMenu extends StatelessWidget {
 
 final userRepo = Get.put(UserRepository());
 
-//Check if User has track in their collection and if it is connected to given playlist
-//Creates Track and/or Playlist connection if either doesn't exist
-Future<void> checkUserTrackData(String userId, MapEntry<String, dynamic> track, String playlistId) async{
-  final userRepo = Get.put(UserRepository());
-
-  String trackId = track.key;
-  bool has = await userRepo.hasTrack(userId, trackId);
-
-  if (!has){
-    TrackModel newTrack = TrackModel(
-      playlistIds: [], 
-      trackId: trackId, 
-      imageUrl: track.value['imageUrl'], 
-      artist: track.value['artist'], 
-      title: track.value['title']);
-
-    await userRepo.createTrackDoc(userId, newTrack, trackId);
-    await userRepo.addTrackPlaylist(userId, trackId, playlistId);
+//Syncs the Users Spotify tracks with the tracks in database
+Future<bool> syncPlaylistTracksData(String userId, Map<String, dynamic> tracks, String playlistId) async{
+  debugPrint('Syncing Tracks');
+  try{
+  await userRepo.syncPlaylistTracks(userId, tracks, playlistId);
   }
+  catch (e){
+    debugPrint('Error trying to Sync Playlist Tracks: $e');
+    return false;
+  }
+  debugPrint('Finished Syncing Tracks');
+  return true;
 }
 
 //Get a list of track names for a given playlits then get there details from
 //the tracks collection using the names
-Future<Map<String, dynamic>> getPlaylistTracksData(String userId, String playlistId) async{
+Future<Map<String, dynamic>> getDatabaseTracks(String userId, String playlistId) async{
   final userRepo = Get.put(UserRepository());
 
   final tracks = await userRepo.getTracks(userId, playlistId);
@@ -113,18 +106,9 @@ Future<Map<String, dynamic>> getPlaylistTracksData(String userId, String playlis
 }
 
 
-Future<void> checkPlaylists(Map<String, dynamic> playlists, String userId) async{
-  for (var item in playlists.entries){
-    dynamic value = item.value;
-    PlaylistModel playModel = PlaylistModel(
-      title: value['title'], 
-      playlistId: item.key, 
-      link: value['link'], 
-      imageUrl: value['imageUrl'], 
-      snapshotId: value['snapshotId']);
-
-    await checkPlaylistData(userId, playModel);
-  }
+//Syncs the Users Spotify Playlists with the playlists in database
+Future<void> syncPlaylists(Map<String, dynamic> playlists, String userId) async{
+  await userRepo.syncUserPlaylists(userId, playlists);
 }
 
 Future<Map<String, dynamic>> getDatabasePlaylists(String userId) async{
@@ -132,20 +116,8 @@ Future<Map<String, dynamic>> getDatabasePlaylists(String userId) async{
   return allPlaylists;
 }
 
-Future<bool> checkPlaylistData(String userId, PlaylistModel playlist) async{
-  final userRepo = Get.put(UserRepository());
 
-  bool has = await userRepo.hasPlaylist(userId, playlist.playlistId);
-
-  if (!has){
-    userRepo.createPlaylist(userId, playlist);
-  }
-
-  return has;
-}
-
-
-Future<UserModel> checkUserData(double expiresAt, String accessToken) async {
+Future<UserModel> syncUserData(double expiresAt, String accessToken) async {
   final userRepo = Get.put(UserRepository());
 
   final getUserInfo = '$hosted/get-user-info/$expiresAt/$accessToken';
@@ -178,6 +150,11 @@ Future<UserModel> checkUserData(double expiresAt, String accessToken) async {
   throw Exception('Error getting User info');
 }
 
+Future<void> removeDatabaseTracks(String userId, List<String> trackIds, String playlistId) async{
+  for (var id in trackIds){
+    await userRepo.removePLaylistTrack(userId, id, playlistId);
+  }
+}
 
 String modifyBadQuery(String query){
   List badInput = ['\\', ';', '\'', '"', '@', '|'];
