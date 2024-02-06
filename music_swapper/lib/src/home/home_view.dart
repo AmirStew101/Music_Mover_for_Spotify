@@ -56,7 +56,7 @@ class HomeViewState extends State<HomeView> {
       await syncPlaylists(playlists, user['id']);
     }
     catch (e){
-      debugPrint('Caught an exception in Home fetchPlaylists: $e');
+      debugPrint('Caught an Error in Home fetchSpotifyPlaylists: $e');
       error = true;
     }
     loaded = true; //Future methods have complete
@@ -101,10 +101,11 @@ class HomeViewState extends State<HomeView> {
             return ImageGridWidget(receivedCall: receivedCall, playlists: playlists, user: user,);
           }
           else if(error){
-            return Center(child: Text(
+            return const Center(child: Text(
               'Error retreiving Playlists from Spotify',
               textAlign: TextAlign.center,
-              selectionColor: Colors.redAccent.shade200),
+              textScaler: TextScaler.linear(2),
+              ),
             );
           }
           else {

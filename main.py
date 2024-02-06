@@ -171,7 +171,7 @@ def get_playlists(expires_at, access_token):
     user_playlists['Liked Songs'] = {
     'title': 'Liked Songs', 
     'link': '', 
-    'imageUrl': '', 
+    'imageUrl': [], 
     'snapshotId': 'Liked Songs',
     'owner': 'Liked Songs',
     }

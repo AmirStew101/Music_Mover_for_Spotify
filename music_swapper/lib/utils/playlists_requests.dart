@@ -15,6 +15,8 @@ Future<Map<String, dynamic>> getSpotifyPlaylists(double expiresAt, String access
       
       if (responseDecode['status'] == 'Success'){
         Map<String, dynamic> playlists = responseDecode['data'];
+
+        //Removes all playlists not made by the User
         playlists.removeWhere((key, value) => value['owner'] != username && key != 'Liked Songs');
         playlists = getPlaylistImages(playlists);
         return playlists;
@@ -33,60 +35,82 @@ Map<String, dynamic> getPlaylistImages(Map<String, dynamic> playlists) {
 
   //The chosen image url
   String imageUrl = '';
+  try{
+    if (Platform.isAndroid || Platform.isIOS) {
+      //Goes through each Playlist and takes the Image size based on current users platform
+      for (var item in playlists.entries) {
 
-  if (Platform.isAndroid || Platform.isIOS) {
-    //Goes through each Playlist and takes the Image size based on current users platform
-    for (var item in playlists.entries) {
-      List imagesList = item.value['imageUrl']; //The Image list for the current Playlist
-      int middleIndex = 0; //position of the smallest image in the list
+        if (item.key != 'Liked Songs'){
+          List<dynamic> imagesList = item.value['imageUrl']; //The Image list for the current Playlist
+          int middleIndex = 0; //position of the smallest image in the list
 
-      if (imagesList.length > 2) {
-        middleIndex = imagesList.length ~/ 2;
-      }
-
-      //Some Playlists have no images this checks if a Playlist has images or not
-      if (imagesList.isNotEmpty) {
-        imageUrl = item.value['imageUrl'][middleIndex]['url'];
-        playlists[item.key]['imageUrl'] = imageUrl;
-      } 
-      else {
-        imageUrl = 'assets/images/no_image.png';
-        playlists[item.key]['imageUrl'] = imageUrl;
-      }
-
-    }
-    return playlists;
-  } 
-  else if (Platform.isMacOS || Platform.isWindows) {
-
-    for (var item in playlists.entries) {
-      List imagesList = item.value['imageUrl']; //The Image list for the current Playlist
-      int largestIndex = 0; //position of the largest image in the list
-
-      if (imagesList.length > 1) {
-        int largest = 0;
-        int index = 0;
-
-        //Iterates through the current Image Map {height, url, width} for the largest image
-        for (var image in imagesList) {
-          if (image['height'] > largest) {
-            largest = image['height'];
-            largestIndex = index;
+          if (imagesList.length > 2) {
+            middleIndex = imagesList.length ~/ 2;
           }
-          index++;
-        }
-      }
 
-      //Some Playlists have no images this checks if a Playlist has images or not
-      if (imagesList.isNotEmpty) {
-        imageUrl = item.value['imageUrl'][largestIndex]['url'];
-        playlists[item.key]['imageUrl'] = imageUrl;
-      } else {
-        imageUrl = 'assets/images/no_image.png';
-        playlists[item.key]['imageUrl'] = imageUrl;
+          //Playlist has an image
+          if (imagesList.isNotEmpty) {
+            imageUrl = item.value['imageUrl'][0]['url'];
+            playlists[item.key]['imageUrl'] = imageUrl;
+          }
+          //Playlist is missing an image so use default blank
+          else {
+            imageUrl = 'assets/images/no_image.png';
+            playlists[item.key]['imageUrl'] = imageUrl;
+          }
+        }
+        //Use the Liked Songs image
+        else{
+          imageUrl = 'assets/images/spotify_liked_songs.jpg';
+          playlists[item.key]['imageUrl'] = imageUrl;
+        }
+
       }
+      return playlists;
+    } 
+    else if (Platform.isMacOS || Platform.isWindows) {
+
+      for (var item in playlists.entries) {
+
+        if (item.key != 'Liked Songs'){          
+          List<dynamic> imagesList = item.value['imageUrl']; //The Image list for the current Playlist
+          int largestIndex = 0; //position of the largest image in the list
+
+          if (imagesList.length > 1) {
+            int largest = 0;
+            int index = 0;
+
+            //Iterates through the current Image Map {height, url, width} for the largest image
+            for (var image in imagesList) {
+              if (image['height'] > largest) {
+                largest = image['height'];
+                largestIndex = index;
+              }
+              index++;
+            }
+          }
+
+          //Some Playlists have no images this checks if a Playlist has images or not
+          if (imagesList.isNotEmpty) {
+            imageUrl = item.value['imageUrl'][largestIndex]['url'];
+            playlists[item.key]['imageUrl'] = imageUrl;
+          } else {
+            imageUrl = 'assets/images/no_image.png';
+            playlists[item.key]['imageUrl'] = imageUrl;
+          }
+        }
+        //Use the Liked Songs image
+        else{
+          imageUrl = 'assets/images/spotify_liked_songs.jpg';
+          playlists[item.key]['imageUrl'] = imageUrl;
+        }
+
+      }
+      return playlists;
     }
-    return playlists;
+  }
+  catch (e){
+    debugPrint('Caught an Error while in getPlaylistImages: $e');
   }
   throw Exception("Failed Platform is not supported");
 }

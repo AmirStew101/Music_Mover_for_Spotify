@@ -211,7 +211,9 @@ class TrackListState extends State<TrackListWidget> {
                         decoration: BoxDecoration(
                             image: DecorationImage(
                               alignment: Alignment.topRight,
-                              image: NetworkImage(trackImage),
+                              image: NetworkImage(
+                                trackImage,
+                                scale: 0.9),
                               fit: BoxFit.fitHeight,
                             ),
                             shape: BoxShape.rectangle),
