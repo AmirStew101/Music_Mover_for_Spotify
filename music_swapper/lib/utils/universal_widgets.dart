@@ -151,8 +151,11 @@ Future<UserModel> syncUserData(double expiresAt, String accessToken) async {
 }
 
 Future<void> removeDatabaseTracks(String userId, List<String> trackIds, String playlistId) async{
-  for (var id in trackIds){
-    await userRepo.removePLaylistTrack(userId, id, playlistId);
+  try{
+    await userRepo.removePlaylistTracks(userId, trackIds, playlistId);
+  }
+  catch (e){
+    debugPrint('Caught Error in universal_widgets.dart function removeDatabaseTracks: $e');
   }
 }
 
