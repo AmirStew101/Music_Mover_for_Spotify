@@ -10,7 +10,6 @@ class UserRepository extends GetxController {
   final usersRef = FirebaseFirestore.instance.collection('Users');
   final playlistColl  = 'Playlists';//Collection name for Users Playlists
   final tracksColl = 'Tracks'; //Collection name for Users Tracks
-  final batch = FirebaseFirestore.instance.batch();
 
   Future<bool> hasUser(UserModel user) async {
     try{
@@ -47,6 +46,7 @@ class UserRepository extends GetxController {
       int databasePlaylists = playlistDocs.docs.length;
       int spotPlaylists = spotifyPlaylists.length;
 
+
       //Removes playlists from database that are not in Spotify
       for (var playlistDoc in playlistDocs.docs){
         final playlistId = playlistDoc.id;
@@ -60,6 +60,8 @@ class UserRepository extends GetxController {
 
       //Adds playlists that Database is missing
       int i = 0;
+      List<PlaylistModel> playlists = [];
+
       while (databasePlaylists != spotPlaylists && i < spotPlaylists){
         final spotPlaylist = spotifyPlaylists.entries.elementAt(i);
 
@@ -69,7 +71,7 @@ class UserRepository extends GetxController {
         if (!dataPlaylist.exists){
           databasePlaylists++;
 
-          PlaylistModel playlistModel = PlaylistModel(
+          PlaylistModel newPlaylist = PlaylistModel(
           title: spotPlaylist.value['title'], 
           id: playlistId, 
           link: spotPlaylist.value['link'], 
@@ -77,11 +79,16 @@ class UserRepository extends GetxController {
           snapshotId: spotPlaylist.value['snapshotId'],
           trackIds: []);
 
-          await createPlaylist(userId, playlistModel);
-          debugPrint('Adding ${playlistModel.title}');
+          playlists.add(newPlaylist);
+
+          debugPrint('Adding ${newPlaylist.title}');
         }
 
         i++;
+      }
+
+      if (playlists.isNotEmpty){
+        await createPlaylists(userId, playlists);
       }
 
     }
@@ -116,10 +123,16 @@ class UserRepository extends GetxController {
   }
 
   //Add all Playlists as collections to database
-  Future<void> createPlaylist(String userId, PlaylistModel playlist) async{
+  Future<void> createPlaylists(String userId, List<PlaylistModel> playlists) async{
     try{
-    final playlistRef = usersRef.doc(userId).collection(playlistColl);
-    await playlistRef.doc(playlist.id).set(playlist.toJson());
+      final addBatch = FirebaseFirestore.instance.batch();
+
+      final playlistRef = usersRef.doc(userId).collection(playlistColl);
+      for(var model in playlists){
+        addBatch.set(playlistRef.doc(model.id), model.toJson());
+      }
+
+      await addBatch.commit();
     }
     catch (e){
       debugPrint('Caught Error in database_calls.dart Function createPlaylist $e');
@@ -137,23 +150,24 @@ class UserRepository extends GetxController {
       await playlistRef.doc(playlistId).delete(); //Removes PLaylist from collection
 
       final tracksRef = usersRef.doc(userId).collection(tracksColl);
+      final deleteBatch = FirebaseFirestore.instance.batch();
 
       //Removes all of the Playlist's track connections
-      if (trackIds.isNotEmpty){      
-        for (var id in trackIds){
-          final track = await tracksRef.doc().get(id); //Get the tracks Fields
+      for (var id in trackIds){
+        final track = await tracksRef.doc().get(id); //Get the tracks Fields
 
-          if (track.exists){
-            int totalPlaylists = track.data()?['totalPlaylists']; //Get the number of playlists the track is in
-            totalPlaylists--;
+        if (track.exists){
+          int totalPlaylists = track.data()?['totalPlaylists']; //Get the number of playlists the track is in
+          totalPlaylists--;
 
-            //Removes track that user has removed from all playlists
-            if (totalPlaylists == 0){
-              await tracksRef.doc(id).delete();
-            }
+          //Removes track that user has removed from all playlists
+          if (totalPlaylists == 0){
+            deleteBatch.delete(tracksRef.doc(id));
           }
         }
       }
+
+      await deleteBatch.commit();
     }
     catch (e){
       debugPrint('Error Removing Playlist: $e');
@@ -172,19 +186,26 @@ class UserRepository extends GetxController {
 
       int databaseTracks = trackIds.length;
       int spotTracks = spotifyTracks.length;
+      List<String> removeTracks = [];
       
       //Removes extra tracks from playlist
       for (var id in trackIds){
         if (!spotifyTracks.containsKey(id)){
           databaseTracks--;
-          await removePLaylistTrack(userId, id, playlistId);
+          removeTracks.add(id);
           debugPrint('Removing ${spotifyTracks[id]['title']}');
         }
+      }
+
+      if(removeTracks.isNotEmpty){
+        await removePlaylistTracks(userId, removeTracks, playlistId);
       }
 
       if (databaseTracks > 0){
         //If Spotify & Database do not have matching tracks it adds
         int i = 0;
+        List<TrackModel> createTracks = [];
+
         while(databaseTracks != spotTracks && i < spotTracks){
           final track = spotifyTracks.entries.elementAt(i);
           String trackId = track.key;
@@ -201,11 +222,14 @@ class UserRepository extends GetxController {
               previewUrl: track.value['previewUrl']
             );
 
-            await createTrackDoc(userId, newTrack, playlistId);
             debugPrint('Adding ${newTrack.title}');
           }
 
           i++;
+        }
+
+        if (createTracks.isNotEmpty){
+          await createTrackDocs(userId, createTracks, playlistId);
         }
       }
     }
@@ -244,36 +268,40 @@ class UserRepository extends GetxController {
   }
 
   //Add Track to Tracks Collection
-  Future<void> createTrackDoc(String userId, TrackModel trackModel, String playlistId) async{
+  Future<void> createTrackDocs(String userId, List<TrackModel> trackModels, String playlistId) async{
     try{
       final playlistRef = usersRef.doc(userId).collection(playlistColl);
       final tracksRef = usersRef.doc(userId).collection(tracksColl);
-
       final playlist = await playlistRef.doc(playlistId).get();
+      final batch = FirebaseFirestore.instance.batch();
+
       List<dynamic> trackIds = playlist.data()?['trackIds'];
-      String trackId = trackModel.id;
 
-      //Adds the track Id to the Playlist's tracks
-      if (!trackIds.contains(trackId)){
-        trackIds.add(trackId);
-        await playlistRef.doc(playlistId).update({'trackIds': trackIds});
+      for (var model in trackModels){
+        String trackId = model.id;
+
+        //Adds the track Id to the Playlist's tracks
+        if (!trackIds.contains(trackId)){
+          trackIds.add(trackId);
+          batch.update(playlistRef.doc(playlistId), {'trackIds': trackIds});
+        }
+
+        final trackDoc = await tracksRef.doc(trackId).get();
+        
+        //Updates Track data if it exists already
+        if (trackDoc.exists){
+          batch.update(tracksRef.doc(trackId), {'totalPlaylists': FieldValue.increment(1)});
+          debugPrint('Track Exists ${trackDoc.data()}');
+        }
+        //Creates a new Track document if none exits
+        else{
+          debugPrint('New Track ${model.title}');
+          //Creates the track document with the tracks ID as the key & fills the fields with track data
+          batch.set(tracksRef.doc(model.id), model.toJson());
+        }
       }
 
-      final trackDoc = await tracksRef.doc(trackId).get();
-      
-      //Updates Track data if it exists already
-      if (trackDoc.exists){
-        int totalPlaylists = trackDoc.data()?['totalPlaylists'];
-        totalPlaylists++;
-        await tracksRef.doc(trackId).update({'totalPlaylists': totalPlaylists});
-        debugPrint('Track Exists ${trackDoc.data()}');
-      }
-      //Creates a new Track document if none exits
-      else{
-        debugPrint('New Track ${trackModel.title}');
-        //Creates the track document with the tracks ID as the key & fills the fields with track data
-        await tracksRef.doc(trackModel.id).set(trackModel.toJson());
-      }
+      await batch.commit();
     }
     catch (e){
       debugPrint('Caught Error in database_calls.dart Function creatTrackDoc: $e');
@@ -281,67 +309,42 @@ class UserRepository extends GetxController {
   }
 
   //Removes the playlist connection in the database
-  Future<void> removePLaylistTrack(String userId, String trackId, String playlistId) async{
-    final playlistRef = usersRef.doc(userId).collection(playlistColl);
-    final playlist = await playlistRef.doc(playlistId).get();
+  Future<void> removePlaylistTracks(String userId, List<String> trackIds, String playlistId) async{
+      try{
+      final playlistRef = usersRef.doc(userId).collection(playlistColl);
+      final playlist = await playlistRef.doc(playlistId).get();
+      final tracksRef = usersRef.doc(userId).collection(tracksColl);
+      final batch = FirebaseFirestore.instance.batch();
 
-    final tracksRef = usersRef.doc(userId).collection(tracksColl);
-    final track = await tracksRef.doc(trackId).get();
-
-    if (playlist.exists){
-
-      //Get Track ids and remove the chosen track from the list
-      List<String> trackIds = playlist.data()?['trackIds'];
-      trackIds.remove(trackId);
-      await playlistRef.doc(playlistId).update({'trackIds': trackIds});
-
-      //Get the total number of playlists the track is in
-      int totalPlaylists = track.data()?['totalPlaylists'];
-      totalPlaylists--;
-
-      //Removes track from Collection if user has removed the Track from all playlists
-      if (totalPlaylists == 0){
-        await tracksRef.doc(trackId).delete();
+      if (!playlist.exists){
+        throw Exception('Playlist does not exist');
       }
-      //Updates Collection if track is connected to atleast one of the users playlist
-      else{
-        await tracksRef.doc(trackId).update({'totalPlaylists': totalPlaylists});
+
+      for (var id in trackIds){
+        final track = await tracksRef.doc(id).get();
+
+        //Get Track ids and remove the chosen track from the list
+        batch.update(playlistRef.doc(playlistId), {'trackIds': FieldValue.arrayRemove([id])});
+
+        if (track.exists){
+          //Updates the total number of playlists the track is in
+          batch.update(tracksRef.doc(id), {'totalPlaylists':FieldValue.increment(-1)});
+          int totalPlaylists = track.data()?['totalPlaylists'];
+
+          //Removes track from Collection if user has removed the Track from all playlists
+          if (totalPlaylists == 0){
+            batch.delete(tracksRef.doc(id));
+          }
+        }
+        
       }
+
+      await batch.commit();
+    }
+    catch (e){
+      debugPrint('Caught an Error in database_calls.dart function removePlaylistTracks: $e');
     }
 
-  }
-
-  Future<void> batchDeleteTracks(String userId, List<String> trackIds, String playlistId) async{
-    // final playlistRef = usersRef.doc(userId).collection(playlistColl);
-    // final playlist = await playlistRef.doc(playlistId).get();
-
-    // final tracksRef = usersRef.doc(userId).collection(tracksColl);
-    // final track = await tracksRef.doc(trackId).get();
-
-    // for (var id in trackIds){
-      
-    // }
-
-    // if (playlist.exists){
-
-    //   //Get Track ids and remove the chosen track from the list
-    //   List<String> trackIds = playlist.data()?['trackIds'];
-    //   trackIds.remove(trackId);
-    //   await playlistRef.doc(playlistId).update({'trackIds': trackIds});
-
-    //   //Get the total number of playlists the track is in
-    //   int totalPlaylists = track.data()?['totalPlaylists'];
-    //   totalPlaylists--;
-
-    //   //Removes track from Collection if user has removed the Track from all playlists
-    //   if (totalPlaylists == 0){
-    //     await tracksRef.doc(trackId).delete();
-    //   }
-    //   //Updates Collection if track is connected to atleast one of the users playlist
-    //   else{
-    //     await tracksRef.doc(trackId).update({'totalPlaylists': totalPlaylists});
-    //   }
-    // }
   }
 
 }
