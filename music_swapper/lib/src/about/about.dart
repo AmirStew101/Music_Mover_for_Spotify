@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:music_swapper/utils/database/database_model.dart';
-import 'package:music_swapper/utils/universal_widgets.dart';
+import 'package:spotify_music_helper/utils/universal_widgets.dart';
 
 class AboutView extends StatelessWidget {
   const AboutView({required this.multiArgs, super.key});

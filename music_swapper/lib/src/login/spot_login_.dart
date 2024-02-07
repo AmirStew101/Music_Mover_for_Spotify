@@ -1,43 +1,37 @@
 import 'dart:convert';
-import 'dart:io';
 
 import 'package:another_flushbar/flushbar.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:http/http.dart' as http;
-import 'package:music_swapper/src/home/home_view.dart';
-import 'package:music_swapper/utils/database/database_model.dart';
-import 'package:music_swapper/utils/universal_widgets.dart';
+import 'package:spotify_music_helper/src/home/home_view.dart';
+import 'package:spotify_music_helper/utils/database/database_model.dart';
+import 'package:spotify_music_helper/utils/universal_widgets.dart';
 import 'package:webview_flutter/webview_flutter.dart';
-import 'package:music_swapper/utils/globals.dart';
-import 'package:webview_flutter_android/webview_flutter_android.dart';
+import 'package:spotify_music_helper/utils/globals.dart';
 
 Future<WebViewController> initiateLogin(BuildContext context) async {
   const loginURL = '$hosted/get-auth-url';
 
-    final response = await http.get(Uri.parse(loginURL));
-    final responseDecode = json.decode(response.body);
+  final response = await http.get(Uri.parse(loginURL));
+  final responseDecode = json.decode(response.body);
 
-    final authUrl = responseDecode['data']; //The authorization url to get Spotify access
+  final authUrl = responseDecode['data']; //The authorization url to get Spotify access
 
-    // Makes a Web controller to login to Spotify and redirect back to app
-    if (responseDecode['status'] == 'Success') {
-      final authUri = Uri.parse(authUrl);
+  // Makes a Web controller to login to Spotify and redirect back to app
+  if (responseDecode['status'] == 'Success') {
+    final authUri = Uri.parse(authUrl);
 
-      Map callback = {'accessToken': '', 'refreshToken': '', 'expiresAt': ''};
+    Map callback = {'accessToken': '', 'refreshToken': '', 'expiresAt': ''};
 
-      //Sets up parameters for the Web controller
-      PlatformWebViewControllerCreationParams params = const PlatformWebViewControllerCreationParams();
+    //Sets up parameters for the Web controller
+    PlatformWebViewControllerCreationParams params = const PlatformWebViewControllerCreationParams();
 
-      if (WebViewPlatform.instance is AndroidWebViewPlatform){
-        params = AndroidWebViewControllerCreationParams
-        .fromPlatformWebViewControllerCreationParams(params);
-      }
-
-      //Creates controller to direct where the url goes and where the /callback from
-      //Spotify takes the user when using a mobile app
-      final controller = WebViewController.fromPlatformCreationParams(params);
-      
+    //Creates controller to direct where the url goes and where the /callback from
+    //Spotify takes the user when using a mobile app
+    final controller = WebViewController.fromPlatformCreationParams(params);
+    
+    try{
       //Sets up the controller settings and what the user sees 
       controller
         ..setJavaScriptMode(JavaScriptMode.unrestricted)
@@ -49,7 +43,7 @@ Future<WebViewController> initiateLogin(BuildContext context) async {
             debugPrint('Spotify Login Loading (progress: $progress%)');
           },
           onNavigationRequest: (NavigationRequest request) async {
-            if (request.url.startsWith('$hosted/callback') && (Platform.isAndroid || Platform.isIOS)) {
+            if (request.url.startsWith('$hosted/callback')) {
               callback = await getCallback(request.url);
               
               final UserModel userModel = await syncUserData(callback['expiresAt'], callback['accessToken']);
@@ -77,10 +71,14 @@ Future<WebViewController> initiateLogin(BuildContext context) async {
           },
         ))
         ..loadRequest(authUri, method: LoadRequestMethod.get);
-
-      return controller;
     }
-    throw Error();
+    catch (e){
+      debugPrint('Caught Error while trying to login to Spotify $e');
+    }
+
+    return controller;
+  }
+  throw Error();
 }
 
 //Function to decide what to do when /callback is called

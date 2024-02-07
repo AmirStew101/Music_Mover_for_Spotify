@@ -1,7 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
-import 'package:music_swapper/firebase_options.dart';
+import 'package:spotify_music_helper/firebase_options.dart';
 
 import 'src/app.dart';
 import 'src/settings/settings_controller.dart';

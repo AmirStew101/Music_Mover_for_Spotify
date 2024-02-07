@@ -1,9 +1,8 @@
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
-import 'package:music_swapper/utils/database/database_model.dart';
-import 'package:music_swapper/utils/playlists_requests.dart';
-import 'package:music_swapper/utils/tracks_requests.dart';
-import 'package:music_swapper/utils/universal_widgets.dart';
+import 'package:spotify_music_helper/utils/playlists_requests.dart';
+import 'package:spotify_music_helper/utils/tracks_requests.dart';
+import 'package:spotify_music_helper/utils/universal_widgets.dart';
 
 //Creates the state to update tracks the user selected
 //Receives all the users tracks for the selected playlist
@@ -184,7 +183,7 @@ class TrackListState extends State<TrackListWidget> {
               //Used for displaying track information
               final trackTitle = trackMap.value['title'];
               final trackImage = trackMap.value['imageUrl'];
-              final trackPrevUrl = trackMap.value?['previewUrl'] ?? '';
+              //final trackPrevUrl = trackMap.value?['previewUrl'] ?? '';
               final trackArtist = trackMap.value['artist'];
 
               //Used to update Selected Tracks

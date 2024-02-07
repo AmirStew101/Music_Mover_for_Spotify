@@ -1,8 +1,8 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
-import 'package:music_swapper/src/login/spot_login_view.dart';
-import 'package:music_swapper/src/settings/settings_view.dart';
+import 'package:spotify_music_helper/src/login/spot_login_view.dart';
+import 'package:spotify_music_helper/src/settings/settings_view.dart';
 
 class StartView extends StatelessWidget {
   const StartView({super.key});

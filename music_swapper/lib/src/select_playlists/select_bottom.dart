@@ -3,10 +3,10 @@
 
 import 'package:another_flushbar/flushbar.dart';
 import 'package:flutter/material.dart';
-import 'package:music_swapper/src/tracks/tracks_view.dart';
-import 'package:music_swapper/utils/playlists_requests.dart';
-import 'package:music_swapper/utils/tracks_requests.dart';
-import 'package:music_swapper/utils/universal_widgets.dart';
+import 'package:spotify_music_helper/src/tracks/tracks_view.dart';
+import 'package:spotify_music_helper/utils/playlists_requests.dart';
+import 'package:spotify_music_helper/utils/tracks_requests.dart';
+import 'package:spotify_music_helper/utils/universal_widgets.dart';
 
 class SelectBottom extends StatelessWidget {
   const SelectBottom(

@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:music_swapper/src/home/home_appbar.dart';
-import 'package:music_swapper/utils/database/database_model.dart';
-import 'package:music_swapper/utils/playlists_requests.dart';
-import 'package:music_swapper/src/home/home_body.dart';
-import 'package:music_swapper/src/tracks/tracks_view.dart';
-import 'package:music_swapper/utils/universal_widgets.dart';
+import 'package:spotify_music_helper/src/home/home_appbar.dart';
+import 'package:spotify_music_helper/utils/playlists_requests.dart';
+import 'package:spotify_music_helper/src/home/home_body.dart';
+import 'package:spotify_music_helper/src/tracks/tracks_view.dart';
+import 'package:spotify_music_helper/utils/universal_widgets.dart';
 
 //Creates the state for the home screen to view/edit playlists
 class HomeView extends StatefulWidget {

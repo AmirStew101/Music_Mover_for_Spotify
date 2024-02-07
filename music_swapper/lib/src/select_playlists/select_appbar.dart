@@ -1,6 +1,6 @@
 
 import 'package:flutter/material.dart';
-import 'package:music_swapper/utils/universal_widgets.dart';
+import 'package:spotify_music_helper/utils/universal_widgets.dart';
 
 class SelectPlaylistSearchDelegate extends SearchDelegate {
   List<MapEntry<String, dynamic>> searchResults = []; //Names of each playlist
@@ -62,7 +62,9 @@ class SelectPlaylistSearchDelegate extends SearchDelegate {
   Widget buildResults(BuildContext context) {
 
     query = modifyBadQuery(query);
-    if (searchResults.contains(query)) {
+    bool searchHas = searchResults.any((element) => element.value['title'] == query);
+    
+    if (searchHas) {
       close(context, selectedList);
     }
     return const Center(child: Text('No Matching Results', textScaler: TextScaler.linear(2)));

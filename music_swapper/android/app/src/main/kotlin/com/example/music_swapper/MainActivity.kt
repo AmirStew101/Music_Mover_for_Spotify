@@ -1,4 +1,4 @@
-package com.example.music_swapper
+package com.spotify_music_helper
 
 import io.flutter.embedding.android.FlutterActivity
 

@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:music_swapper/src/login/spot_login_.dart';
+import 'package:spotify_music_helper/src/login/spot_login_.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
 class SpotViewContainer extends StatefulWidget {

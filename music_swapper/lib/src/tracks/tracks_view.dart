@@ -1,12 +1,11 @@
 import 'package:another_flushbar/flushbar.dart';
 import 'package:flutter/material.dart';
-import 'package:music_swapper/src/select_playlists/select_playlists_view.dart';
-import 'package:music_swapper/utils/database/database_model.dart';
-import 'package:music_swapper/utils/playlists_requests.dart';
-import 'package:music_swapper/src/tracks/tracks_body_widgets.dart';
-import 'package:music_swapper/utils/tracks_requests.dart';
-import 'package:music_swapper/src/tracks/tracks_appbar_widgets.dart';
-import 'package:music_swapper/utils/universal_widgets.dart';
+import 'package:spotify_music_helper/src/select_playlists/select_playlists_view.dart';
+import 'package:spotify_music_helper/utils/playlists_requests.dart';
+import 'package:spotify_music_helper/src/tracks/tracks_body_widgets.dart';
+import 'package:spotify_music_helper/utils/tracks_requests.dart';
+import 'package:spotify_music_helper/src/tracks/tracks_appbar_widgets.dart';
+import 'package:spotify_music_helper/utils/universal_widgets.dart';
 
 class TracksView extends StatefulWidget {
   static const routeName = '/tracksView';
@@ -69,7 +68,7 @@ class TracksViewState extends State<TracksView> {
       debugPrint('\nLoaded');
     }
     else{
-      await fetchSpotifyTracks();
+      //await fetchSpotifyTracks();
     }
 
   }
@@ -92,14 +91,14 @@ class TracksViewState extends State<TracksView> {
               totalTracks); //gets user tracks for playlist
 
             //Adds tracks to database for faster retreival later
-            await syncPlaylistTracksData(user['id'], allTracks, playlistId);
+            //await syncPlaylistTracksData(user['id'], allTracks, playlistId);
         }
       }
       catch (e){
         debugPrint('Caught Error while trying to fetch tracks in tracks view \n$e');
       }
     }
-
+    debugPrint('Total Spotify Tracks: $totalTracks');
     loaded = true; //Tracks if the tracks are loaded to be shown
   }
 
@@ -190,7 +189,7 @@ class TracksViewState extends State<TracksView> {
         ),
         //Loads the users tracks and its associated images after fetching them for user viewing
         body: FutureBuilder<void>(
-          future: fetchDatabaseTracks(),
+          future: fetchSpotifyTracks(),
           builder: (context, snapshot) {
             //Playlist has tracks and Tracks finished loading
             if (snapshot.connectionState == ConnectionState.done && loaded && totalTracks > 0) {

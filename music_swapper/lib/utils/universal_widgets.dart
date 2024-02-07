@@ -3,12 +3,12 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:music_swapper/src/about/about.dart';
-import 'package:music_swapper/src/home/home_view.dart';
-import 'package:music_swapper/src/settings/settings_view.dart';
-import 'package:music_swapper/utils/database/database_model.dart';
-import 'package:music_swapper/utils/database/databse_calls.dart';
-import 'package:music_swapper/utils/globals.dart';
+import 'package:spotify_music_helper/src/about/about.dart';
+import 'package:spotify_music_helper/src/home/home_view.dart';
+import 'package:spotify_music_helper/src/settings/settings_view.dart';
+import 'package:spotify_music_helper/utils/database/database_model.dart';
+import 'package:spotify_music_helper/utils/database/databse_calls.dart';
+import 'package:spotify_music_helper/utils/globals.dart';
 import 'package:http/http.dart' as http;
 
 class OptionsMenu extends StatelessWidget {

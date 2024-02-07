@@ -1,15 +1,19 @@
 
-import 'package:another_flushbar/flushbar.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:get/get.dart';
-import 'package:music_swapper/utils/database/database_model.dart';
+import 'package:spotify_music_helper/utils/database/database_model.dart';
 
+
+final db = FirebaseFirestore.instance;
 class UserRepository extends GetxController {
   static UserRepository get instance => Get.find();
-  final usersRef = FirebaseFirestore.instance.collection('Users');
+  final usersRef = db.collection('Users');
   final playlistColl  = 'Playlists';//Collection name for Users Playlists
   final tracksColl = 'Tracks'; //Collection name for Users Tracks
+
+  final CacheManager cacheManager = DefaultCacheManager();
 
   Future<bool> hasUser(UserModel user) async {
     try{
@@ -125,7 +129,7 @@ class UserRepository extends GetxController {
   //Add all Playlists as collections to database
   Future<void> createPlaylists(String userId, List<PlaylistModel> playlists) async{
     try{
-      final addBatch = FirebaseFirestore.instance.batch();
+      final addBatch = db.batch();
 
       final playlistRef = usersRef.doc(userId).collection(playlistColl);
       for(var model in playlists){
@@ -150,7 +154,7 @@ class UserRepository extends GetxController {
       await playlistRef.doc(playlistId).delete(); //Removes PLaylist from collection
 
       final tracksRef = usersRef.doc(userId).collection(tracksColl);
-      final deleteBatch = FirebaseFirestore.instance.batch();
+      final deleteBatch = db.batch();
 
       //Removes all of the Playlist's track connections
       for (var id in trackIds){
@@ -247,19 +251,27 @@ class UserRepository extends GetxController {
       final tracksRef = usersRef.doc(userId).collection(tracksColl);
 
       Map<String, dynamic> playlistTracks = {};
+      List<Future<DocumentSnapshot<Map<String, dynamic>>>> trackFutures = [];
 
       for (var id in trackIds){
-        final track = await tracksRef.doc(id).get();
+        trackFutures.add(tracksRef.doc(id).get());
+      }
+
+      final trackSnaps = await Future.wait(trackFutures);
+
+      for (var i=0; i < trackSnaps.length; i++){
+        final track = trackSnaps[i];
 
         String artist = track.data()?['artist'];
         String imageUrl = track.data()?['imageUrl'];
         String previewUrl = track.data()?['previewUrl'] ?? '';
         String title = track.data()?['title'];
+        String id = track.id;
         
         playlistTracks[id] = {'artist': artist, 'imageUrl': imageUrl, 'previewUrl': previewUrl, 'title': title};
       }
-      return playlistTracks;
 
+      return playlistTracks;
     }
     catch (e){
       debugPrint('Caught Error in database_calls function getTracks: $e');
@@ -273,7 +285,7 @@ class UserRepository extends GetxController {
       final playlistRef = usersRef.doc(userId).collection(playlistColl);
       final tracksRef = usersRef.doc(userId).collection(tracksColl);
       final playlist = await playlistRef.doc(playlistId).get();
-      final batch = FirebaseFirestore.instance.batch();
+      final batch = db.batch();
 
       List<dynamic> trackIds = playlist.data()?['trackIds'];
 
@@ -314,7 +326,7 @@ class UserRepository extends GetxController {
       final playlistRef = usersRef.doc(userId).collection(playlistColl);
       final playlist = await playlistRef.doc(playlistId).get();
       final tracksRef = usersRef.doc(userId).collection(tracksColl);
-      final batch = FirebaseFirestore.instance.batch();
+      final batch = db.batch();
 
       if (!playlist.exists){
         throw Exception('Playlist does not exist');

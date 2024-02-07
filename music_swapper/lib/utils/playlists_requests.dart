@@ -1,9 +1,8 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:get/get.dart';
 import 'package:http/http.dart' as http;
-import 'package:music_swapper/utils/globals.dart';
+import 'package:spotify_music_helper/utils/globals.dart';
 
 Future<Map<String, dynamic>> getSpotifyPlaylists(double expiresAt, String accessToken, String username) async {
   try {
@@ -42,11 +41,11 @@ Map<String, dynamic> getPlaylistImages(Map<String, dynamic> playlists) {
 
         if (item.key != 'Liked Songs'){
           List<dynamic> imagesList = item.value['imageUrl']; //The Image list for the current Playlist
-          int middleIndex = 0; //position of the smallest image in the list
+          // int middleIndex = 0; //position of the smallest image in the list
 
-          if (imagesList.length > 2) {
-            middleIndex = imagesList.length ~/ 2;
-          }
+          // if (imagesList.length > 2) {
+          //   middleIndex = imagesList.length ~/ 2;
+          // }
 
           //Playlist has an image
           if (imagesList.isNotEmpty) {
@@ -118,7 +117,7 @@ Map<String, dynamic> getPlaylistImages(Map<String, dynamic> playlists) {
 Future<Map<String, dynamic>> spotRefreshToken(double expiresAt, String refreshToken) async {
   debugPrint('Spotify Refresh');
   try{
-    final refreshUrl = '$ngrok/refresh-token/$expiresAt/$refreshToken';
+    final refreshUrl = '$hosted/refresh-token/$expiresAt/$refreshToken';
 
     final response = await http.get(Uri.parse(refreshUrl));
     final responseDecode = json.decode(response.body);

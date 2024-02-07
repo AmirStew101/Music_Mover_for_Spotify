@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
-import 'package:music_swapper/src/about/about.dart';
-import 'package:music_swapper/src/home/home_view.dart';
-import 'package:music_swapper/src/login/spot_login_view.dart';
-import 'package:music_swapper/src/select_playlists/select_playlists_view.dart';
-import 'package:music_swapper/src/tracks/tracks_view.dart';
-import 'package:music_swapper/src/start/start.dart';
+import 'package:spotify_music_helper/src/about/about.dart';
+import 'package:spotify_music_helper/src/home/home_view.dart';
+import 'package:spotify_music_helper/src/login/spot_login_view.dart';
+import 'package:spotify_music_helper/src/select_playlists/select_playlists_view.dart';
+import 'package:spotify_music_helper/src/tracks/tracks_view.dart';
+import 'package:spotify_music_helper/src/start/start.dart';
 
 import 'settings/settings_controller.dart';
 import 'settings/settings_view.dart';

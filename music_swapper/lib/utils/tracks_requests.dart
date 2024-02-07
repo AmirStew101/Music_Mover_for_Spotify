@@ -2,8 +2,8 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
-import 'package:music_swapper/utils/globals.dart';
 import 'package:http/http.dart' as http;
+import 'package:spotify_music_helper/utils/globals.dart';
 
 Future<int> getSpotifyTracksTotal(String playlistId, double expiresAt, String accessToken) async{
   try{
