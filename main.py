@@ -53,7 +53,7 @@ def login():
         'response_type': 'code',
         'scope': scope,
         'redirect_uri': SITE_REDIRECT_URI,
-        'show_dialog': True #Forces the user to login again for Testing
+        'show_dialog': False #Forces the user to login again for Testing
     }
 
     auth_url = f"{AUTH_URL}?{urllib.parse.urlencode(params)}"
@@ -141,6 +141,9 @@ def get_playlists(expires_at, access_token):
     getUrl = API_BASE_URL + 'me/playlists?limit=50'
     response = requests.get(getUrl, headers=header)
 
+    if response.status_code != 200:
+        return jsonify({'status': 'Failed', 'message': f'Failed to get playlists: {response.status_code} {response.json()}'})
+    
     playlists = response.json()
     playlist_items = playlists['items']
 
@@ -155,7 +158,7 @@ def get_playlists(expires_at, access_token):
                 'link': item['tracks']['href'], 
                 'imageUrl': item['images'], 
                 'snapshotId': item['snapshot_id'],
-                'owner': item['owner']['display_name'],
+                'owner': item['owner']['id'],
             }
             i += 1
         else:
@@ -164,16 +167,16 @@ def get_playlists(expires_at, access_token):
                 'link': item['tracks']['href'], 
                 'imageUrl': item['images'], 
                 'snapshotId': item['snapshot_id'],
-                'owner': item['owner']['display_name'],
+                'owner': item['owner']['id'],
             }
 
-    #Manually add Liked Songs playlist
-    user_playlists['Liked Songs'] = {
-    'title': 'Liked Songs', 
+    #Manually add Liked_Songs playlist
+    user_playlists['Liked_Songs'] = {
+    'title': 'Liked_Songs', 
     'link': '', 
     'imageUrl': [], 
-    'snapshotId': 'Liked Songs',
-    'owner': 'Liked Songs',
+    'snapshotId': 'Liked_Songs',
+    'owner': 'Liked_Songs',
     }
 
     """
@@ -202,7 +205,7 @@ def get_tracks_total(playlist_id, expires_at, access_token):
             'Authorization': f"Bearer {access_token}"
         }
 
-        if playlist_id != 'Liked Songs':
+        if playlist_id != 'Liked_Songs':
             #Gets the first item of user playlist for Playlist size
             getUrl = API_BASE_URL + 'playlists/' + playlist_id + '/tracks?limit=1'
         else:
@@ -210,13 +213,15 @@ def get_tracks_total(playlist_id, expires_at, access_token):
 
         response = requests.get(getUrl, headers= header)
 
-        tracks = response.json()
-        totalItems = tracks['total']
+        if response.status_code == 200:
+            tracks = response.json()
+            totalItems = tracks['total']
 
-        return jsonify({'status': 'Success', 'totalTracks': totalItems})
+            return jsonify({'status': 'Success', 'totalTracks': totalItems})
+        
+        return jsonify({'status': 'Failed', 'message': f'Failed to get track total: {response.status_code} {response.json()}'})
     
     return jsonify({'status': 'Failed', 'message': 'Missing Playlist ID'})
-
 
 @app.route('/get-all-tracks/<playlist_id>/<expires_at>/<access_token>/<total_tracks>')
 def get_all_tracks(playlist_id, expires_at, access_token, total_tracks):
@@ -241,14 +246,10 @@ def get_all_tracks(playlist_id, expires_at, access_token, total_tracks):
         playlist_tracks = {}
         
         for offset in range(0, total_tracks, 50 ):
-            offsetStr = str(offset)
+            #offsetStr = str(offset)
+            print(f'Offset {offset}, Total: {total_tracks}')
 
-            if playlist_id != 'Liked Songs':
-                getUrl = API_BASE_URL + 'playlists/' + playlist_id + f'/tracks?limit=50&offset={offsetStr}'
-            else:
-                getUrl = API_BASE_URL + f'me/tracks?limit=50&offset={offsetStr}'
-
-            response = requests.get(getUrl, headers=header)
+            response = handleGetTracks(playlist_id, offset, header)
 
             if response.status_code == 200:
                 tracks = response.json()
@@ -259,72 +260,59 @@ def get_all_tracks(playlist_id, expires_at, access_token, total_tracks):
                 with its associated images, preview_url, and artist
                 """
                 for item in tracks_items:
-                    track_id = item['track']['id']
 
-                    if track_id is not None:
-                        track_title = item['track']['name']
-                        track_images = item['track']['album']['images']
+                    #Checks if it is a Spotify track
+                    if item is not None:
+                        track_id = item['track']['id']
 
-                        preview_url = item['track']['preview_url'] or ''
-                        
-                        track_artist = item['track']['artists'][0]['name']
-                        if track_artist and track_images and track_title:
-                            playlist_tracks[track_id] = {
-                                'title': track_title,
-                                'imageUrl': track_images, 
-                                'artist': track_artist,
-                                'preview_url': preview_url,
-                            }
+                        if track_id is not None:
+                            track_title = item['track']['name']
+                            track_images = item['track']['album']['images']
 
-        return jsonify({'status': 'Success', 'data': playlist_tracks})
+                            preview_url = item['track']['preview_url'] or ''
+                            
+                            track_artist = item['track']['artists'][0]['name']
+                            if track_artist and track_images and track_title:
+                                duplicate = duplicateCheck(track_id, playlist_tracks)
+
+                                if not duplicate:
+                                    playlist_tracks[track_id] = {
+                                        'title': track_title,
+                                        'imageUrl': track_images, 
+                                        'artist': track_artist,
+                                        'preview_url': preview_url,
+                                        'duplicates': 0,
+                                    }
+                                    print('Adding Track')
+
+                return jsonify({'status': 'Success', 'data': playlist_tracks})
+            
+            else:
+                return jsonify({'status': 'Failed', 'message': f'Failed to get all tracks: {response.status_code} {response.json()}'})
            
     return jsonify({'status': 'Failed', 'message': 'Missing Playlist ID'})
 
+def handleGetTracks(playlist_id, offsetStr, header):
+    if playlist_id != 'Liked_Songs':
+        getUrl = API_BASE_URL + 'playlists/' + playlist_id + f'/tracks?limit=50&offset={offsetStr}'
+    else:
+        getUrl = API_BASE_URL + f'me/tracks?limit=50&offset={offsetStr}'
 
-@app.route('/move-to-playlists/<origin_id>/<snapshot_id>/<expires_at>/<access_token>', methods=['POST', 'DELETE'])
-def move_tracks(origin_id, snapshot_id, expires_at, access_token):
-    expires_at = float(expires_at)
-    tracks = request.json['trackIds']
-    playlist_ids = request.json['playlistIds']
+    response = requests.get(getUrl, headers=header)
+    return response
 
-    if not access_token:
-        return LOGGIN_MSG
+#Checks if a track is in a playlist multiple times
+def duplicateCheck(track_id, playlist_tracks):
+    if playlist_tracks.get(track_id):
+        playlist_tracks[track_id]['duplicates'] += 1
+        return True
     
-    if not expires_at:
-        return EXPIRES_MSG
-    
-    if expires_at and datetime.now().timestamp() > expires_at:
-        return REFRESH_MSG
-    
-    if origin_id and playlist_ids and tracks:
-
-        add_url = f'{HOSTED}/add-to-playlists/{expires_at}/{access_token}'
-        add_body = {'trackIds': tracks, 'playlistIds': playlist_ids}
-
-        try:
-            add_response = requests.post(add_url, json=add_body)
-        except Exception as e:
-            return jsonify(f'Error tring to Add Tracks: {e}')
-
-        if add_response.status_code == 200:
-            delete_url = f'{HOSTED}/remove-tracks/{origin_id}/{snapshot_id}/{expires_at}/{access_token}'
-            delete_body = {'trackIds': tracks}
-
-            try:
-                delete_response = requests.post(delete_url, json=delete_body) 
-            except Exception as e:
-                return jsonify(f'Error tring to Delete Tracks: {e}')
-
-        return jsonify('Success')
-    
-    return jsonify('Failed')
+    return False
 
 
 @app.route('/add-to-playlists/<expires_at>/<access_token>', methods=['POST'])
 def add_tracks(expires_at, access_token):
     expires_at = float(expires_at)
-    tracks = request.json['trackIds']
-    playlist_ids = request.json['playlistIds']
 
     if not access_token:
         return LOGGIN_MSG
@@ -335,43 +323,69 @@ def add_tracks(expires_at, access_token):
     if expires_at and datetime.now().timestamp() > expires_at:
         return REFRESH_MSG
     
+    if 'trackIds' in request.json and 'playlistIds' in request.json:
+        tracks = request.json['trackIds']
+        playlist_ids = request.json['playlistIds']
+        print(f'Received Tracks: {tracks}')
+        print(f'Received Playlists: {playlist_ids}')
+    
     if playlist_ids and tracks:
+        print('Starting Add')
         header = {
                 'Authorization': f"Bearer {access_token}",
                 'Content-Type': 'application/json'
             }
         
-        trackUris = []
+        addUris = []
         likedUris = []
         items = 0
 
         for track in tracks:
+            #Increments the item tracker
+            items += 1
+
             addUri = 'spotify:track:' + track
-            trackUris.append(addUri)
+            addUris.append(addUri)
             likedUris.append(track)
 
-            if (items % 100) or track == tracks[-1]:
-                bodyUri = {"uris": trackUris}
+            if (items % 50) == 0 or track == tracks[-1]:
+                bodyUri = {"uris": addUris}
 
-                for play_id in playlist_ids:
-                    if play_id != 'Liked Songs':
-                        postUrl = f"{API_BASE_URL}playlists/{play_id}/tracks"
-                    else:
-                        bodyUri = {'ids': likedUris}
-                        postUrl = f"{API_BASE_URL}me/tracks"
-        
-                    #Add track to chosen playlist
-                    requests.post(postUrl, headers=header, json=bodyUri)
+                for id in playlist_ids:
+                    status = handleAddTracks(header, id, bodyUri, likedUris)
+                    print(f'Status: {status}')
 
-                trackUris.clear
+                    if status['status'] == 'Failed':
+                        return jsonify(status)
+                    
+                #Resets the tracks when they reach the max 100 tracks
+                addUris.clear
+                likedUris.clear
 
     return jsonify('Success')
+
+def handleAddTracks(header, id, bodyUri, likedUris):
+
+    if id != 'Liked_Songs':
+        postUrl = f"{API_BASE_URL}playlists/{id}/tracks"
+
+    else:
+        bodyUri = {'ids': likedUris}
+        postUrl = f"{API_BASE_URL}me/tracks"
+
+    #Add track to chosen playlist
+    response = requests.put(postUrl, headers=header, json=bodyUri)
+
+    if response.status_code != 201 and response.status_code != 200:
+        print(f'Failed to add Track {response.reason}')
+        return {'status': 'Failed', 'message': f'Failed to add track: {response.status_code}'}
+    else:
+        return {'status': 'Success'}
 
 
 @app.route('/remove-tracks/<origin_id>/<snapshot_id>/<expires_at>/<access_token>', methods=['POST'])
 def remove_tracks(origin_id, snapshot_id, expires_at, access_token):
     expires_at = float(expires_at)
-    tracks = request.json['trackIds']
 
     if not access_token:
         return LOGGIN_MSG
@@ -383,6 +397,9 @@ def remove_tracks(origin_id, snapshot_id, expires_at, access_token):
         print(f'Expires at: {expires_at} \nDatetime: {datetime.now().timestamp()}')
         return REFRESH_MSG
     
+    if 'trackIds' in request.json:
+        tracks = request.json['trackIds']
+    
     if tracks:
         header = {
                 'Authorization': f"Bearer {access_token}",
@@ -390,44 +407,42 @@ def remove_tracks(origin_id, snapshot_id, expires_at, access_token):
         }
         
         trackUris = []
+        likedUris = []
         items = 0
 
-        #Handles tracks for Liked Songs
-        if origin_id == 'Liked_Songs':
-            for track in tracks:
-                trackUris.append(track)
+        for track in tracks:
+            #Increments the item tracker
+            items += 1
 
-                if (items % 100) or track == tracks[-1]:
-                    deleteUrl = f"{API_BASE_URL}me/tracks"
-                    deleteBodyUri = {"ids": trackUris}
+            trackUri = {'uri': 'spotify:track:' + track}
+            trackUris.append(trackUri)
 
-                    response = requests.delete(deleteUrl, headers=header, json=deleteBodyUri)
-                    print(f'Delete Response: {response}')
+            likedUris.append(track)
 
-            trackUris.clear()
-
-        #Handles tracks for a Playlist
-        else:
-            for track in tracks:
-                trackUri = 'spotify:track:' + track
-                trackUris.append(trackUri)
-
-                if (items % 100) or track == tracks[-1]:
-                    #Delet tracks from old playlist
-                    deleteUrl = f"{API_BASE_URL}playlists/{origin_id}/tracks"
-                    deleteList = []
-
-                    for item in trackUris:
-                        deleteList.append({"uri": item})
-
-                    deleteBodyUri = {"tracks": deleteList, "snapshotId": snapshot_id}
-
-                    response = requests.delete(deleteUrl, headers=header, json=deleteBodyUri)
-                    print(f'Delete Response: {response.json()}')
-
+            if (items % 50) == 0 or track == tracks[-1]:
+                handleRemoveTracks(origin_id, likedUris, trackUris, snapshot_id, header)
                 trackUris.clear()
+                likedUris.clear()
 
     return jsonify('Success')
+
+def handleRemoveTracks(origin_id, likedUris, trackUris, snapshot_id, header):
+    #Handles the Liked Songs track removal
+    if origin_id == 'Liked_Songs':
+        deleteUrl = f"{API_BASE_URL}me/tracks"
+        deleteBodyUri = {"ids": likedUris}
+
+    #Handles Playlist track removal 
+    else:
+        #Delete tracks from playlist
+        deleteUrl = f"{API_BASE_URL}playlists/{origin_id}/tracks"
+        deleteBodyUri = {"tracks": trackUris, "snapshotId": snapshot_id}
+
+    response = requests.delete(deleteUrl, headers=header, json=deleteBodyUri)
+
+    if response.status_code != 200:
+        return jsonify({'status': 'Failed', 'message': f'Failed to remove track from Liked_Songs: {response.status_code} {response.json()}'})
+
 
 @app.route('/get-user-info/<expires_at>/<access_token>')
 def get_user_info(expires_at, access_token):
@@ -449,16 +464,22 @@ def get_user_info(expires_at, access_token):
     getUrl = f"{API_BASE_URL}me"
     response = requests.get(getUrl, headers=header)
 
+    if response.status_code != 200:
+        return jsonify({'status': 'Failed', 'message': f'Failed to get user info: {response.status_code} {response.json()}'})
+
     user_info = response.json()
+    print(f'User Object: {user_info}')
     user_name = user_info['display_name']
+
     if user_name == None:
         user_name = 'userName'
 
     spot_helper_info = {
-        'user_name':  user_name,
+        'displayName':  user_name,
         'id': user_info['id'],
         'uri': user_info['uri']
     }
+    print(f'User {spot_helper_info}')
 
     return jsonify({'status': 'Success', 'data': spot_helper_info})
 

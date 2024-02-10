@@ -17,6 +17,7 @@ class TracksSearchDelegate extends SearchDelegate {
   //Gets all the selected Tracks from previous widget
   TracksSearchDelegate(Map<String, dynamic> allTracks, Map<String, dynamic> tracksSelectedMap) {
     playlistTracks = allTracks;
+    debugPrint('Incoming Selected: $tracksSelectedMap');
 
     allTracks.forEach((key, value) {
       String trackTitle = value['title'];
@@ -24,7 +25,9 @@ class TracksSearchDelegate extends SearchDelegate {
       Map<String, dynamic> searchMap = {'artist': value['artist'], 'title': trackTitle};
       searchResults.add(MapEntry(key, searchMap));
 
-      Map<String, dynamic> selectedMap = {'chosen': (tracksSelectedMap[key] != null), 'title': trackTitle};
+      bool chosen = tracksSelectedMap.containsKey(key);
+
+      Map<String, dynamic> selectedMap = {'chosen': chosen, 'title': trackTitle};
       chosenTracksList.add(MapEntry(key, selectedMap));
     });
   }

@@ -49,7 +49,7 @@ class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
   Future<void> fetchDatabasePlaylists() async{
     allPlaylists = await getDatabasePlaylists(user['id']);
 
-    //Checks if only the Liked Songs playlist is the only playlist
+    //Checks if only the Liked_Songs playlist is the only playlist
     if (allPlaylists.length == 1){
       await fetchSpotifyPlaylists();
     }
@@ -61,7 +61,7 @@ class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
     bool forceRefresh = false;
     receivedCall = await checkRefresh(receivedCall, forceRefresh);
 
-    allPlaylists = await getSpotifyPlaylists(receivedCall['expiresAt'], receivedCall['accessToken'], user['username']);
+    allPlaylists = await getSpotifyPlaylists(receivedCall['expiresAt'], receivedCall['accessToken'], user['id']);
 
     //Checks all playlists if they are in database
     await syncPlaylists(allPlaylists, user['id']);
@@ -197,9 +197,7 @@ class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
                       ? 'Successfully moved $totalChosen songs to $totalPlaylists playlists'
                       : 'Successfully added $totalChosen songs to $totalPlaylists playlists';
 
-                //Option was to Move tracks
                 await handleOptionSelect();
-                await removeDatabaseTracks(user['id'], trackIds, playlistId);
                 navigateToTracks();
 
                 Flushbar(
@@ -238,6 +236,7 @@ class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
       
       receivedCall = await checkRefresh(receivedCall, false);
       await moveTracksRequest(trackIds, currentId, currentSnapId, playlistIds, receivedCall['expiresAt'], receivedCall['accessToken']);
+      await removeDatabaseTracks(user['id'], trackIds, playlistId);
     }
     //Adds tracks to Playlists
     else {

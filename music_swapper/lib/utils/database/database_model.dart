@@ -26,10 +26,8 @@ class TrackModel{
   final String? previewUrl;
   final String artist;
   final String title;
-  final int totalPlaylists;
 
   const TrackModel({
-    required this.totalPlaylists,
     required this.id,
     required this.imageUrl,
     this.previewUrl,
@@ -43,7 +41,6 @@ class TrackModel{
       'previewUrl': previewUrl,
       'artist': artist,
       'title': title,
-      'totalPlaylists': totalPlaylists,
     };
   }
 }
@@ -54,7 +51,6 @@ class PlaylistModel {
   final String imageUrl;
   final String snapshotId;
   final String title;
-  final List trackIds;
 
   const PlaylistModel({
     required this.title,
@@ -62,7 +58,6 @@ class PlaylistModel {
     required this.link,
     required this.imageUrl,
     required this.snapshotId,
-    required this.trackIds,
   });
 
   toJson(){
@@ -71,7 +66,6 @@ class PlaylistModel {
       'link': link,
       'imageUrl': imageUrl,
       'snapshotId': snapshotId,
-      'trackIds': trackIds,
     };
   }
 }

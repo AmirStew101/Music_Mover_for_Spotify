@@ -10,10 +10,14 @@ Future<int> getSpotifyTracksTotal(String playlistId, double expiresAt, String ac
     final getTotalUrl = '$hosted/get-tracks-total/$playlistId/$expiresAt/$accessToken';
     final response = await http.get(Uri.parse(getTotalUrl));
 
-    if (response.statusCode == 200){
-      final responseDecoded = json.decode(response.body);
+    final responseDecoded = json.decode(response.body);
 
+    if (response.statusCode == 200){
       return responseDecoded['totalTracks'];
+    }
+    else{
+      debugPrint('Failed to get Spotify Total Tracks : ${responseDecoded['message']}');
+      return -1;
     }
   }
   catch (e){
@@ -24,18 +28,21 @@ Future<int> getSpotifyTracksTotal(String playlistId, double expiresAt, String ac
 
 Future<Map<String, dynamic>> getSpotifyPlaylistTracks(String playlistId, double expiresAt, String accessToken, int totalTracks) async {
   try{  
-    final getTracksUrl ='$hosted/get-all-tracks/$playlistId/$expiresAt/$accessToken/$totalTracks';
+    final getTracksUrl ='$ngrok/get-all-tracks/$playlistId/$expiresAt/$accessToken/$totalTracks';
     final response = await http.get(Uri.parse(getTracksUrl));
 
+    final responseDecoded = json.decode(response.body);
+
     if (response.statusCode == 200){
-      final responseDecoded = json.decode(response.body);
       Map<String, dynamic> tracks = responseDecoded['data'];
+      debugPrint('Spotify Tracks: ${tracks.length}');
 
       tracks = getPlatformTrackImages(tracks);
       return tracks;
     }
-
-    debugPrint('Error Status code: ${response.statusCode}: $response');
+    else{
+      debugPrint('Failed to get Spotify Tracks : ${responseDecoded['message']}');
+    }
   }
   catch (e){
     debugPrint('Caught Error in getSpotifyPlaylistTracks $e');
@@ -94,30 +101,21 @@ Map<String, dynamic> getPlatformTrackImages(Map<String, dynamic> tracks) {
 }
 
 Future<bool> moveTracksRequest(List<String> tracks, String originId, String snapshotId, List<String> playlistIds, double expiresAt, String accessToken) async {
-  if(originId == 'Liked Songs'){
-    originId = 'Liked_Songs';
-    snapshotId = 'Liked_Songs';
+  try{
+    await addTracksRequest(tracks, playlistIds, expiresAt, accessToken);
+    await removeTracksRequest(tracks, originId, snapshotId, expiresAt, accessToken);
   }
-  final moveTracksUrl ='$ngrok/move-to-playlists/$originId/$snapshotId/$expiresAt/$accessToken';
-
-  final response = await http.post(
-    Uri.parse(moveTracksUrl),
-    headers: {
-    'Content-Type': 'application/json'
-    },
-    body: jsonEncode({'trackIds': tracks, 'playlistIds': playlistIds})
-  );
-
-  if (response.statusCode != 200){
-    debugPrint('Failed to Move Tracks');
+  catch (e){
+    debugPrint('Failed to move Tracks $e');
     return false;
   }
+  
   debugPrint('Moved Tracks');
   return true;
 }
 
 Future<void> addTracksRequest(List<String> tracks, List<String> playlistIds, double expiresAt, String accessToken) async {
-  final moveTracksUrl ='$hosted/add-to-playlists/$expiresAt/$accessToken';
+  final moveTracksUrl ='$ngrok/add-to-playlists/$expiresAt/$accessToken';
 
   final response = await http.post(
     Uri.parse(moveTracksUrl),
@@ -128,13 +126,14 @@ Future<void> addTracksRequest(List<String> tracks, List<String> playlistIds, dou
   );
 
   if (response.statusCode != 200){
-    throw Exception('Error trying to move tracks');
+    throw Exception('Error trying to add tracks ${response.statusCode} ${response.body}');
   }
 }
 
 Future<void> removeTracksRequest(List<String> tracks, String originId, String snapshotId, double expiresAt, String accessToken) async{
-  try{    
-    final removeTracksUrl ='$hosted/remove-tracks/$originId/$snapshotId/$expiresAt/$accessToken';
+  try{
+    debugPrint('Remove Tracks Request: $tracks');
+    final removeTracksUrl ='$ngrok/remove-tracks/$originId/$snapshotId/$expiresAt/$accessToken';
 
     final response = await http.post(
       Uri.parse(removeTracksUrl),

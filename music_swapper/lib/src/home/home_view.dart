@@ -49,7 +49,7 @@ class HomeViewState extends State<HomeView> {
       //Checks to make sure Tokens are up to date before making a Spotify request
       receivedCall = await checkRefresh(receivedCall, forceRefresh);
 
-      playlists = await getSpotifyPlaylists(receivedCall['expiresAt'], receivedCall['accessToken'], user['username']);
+      playlists = await getSpotifyPlaylists(receivedCall['expiresAt'], receivedCall['accessToken'], user['id']);
 
       //Checks all playlists if they are in database
       await syncPlaylists(playlists, user['id']);
@@ -61,11 +61,26 @@ class HomeViewState extends State<HomeView> {
     loaded = true; //Future methods have complete
   }
 
+  Future<void> refreshPage() async{
+    setState(() {
+      loaded = false;
+      error = false;
+    });
+    await fetchSpotifyPlaylists();
+  }
+
   //The main Widget for the page
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        bottom: Tab(
+          child: IconButton(
+          color: Colors.black,
+          icon: const Icon(Icons.refresh),
+          onPressed: () async {
+            await refreshPage();
+          },)),
         //The Options Menu containing other navigation options
         leading:  OptionsMenu(callback: receivedCall, user: user),
         centerTitle: true,
@@ -99,9 +114,9 @@ class HomeViewState extends State<HomeView> {
           if (snapshot.connectionState == ConnectionState.done && loaded && !error) {
             return ImageGridWidget(receivedCall: receivedCall, playlists: playlists, user: user,);
           }
-          else if(error){
+          else if(error && loaded){
             return const Center(child: Text(
-              'Error retreiving Playlists from Spotify',
+              'Error retreiving Playlists from Spotify. Check connection and Refresh page.',
               textAlign: TextAlign.center,
               textScaler: TextScaler.linear(2),
               ),

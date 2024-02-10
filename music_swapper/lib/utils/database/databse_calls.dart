@@ -11,7 +11,7 @@ class UserRepository extends GetxController {
   static UserRepository get instance => Get.find();
   final usersRef = db.collection('Users');
   final playlistColl  = 'Playlists';//Collection name for Users Playlists
-  final tracksColl = 'Tracks'; //Collection name for Users Tracks
+  final tracksColl = 'PlaylistTracks'; //Collection name for Users Tracks
 
   final CacheManager cacheManager = DefaultCacheManager();
 
@@ -43,53 +43,51 @@ class UserRepository extends GetxController {
   //Check if Playlist is in collections
   Future<void> syncUserPlaylists(String userId, Map<String, dynamic> spotifyPlaylists) async{
     try{
-      debugPrint('Syncing Playlists');
       final playlistRef = usersRef.doc(userId).collection(playlistColl);
       final playlistDocs = await playlistRef.get();
-
-      int databasePlaylists = playlistDocs.docs.length;
-      int spotPlaylists = spotifyPlaylists.length;
-
 
       //Removes playlists from database that are not in Spotify
       for (var playlistDoc in playlistDocs.docs){
         final playlistId = playlistDoc.id;
 
         if (!spotifyPlaylists.containsKey(playlistId)){
-          databasePlaylists--;
           await removePlaylist(userId, playlistId);
-          debugPrint('Removing ${playlistDoc.data()['title']}');
         }
       }
 
-      //Adds playlists that Database is missing
-      int i = 0;
+      //Adds playlists that Database is missing or Updates existing
       List<PlaylistModel> playlists = [];
+      List updateIdRefs = [];
+      List updateModels = [];
 
-      while (databasePlaylists != spotPlaylists && i < spotPlaylists){
-        final spotPlaylist = spotifyPlaylists.entries.elementAt(i);
+      final updateBatch = db.batch();
 
-        String playlistId = spotPlaylist.key;
+      for (var playlist in spotifyPlaylists.entries){
+        String playlistId = playlist.key;
         final dataPlaylist = await playlistRef.doc(playlistId).get();
 
-        if (!dataPlaylist.exists){
-          databasePlaylists++;
-
-          PlaylistModel newPlaylist = PlaylistModel(
-          title: spotPlaylist.value['title'], 
+        PlaylistModel newPlaylist = PlaylistModel(
+          title: playlist.value['title'], 
           id: playlistId, 
-          link: spotPlaylist.value['link'], 
-          imageUrl: spotPlaylist.value['imageUrl'], 
-          snapshotId: spotPlaylist.value['snapshotId'],
-          trackIds: []);
+          link: playlist.value['link'], 
+          imageUrl: playlist.value['imageUrl'], 
+          snapshotId: playlist.value['snapshotId'],
+        );
 
+        if (!dataPlaylist.exists){
           playlists.add(newPlaylist);
-
-          debugPrint('Adding ${newPlaylist.title}');
         }
-
-        i++;
+        else{
+          updateIdRefs.add(playlistRef.doc(playlistId));
+          updateModels.add(newPlaylist.toJson());
+        }
       }
+
+      for (var i=0; i < updateIdRefs.length; i++){
+        updateBatch.update(updateIdRefs[i], updateModels[i]);
+      }
+
+      await updateBatch.commit();
 
       if (playlists.isNotEmpty){
         await createPlaylists(userId, playlists);
@@ -158,7 +156,7 @@ class UserRepository extends GetxController {
 
       //Removes all of the Playlist's track connections
       for (var id in trackIds){
-        final track = await tracksRef.doc().get(id); //Get the tracks Fields
+        final track = await tracksRef.doc(id).get(); //Get the tracks Fields
 
         if (track.exists){
           int totalPlaylists = track.data()?['totalPlaylists']; //Get the number of playlists the track is in
@@ -183,21 +181,19 @@ class UserRepository extends GetxController {
   Future<void> syncPlaylistTracks(String userId, Map<String, dynamic> spotifyTracks, String playlistId) async{
     try{
       final playlistRef = usersRef.doc(userId).collection(playlistColl);
-      final playlist = await playlistRef.doc(playlistId).get();
+      final tracksRef = playlistRef.doc(playlistId).collection(tracksColl);
       
+      final playlistTracks = await tracksRef.get();
 
-      List<dynamic> trackIds = playlist.data()?['trackIds'];
-
-      int databaseTracks = trackIds.length;
-      int spotTracks = spotifyTracks.length;
+      int databaseTracks = playlistTracks.docs.length;
+      int spotTracks = spotifyTracks.entries.length;
       List<String> removeTracks = [];
       
       //Removes extra tracks from playlist
-      for (var id in trackIds){
-        if (!spotifyTracks.containsKey(id)){
+      for (var track in playlistTracks.docs){
+        if (!spotifyTracks.containsKey(track.id)){
           databaseTracks--;
-          removeTracks.add(id);
-          debugPrint('Removing ${spotifyTracks[id]['title']}');
+          removeTracks.add(track.id);
         }
       }
 
@@ -205,37 +201,38 @@ class UserRepository extends GetxController {
         await removePlaylistTracks(userId, removeTracks, playlistId);
       }
 
-      if (databaseTracks > 0){
-        //If Spotify & Database do not have matching tracks it adds
-        int i = 0;
-        List<TrackModel> createTracks = [];
+      //If Spotify & Database do not have matching tracks it adds
+      int i = 0;
+      List<TrackModel> createTracks = []; //List of databse missing tracks
 
-        while(databaseTracks != spotTracks && i < spotTracks){
-          final track = spotifyTracks.entries.elementAt(i);
-          String trackId = track.key;
+      while(databaseTracks != spotTracks && i < spotTracks){
+        final spotifyTrack = spotifyTracks.entries.elementAt(i);
+        String trackId = spotifyTrack.key;
 
-          if (!trackIds.contains(trackId)){
-            databaseTracks++;
+        final databaseTrack = await tracksRef.doc(trackId).get();
 
-            TrackModel newTrack = TrackModel(
-              totalPlaylists: 1, 
-              id: trackId, 
-              imageUrl: track.value['imageUrl'], 
-              artist: track.value['artist'], 
-              title: track.value['title'],
-              previewUrl: track.value['previewUrl']
-            );
+        //Track document is not in Database
+        if (!databaseTrack.exists){
+          databaseTracks++;
 
-            debugPrint('Adding ${newTrack.title}');
-          }
+          TrackModel newTrack = TrackModel(
+            id: trackId, 
+            imageUrl: spotifyTrack.value['imageUrl'], 
+            artist: spotifyTrack.value['artist'], 
+            title: spotifyTrack.value['title'],
+            previewUrl: spotifyTrack.value['previewUrl']
+          );
 
-          i++;
+          createTracks.add(newTrack);
         }
 
-        if (createTracks.isNotEmpty){
-          await createTrackDocs(userId, createTracks, playlistId);
-        }
+        i++;
       }
+
+      if (createTracks.isNotEmpty){
+        await createTrackDocs(userId, createTracks, playlistId);
+      }
+
     }
     catch (e){
       debugPrint('Caught Error in database_calls.dart Function syncPlaylistTracks: $e');
@@ -245,33 +242,23 @@ class UserRepository extends GetxController {
   //Get track names for a given playlist
   Future<Map<String, dynamic>> getTracks(String userId, String playlistId) async{
     try{
-      final playlist = await usersRef.doc(userId).collection(playlistColl).doc(playlistId).get();
-      final trackIds = playlist.data()?['trackIds'];
+      final playlistRef = usersRef.doc(userId).collection(playlistColl);
+      final tracksRef = playlistRef.doc(playlistId).collection(tracksColl);
+      final playlistTracks = await tracksRef.get();
 
-      final tracksRef = usersRef.doc(userId).collection(tracksColl);
+      Map<String, dynamic> newTracks = {};
 
-      Map<String, dynamic> playlistTracks = {};
-      List<Future<DocumentSnapshot<Map<String, dynamic>>>> trackFutures = [];
-
-      for (var id in trackIds){
-        trackFutures.add(tracksRef.doc(id).get());
-      }
-
-      final trackSnaps = await Future.wait(trackFutures);
-
-      for (var i=0; i < trackSnaps.length; i++){
-        final track = trackSnaps[i];
-
-        String artist = track.data()?['artist'];
-        String imageUrl = track.data()?['imageUrl'];
-        String previewUrl = track.data()?['previewUrl'] ?? '';
-        String title = track.data()?['title'];
+      for (var track in playlistTracks.docs){
+        String artist = track.data()['artist'];
+        String imageUrl = track.data()['imageUrl'];
+        String previewUrl = track.data()['previewUrl'] ?? '';
+        String title = track.data()['title'];
         String id = track.id;
         
-        playlistTracks[id] = {'artist': artist, 'imageUrl': imageUrl, 'previewUrl': previewUrl, 'title': title};
+        newTracks[id] = {'artist': artist, 'imageUrl': imageUrl, 'previewUrl': previewUrl, 'title': title};
       }
 
-      return playlistTracks;
+      return newTracks;
     }
     catch (e){
       debugPrint('Caught Error in database_calls function getTracks: $e');
@@ -283,34 +270,12 @@ class UserRepository extends GetxController {
   Future<void> createTrackDocs(String userId, List<TrackModel> trackModels, String playlistId) async{
     try{
       final playlistRef = usersRef.doc(userId).collection(playlistColl);
-      final tracksRef = usersRef.doc(userId).collection(tracksColl);
-      final playlist = await playlistRef.doc(playlistId).get();
+      final tracksRef = playlistRef.doc(playlistId).collection(tracksColl);
       final batch = db.batch();
 
-      List<dynamic> trackIds = playlist.data()?['trackIds'];
-
       for (var model in trackModels){
-        String trackId = model.id;
-
-        //Adds the track Id to the Playlist's tracks
-        if (!trackIds.contains(trackId)){
-          trackIds.add(trackId);
-          batch.update(playlistRef.doc(playlistId), {'trackIds': trackIds});
-        }
-
-        final trackDoc = await tracksRef.doc(trackId).get();
-        
-        //Updates Track data if it exists already
-        if (trackDoc.exists){
-          batch.update(tracksRef.doc(trackId), {'totalPlaylists': FieldValue.increment(1)});
-          debugPrint('Track Exists ${trackDoc.data()}');
-        }
-        //Creates a new Track document if none exits
-        else{
-          debugPrint('New Track ${model.title}');
-          //Creates the track document with the tracks ID as the key & fills the fields with track data
-          batch.set(tracksRef.doc(model.id), model.toJson());
-        }
+        //Creates/Updates the track document with the tracks ID as the key & fills the fields with track data
+        batch.set(tracksRef.doc(model.id), model.toJson());
       }
 
       await batch.commit();
@@ -324,33 +289,21 @@ class UserRepository extends GetxController {
   Future<void> removePlaylistTracks(String userId, List<String> trackIds, String playlistId) async{
       try{
       final playlistRef = usersRef.doc(userId).collection(playlistColl);
+      final tracksRef = playlistRef.doc(playlistId).collection(tracksColl);
       final playlist = await playlistRef.doc(playlistId).get();
-      final tracksRef = usersRef.doc(userId).collection(tracksColl);
+
       final batch = db.batch();
 
       if (!playlist.exists){
         throw Exception('Playlist does not exist');
       }
 
+      //Adds all tracks to be deleted to the batch
       for (var id in trackIds){
-        final track = await tracksRef.doc(id).get();
-
-        //Get Track ids and remove the chosen track from the list
-        batch.update(playlistRef.doc(playlistId), {'trackIds': FieldValue.arrayRemove([id])});
-
-        if (track.exists){
-          //Updates the total number of playlists the track is in
-          batch.update(tracksRef.doc(id), {'totalPlaylists':FieldValue.increment(-1)});
-          int totalPlaylists = track.data()?['totalPlaylists'];
-
-          //Removes track from Collection if user has removed the Track from all playlists
-          if (totalPlaylists == 0){
-            batch.delete(tracksRef.doc(id));
-          }
-        }
-        
+        batch.delete(tracksRef.doc(id));
       }
 
+      //Deletes all batched tracks
       await batch.commit();
     }
     catch (e){

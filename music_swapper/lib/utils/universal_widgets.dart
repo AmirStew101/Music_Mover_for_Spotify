@@ -31,28 +31,36 @@ class OptionsMenu extends StatelessWidget {
             leadingIcon: Icon(Icons.home),
             style: ButtonStyle(
                 overlayColor:
-                    MaterialStatePropertyAll(Color.fromARGB(255, 6, 163, 11)))),
+                    MaterialStatePropertyAll(Color.fromARGB(255, 6, 163, 11))
+            )
+        ),
         DropdownMenuEntry(
             value: 'settings',
             label: 'Settings',
             leadingIcon: Icon(Icons.settings),
             style: ButtonStyle(
                 overlayColor:
-                    MaterialStatePropertyAll(Color.fromARGB(255, 6, 163, 11)))),
+                    MaterialStatePropertyAll(Color.fromARGB(255, 6, 163, 11))
+            )
+        ),
         DropdownMenuEntry(
             value: 'about',
             label: 'About',
             leadingIcon: Icon(Icons.question_mark),
             style: ButtonStyle(
                 overlayColor:
-                    MaterialStatePropertyAll(Color.fromARGB(255, 6, 163, 11)))),
+                    MaterialStatePropertyAll(Color.fromARGB(255, 6, 163, 11))
+            )
+        ),
         DropdownMenuEntry(
             value: 'contact',
             label: 'Contact',
             leadingIcon: Icon(Icons.question_answer),
             style: ButtonStyle(
                 overlayColor:
-                    MaterialStatePropertyAll(Color.fromARGB(255, 6, 163, 11))))
+                    MaterialStatePropertyAll(Color.fromARGB(255, 6, 163, 11))
+            )
+        ),
       ],
       onSelected: (value) {
         if (value == 'home') {
@@ -82,7 +90,7 @@ final userRepo = Get.put(UserRepository());
 
 //Syncs the Users Spotify tracks with the tracks in database
 Future<bool> syncPlaylistTracksData(String userId, Map<String, dynamic> tracks, String playlistId) async{
-  debugPrint('Syncing Tracks');
+  debugPrint('Syncing Tracks: ${tracks.length}');
   try{
   await userRepo.syncPlaylistTracks(userId, tracks, playlistId);
   }

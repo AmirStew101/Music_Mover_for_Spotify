@@ -18,7 +18,7 @@ class TracksView extends StatefulWidget {
   State<TracksView> createState() => TracksViewState();
 }
 
-class TracksViewState extends State<TracksView> {
+class TracksViewState extends State<TracksView> with SingleTickerProviderStateMixin{
   //Passed arguments
   Map<String, dynamic> currentPlaylist = {};
   Map<String, dynamic> receivedCall = {}; //Received Spotify callback arguments as Map
@@ -35,25 +35,21 @@ class TracksViewState extends State<TracksView> {
   int totalTracks = -1;
   bool loaded = false; //Tracks loaded status
   bool selectAll = false;
+  late TabController tabController;
 
   @override
   void initState(){
     super.initState();
+    tabController = TabController(length: 2, vsync: this);
+
     //Seperates the arguments passed to this page
     Map<String, dynamic> widgetArgs = widget.multiArgs;
     currentPlaylist = widgetArgs['currentPlaylist'];
     receivedCall = widgetArgs['callback'];
     user = widgetArgs['user'];
 
-    if (currentPlaylist['Liked Songs'] != null) {
-      playlistId = 'Liked Songs';
-      playlistName = 'Liked Songs';
-    } 
-    else {
-      playlistId = currentPlaylist.entries.single.key;
-      playlistName = currentPlaylist.entries.single.value['title'];
-    }
-
+    playlistId = currentPlaylist.entries.single.key;
+    playlistName = currentPlaylist.entries.single.value['title'];
   }
 
   Future<void> fetchDatabaseTracks() async{
@@ -68,37 +64,35 @@ class TracksViewState extends State<TracksView> {
       debugPrint('\nLoaded');
     }
     else{
-      //await fetchSpotifyTracks();
+      await fetchSpotifyTracks();
     }
 
   }
 
   //Gets the users tracks for the selected Playlist
   Future<void> fetchSpotifyTracks() async {
-    if (allTracks.isEmpty){
+    debugPrint('\nCalling Spot');
       try{
-        debugPrint('\nCalling Spot');
-
         //Checks if Token needs to be refreshed
         receivedCall = await checkRefresh(receivedCall, false); 
         totalTracks = await getSpotifyTracksTotal(playlistId, receivedCall['expiresAt'], receivedCall['accessToken']);
+        debugPrint('Total Spotify Tracks: $totalTracks');
 
         if (totalTracks > 0) {
           allTracks = await getSpotifyPlaylistTracks(
               playlistId,
               receivedCall['expiresAt'],
               receivedCall['accessToken'],
-              totalTracks); //gets user tracks for playlist
+              totalTracks,
+          ); //gets user tracks for playlist
 
-            //Adds tracks to database for faster retreival later
-            //await syncPlaylistTracksData(user['id'], allTracks, playlistId);
+          //Adds tracks to database for faster retreival later
+          await syncPlaylistTracksData(user['id'], allTracks, playlistId);
         }
       }
       catch (e){
         debugPrint('Caught Error while trying to fetch tracks in tracks view \n$e');
       }
-    }
-    debugPrint('Total Spotify Tracks: $totalTracks');
     loaded = true; //Tracks if the tracks are loaded to be shown
   }
 
@@ -127,8 +121,6 @@ class TracksViewState extends State<TracksView> {
 
     selectedTracksMap.clear();
 
-    await fetchDatabaseTracks();
-
     setState(() {
       //Update Tracks
     });
@@ -146,13 +138,38 @@ class TracksViewState extends State<TracksView> {
     trackIds.add(track.key);
   }
 
-  final updateCallback = await checkRefresh(receivedCall, false);
-  setState(() {
-    //Refresh callback
-    callback = updateCallback;
-  });
-  await removeTracksRequest(trackIds, playlistId, snapId, updateCallback['expiresAt'], updateCallback['accessToken']);
+  try{
+  callback = await checkRefresh(receivedCall, false);
+  await removeTracksRequest(trackIds, playlistId, snapId, callback['expiresAt'], callback['accessToken']);
   await removeDatabaseTracks(user['id'], trackIds, playlistId);
+  }
+  catch (e){
+    debugPrint('Caught error in tracks_view.dart in function removeTracks $e');
+  }
+
+  }
+
+  Future<void> refreshTracks() async{
+    setState(() {
+      loaded = false;
+    });
+    await fetchSpotifyTracks(); 
+  }
+
+  void handleSelectAll(){
+    setState(() {
+      //Updates checkbox
+      selectAll = !selectAll;
+    });
+
+    //Selects all the check boxes
+    if (selectAll) {
+      selectedTracksMap = allTracks;
+    }
+    else {
+      selectedTracksMap.clear();
+    }
+
   }
 
   //Main body of the page
@@ -160,6 +177,43 @@ class TracksViewState extends State<TracksView> {
   Widget build(BuildContext context) {
     return Scaffold(
         appBar: AppBar(
+          bottom: TabBar(
+            controller: tabController,
+            tabs: [
+              //Tracks Refresh Button
+              Tab(
+                child: InkWell(
+                  onTap: () async{
+                    await refreshTracks();
+                  },
+                  child: Row(children: [ 
+                  IconButton(
+                    icon: const Icon(Icons.refresh),
+                    onPressed: () async{
+                      await refreshTracks();
+                    },
+                  ),
+                  const Text('Refresh'),
+                ],),
+              )
+              ),
+              //Select All checkbox
+              Tab(child: InkWell(
+                onTap: () {
+                  handleSelectAll();
+                },
+                child: Row(children: [
+                Checkbox(
+                  value: selectAll,
+                  onChanged: (value) {
+                    handleSelectAll();
+                  },
+                ),
+                const Text('Select Al'),
+              ],),
+              )
+              )
+            ]),
           leading: OptionsMenu(callback: receivedCall, user: user),
           backgroundColor: const Color.fromARGB(255, 6, 163, 11),
           title: Text(
@@ -172,13 +226,16 @@ class TracksViewState extends State<TracksView> {
                 icon: const Icon(Icons.search),
 
                 onPressed: () async {
-                  List<MapEntry<String, dynamic>> queryResult = await showSearch(
+                  final queryResult = await showSearch(
                       context: context,
                       delegate: TracksSearchDelegate(allTracks, selectedTracksMap));
 
-                  for (var result in queryResult){
-                    if (result.value['chosen']){
-                      selectedTracksMap[result.key] = result.value;
+                  if (queryResult != null){
+                    for (var result in queryResult){
+                      if (result.value['chosen']){
+                        String trackId = result.key;
+                        selectedTracksMap[trackId] = allTracks[trackId];
+                      }
                     }
                   }
                   setState(() {
@@ -189,7 +246,7 @@ class TracksViewState extends State<TracksView> {
         ),
         //Loads the users tracks and its associated images after fetching them for user viewing
         body: FutureBuilder<void>(
-          future: fetchSpotifyTracks(),
+          future: fetchDatabaseTracks(),
           builder: (context, snapshot) {
             //Playlist has tracks and Tracks finished loading
             if (snapshot.connectionState == ConnectionState.done && loaded && totalTracks > 0) {
@@ -253,7 +310,7 @@ class TracksViewState extends State<TracksView> {
         onTap: (value) async {
           //Move to playlist(s) Index
           if (value == 0 && selectedTracksMap.isNotEmpty) {
-            debugPrint('Selected: $selectedTracksMap');
+            debugPrint('\nSelected to Move: $selectedTracksMap');
             final multiArgs = {
               'callback': receivedCall,
               'selectedTracks': selectedTracksMap,
@@ -278,6 +335,7 @@ class TracksViewState extends State<TracksView> {
           else if (value == 2 && selectedTracksMap.isNotEmpty){
             int tracksDeleted = selectedTracksMap.length;
             String playlistTitle = currentPlaylist.values.single['title'];
+            debugPrint('Tracks to Delete: $selectedTracksMap');
 
             await removeTracks(receivedCall);
             await deleteRefresh();

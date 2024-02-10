@@ -28,28 +28,11 @@ class ImageGridState extends State<ImageGridWidget> {
     user = widget.user;
   }
 
-  Future<void> refreshPlaylists() async {
-    bool forceRefresh = false;
-
-    //Checks to make sure Tokens are up to date before making a Spotify request
-    receivedCall = await checkRefresh(receivedCall, forceRefresh);
-
-    playlists = await getSpotifyPlaylists(receivedCall['expiresAt'], receivedCall['accessToken'], user['username']);
-
-    await syncPlaylists(playlists, user['id']);
-
-    setState(() {
-      //Update Playlists
-    });
-  }
-
   @override
   Widget build(BuildContext context) {
     
     //Builds the Grid of Images with Playlist Names
-    return RefreshIndicator(
-      onRefresh: refreshPlaylists, 
-      child: GridView.builder(
+    return GridView.builder(
         gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
           crossAxisCount: 2, //Number of Col in the grid
           crossAxisSpacing: 8, //Spacing between Col
@@ -96,7 +79,7 @@ class ImageGridState extends State<ImageGridWidget> {
                       ),
                     ),
 
-                  //PLaylist doesn't have an image to display or its the Liked Songs playlist
+                  //PLaylist doesn't have an image to display or its the Liked_Songs playlist
                   if (imageUrl.contains('asset'))
                     Align(
                       //Aligns the Image
@@ -134,8 +117,7 @@ class ImageGridState extends State<ImageGridWidget> {
               color: Colors.grey,
             )
           ]);
-        })
-        );
+        });
   }
 
 }
