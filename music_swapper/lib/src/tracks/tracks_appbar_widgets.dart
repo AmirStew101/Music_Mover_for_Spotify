@@ -68,16 +68,18 @@ class TracksSearchDelegate extends SearchDelegate {
           );
         },
       ),
-      //Cancel Button functionality
-      IconButton(
-        icon: const Icon(Icons.cancel),
-        onPressed: () {
-          if (query.isEmpty) {
-            close(context, chosenTracksList);
-          } else {
-            query = '';
-          }
-        },
+      StatefulBuilder(builder: (context, setState) => 
+        //Cancel Button functionality
+        IconButton(
+          icon: const Icon(Icons.cancel),
+          onPressed: () {
+            if (query.isEmpty) {
+              close(context, chosenTracksList);
+            } else {
+              query = '';
+            }
+          },
+        )
       )
     ];
   }
@@ -142,9 +144,12 @@ class TracksSearchDelegate extends SearchDelegate {
             itemBuilder: (context, index) {
               //Suggestion has key: Id Title & Values: Artist, Track title
               final suggestion = trackSuggestions[index];
-
-              bool isSelected = chosenTracksList[index].value['chosen'];
               String trackId = suggestion.key;
+
+              MapEntry<String, dynamic> chosenTrack = chosenTracksList.firstWhere((track) => track.key == trackId);
+              int chosenIndex = chosenTracksList.indexWhere((track) => track.key == trackId);
+
+              bool isSelected = chosenTrack.value['chosen'];
               String trackTitle = suggestion.value['title'];
 
               Map<String, dynamic> chosenMap = {'chosen': !isSelected, 'Title': trackTitle};
@@ -157,7 +162,7 @@ class TracksSearchDelegate extends SearchDelegate {
                 //Keeps track of tracks user selects
                 onChanged: (value) {
                   setState(() {
-                    chosenTracksList[index] = MapEntry(trackId, chosenMap);
+                    chosenTracksList[chosenIndex] = MapEntry(trackId, chosenMap);
                   });
                 },),
 
@@ -171,7 +176,7 @@ class TracksSearchDelegate extends SearchDelegate {
                 //Keeps track of tracks user selected
                 onTap: () {
                   setState(() {
-                    chosenTracksList[index] = MapEntry(trackId, chosenMap);
+                    chosenTracksList[chosenIndex] = MapEntry(trackId, chosenMap);
                   });
                 },
               );
@@ -188,9 +193,12 @@ class TracksSearchDelegate extends SearchDelegate {
           itemCount: artistSuggestions.length, //Shows a max of 6 suggestions
           itemBuilder: (context, index) {
             final suggestion = artistSuggestions[index];
-
-            bool isSelected = chosenTracksList[index].value['chosen'];
             String trackId = suggestion.key;
+
+            MapEntry<String, dynamic> chosenTrack = chosenTracksList.firstWhere((track) => track.key == trackId);
+            int chosenIndex = chosenTracksList.indexWhere((track) => track.key == trackId);
+
+            bool isSelected = chosenTrack.value['chosen'];
             String trackTitle = suggestion.value['title'];
 
             Map<String, dynamic> chosenMap = {'chosen': !isSelected, 'title': trackTitle};
@@ -200,7 +208,7 @@ class TracksSearchDelegate extends SearchDelegate {
                 value: isSelected,
                 onChanged: (value) {
                   setState(() {
-                    chosenTracksList[index] = MapEntry(trackId, chosenMap);
+                    chosenTracksList[chosenIndex] = MapEntry(trackId, chosenMap);
                   });
                 },
               ),
@@ -214,7 +222,7 @@ class TracksSearchDelegate extends SearchDelegate {
 
               onTap: () {
                 setState((){
-                  chosenTracksList[index] = MapEntry(trackId, chosenMap);
+                  chosenTracksList[chosenIndex] = MapEntry(trackId, chosenMap);
                 });
               },
             );

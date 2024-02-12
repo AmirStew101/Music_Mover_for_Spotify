@@ -136,17 +136,19 @@ class TrackListState extends State<TrackListWidget> {
                 },
                 //Container puts the Tracks image in the background
                 child: Container(
-                  decoration: BoxDecoration(
-                      image: DecorationImage(
-                        alignment: Alignment.topRight,
-                        image: NetworkImage(trackImage, scale: 0.9),
-                        fit: BoxFit.fitHeight,
-                      ),
-                      shape: BoxShape.rectangle),
+                  clipBehavior: Clip.hardEdge,
+                    decoration: BoxDecoration(
+                        image: DecorationImage(
+                          alignment: Alignment.topRight,
+                          image: NetworkImage(trackImage),
+                          fit: BoxFit.contain,
+                        ),
+                        shape: BoxShape.rectangle),
 
-                  //Aligns the Track Name, Checkbox, Artist Name, Preview Button as a Row
-                  child: trackRows(index, trackTitle, trackArtist),
-                )),
+                    //Aligns the Track Name, Checkbox, Artist Name, Preview Button as a Row
+                    child: trackRows(index, trackTitle, trackArtist),
+                )
+            ),
             //The grey divider line between each Row to look nice
             const Divider(
               height: 1,
@@ -158,43 +160,49 @@ class TrackListState extends State<TrackListWidget> {
 
   //Creates the State for each Tracks Row
   Widget trackRows(int index, String trackTitle, String trackArtist) {
-    return Row(children: [
-      //Design & Functinoality for the checkbox button when selected and not
-      Checkbox(
-        value: selectedTracks[index].value['chosen'],
-        onChanged: (value) {
-          setState(() {
-            bool chosen = selectedTracks[index].value['chosen'];
-            String trackId = selectedTracks[index].key;
-            Map<String, dynamic> selectMap = {
-              'chosen': !chosen,
-              'title': trackTitle
-            };
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisAlignment: MainAxisAlignment.start,
+      children: [
+        //Design & Functinoality for the checkbox button when selected and not
+        Checkbox(
+          value: selectedTracks[index].value['chosen'],
+          onChanged: (value) {
+            setState(() {
+              bool chosen = selectedTracks[index].value['chosen'];
+              String trackId = selectedTracks[index].key;
+              Map<String, dynamic> selectMap = {
+                'chosen': !chosen,
+                'title': trackTitle
+              };
 
-            selectedTracks[index] = MapEntry(trackId, selectMap);
-            sendTracks(selectedTracks);
-          });
-        },
-      ),
+              selectedTracks[index] = MapEntry(trackId, selectMap);
+              sendTracks(selectedTracks);
+            });
+          },
+        ),
 
-      //Track Names & Artist Names design and Functionality
-      Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          //Name of the Track shown to user
-          children: [
-            Text(
-              trackTitle,
-              textScaler: const TextScaler.linear(1.2),
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(color: Color.fromARGB(255, 6, 163, 11)),
-            ),
-            //Name of track Artist show to user
-            Text(
-              'By: $trackArtist',
-              textScaler: const TextScaler.linear(0.8),
-            ),
-          ]),
-    ]);
+        //Track Names & Artist Names design and Functionality
+        Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              //Name of the Track shown to user
+              children: [
+                Text(
+                  trackTitle.length > 25
+                  ? '${trackTitle.substring(0, 25)}...'
+                  : trackTitle,
+                  textScaler: const TextScaler.linear(1.2),
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(color: Color.fromARGB(255, 6, 163, 11)),
+                ),
+                //Name of track Artist show to user
+                Text(
+                  'By: $trackArtist',
+                  textScaler: const TextScaler.linear(0.8),
+                ),
+              ])
+      ]
+    );
   }
 }

@@ -72,7 +72,7 @@ class PlaylistSearchDelegate extends SearchDelegate {
 
     //Creates the list of Suggestions for the user
     return ListView.builder(
-      itemCount: min(8, suggestions.length), //Shows a max of 6 suggestions
+      itemCount: suggestions.length, //Shows a max of 6 suggestions
       itemBuilder: (context, index) {
         final suggestion = suggestions[index];
 

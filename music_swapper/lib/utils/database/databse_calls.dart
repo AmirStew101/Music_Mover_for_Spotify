@@ -145,34 +145,10 @@ class UserRepository extends GetxController {
   Future<void> removePlaylist(String userId, String playlistId) async{
     try{    
       final playlistRef = usersRef.doc(userId).collection(playlistColl);
-
-      final playlist = await playlistRef.doc(playlistId).get();
-      List<dynamic> trackIds = playlist.data()?['trackIds'];
-
       await playlistRef.doc(playlistId).delete(); //Removes PLaylist from collection
-
-      final tracksRef = usersRef.doc(userId).collection(tracksColl);
-      final deleteBatch = db.batch();
-
-      //Removes all of the Playlist's track connections
-      for (var id in trackIds){
-        final track = await tracksRef.doc(id).get(); //Get the tracks Fields
-
-        if (track.exists){
-          int totalPlaylists = track.data()?['totalPlaylists']; //Get the number of playlists the track is in
-          totalPlaylists--;
-
-          //Removes track that user has removed from all playlists
-          if (totalPlaylists == 0){
-            deleteBatch.delete(tracksRef.doc(id));
-          }
-        }
-      }
-
-      await deleteBatch.commit();
     }
     catch (e){
-      debugPrint('Error Removing Playlist: $e');
+      debugPrint('Caught Error in database_calls.dart function removePlaylist: $e');
     }
 
   }

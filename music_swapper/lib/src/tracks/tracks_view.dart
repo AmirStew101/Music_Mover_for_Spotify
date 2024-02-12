@@ -1,6 +1,9 @@
 import 'package:another_flushbar/flushbar.dart';
 import 'package:flutter/material.dart';
+import 'package:spotify_music_helper/src/about/about.dart';
+import 'package:spotify_music_helper/src/home/home_view.dart';
 import 'package:spotify_music_helper/src/select_playlists/select_playlists_view.dart';
+import 'package:spotify_music_helper/src/settings/settings_view.dart';
 import 'package:spotify_music_helper/utils/playlists_requests.dart';
 import 'package:spotify_music_helper/src/tracks/tracks_body_widgets.dart';
 import 'package:spotify_music_helper/utils/tracks_requests.dart';
@@ -33,6 +36,7 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
   String playlistName = '';
 
   int totalTracks = -1;
+  bool refresh = false;
   bool loaded = false; //Tracks loaded status
   bool selectAll = false;
   late TabController tabController;
@@ -53,12 +57,14 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
   }
 
   Future<void> fetchDatabaseTracks() async{
-    debugPrint('\nCalling Database');
+    if (!refresh){
+      debugPrint('\nCalling Database');
 
-    //Fills Users tracks from the Database
-    allTracks = await getDatabaseTracks(user['id'], playlistId);
+      //Fills Users tracks from the Database
+      allTracks = await getDatabaseTracks(user['id'], playlistId);
+    }
 
-    if (allTracks.isNotEmpty){
+    if (allTracks.isNotEmpty && !refresh){
       totalTracks = allTracks.length;
       loaded = true;
       debugPrint('\nLoaded');
@@ -89,11 +95,14 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
           //Adds tracks to database for faster retreival later
           await syncPlaylistTracksData(user['id'], allTracks, playlistId);
         }
+
+        debugPrint('Loaded Tracks');
+        loaded = true; //Tracks if the tracks are loaded to be shown
+        refresh = false;
       }
       catch (e){
         debugPrint('Caught Error while trying to fetch tracks in tracks view \n$e');
       }
-    loaded = true; //Tracks if the tracks are loaded to be shown
   }
 
   //Updates the chosen tracks function argument for TrackListWidget
@@ -150,18 +159,21 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
   }
 
   Future<void> refreshTracks() async{
+    selectedTracksMap.clear();
+    refresh = true;
+    loaded = false;
     setState(() {
-      loaded = false;
+      //Refreshes the page
     });
-    await fetchSpotifyTracks(); 
   }
 
   void handleSelectAll(){
     setState(() {
       //Updates checkbox
       selectAll = !selectAll;
+      debugPrint('Select all: $selectAll');
     });
-
+  
     //Selects all the check boxes
     if (selectAll) {
       selectedTracksMap = allTracks;
@@ -169,7 +181,8 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
     else {
       selectedTracksMap.clear();
     }
-
+    debugPrint('Selected Tracks Map: $selectedTracksMap');
+    
   }
 
   //Main body of the page
@@ -214,12 +227,22 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
               )
               )
             ]),
-          leading: OptionsMenu(callback: receivedCall, user: user),
+          
+          leading: Builder(
+            builder: (context) => IconButton(
+              icon: const Icon(Icons.menu), 
+              onPressed: ()  {
+                Scaffold.of(context).openDrawer();
+              },
+            )
+          ),
+
           backgroundColor: const Color.fromARGB(255, 6, 163, 11),
           title: Text(
             playlistName, //Playlist Name
             textAlign: TextAlign.center,
           ),
+
           actions: [
             //Search Button
             IconButton(
@@ -244,6 +267,9 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
                 }),
           ],
         ),
+
+        drawer: tracksOptionsMenu(),
+
         //Loads the users tracks and its associated images after fetching them for user viewing
         body: FutureBuilder<void>(
           future: fetchDatabaseTracks(),
@@ -263,10 +289,26 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
             else if (loaded && totalTracks <= 0) {
               return const Center(
                   child: Text(
-                'Playlist is empty no Tracks to Show',
-                textScaler: TextScaler.linear(2),
-                textAlign: TextAlign.center,
-              ));
+                    'Playlist is empty no Tracks to Show',
+                    textScaler: TextScaler.linear(1.7),
+                    textAlign: TextAlign.center,
+                  )
+              );
+            }
+            else if(refresh) {
+              return const Center(
+                  child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        CircularProgressIndicator(strokeWidth: 6,),
+                        Text(
+                          'Syncing Tracks',
+                          textScaler: TextScaler.linear(2)
+                        ),
+                      ]
+                  )
+              );
             }
             //Tracks are loading
             else {
@@ -275,9 +317,14 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
                       crossAxisAlignment: CrossAxisAlignment.center,
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                    CircularProgressIndicator(),
-                    Text('Loading tracks')
-                  ]));
+                        CircularProgressIndicator(strokeWidth: 6,),
+                        Text(
+                          'Loading Tracks',
+                          textScaler: TextScaler.linear(2)
+                        ),
+                      ]
+                  )
+              );
             }
           },
         ),
@@ -285,6 +332,63 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
       );
   }
 
+  Drawer tracksOptionsMenu(){
+    return Drawer(
+      elevation: 16,
+      width: 200,
+      child: Container(
+        alignment: Alignment.bottomLeft,
+        child: ListView(
+          children: [
+            const DrawerHeader(
+              decoration: BoxDecoration(color: Color.fromARGB(255, 6, 163, 11)),
+              child: Text(
+                'Sidebar',
+                style: TextStyle(fontSize: 18),
+              )
+            ),
+            ListTile(
+              leading: const Icon(Icons.home),
+              title: const Text('Playlists'),
+              onTap: () {
+                Map<String, dynamic> multiArgs = {
+                'callback': receivedCall,
+                'user': user,
+                };
+
+                Navigator.restorablePushNamed(context, HomeView.routeName, arguments: multiArgs);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.question_mark),
+              title: const Text('About'),
+              onTap: () {
+                Map<String, dynamic> multiArgs = {
+                'callback': receivedCall,
+                'user': user,
+                };
+                
+                Navigator.restorablePushNamed(context, AboutView.routeName, arguments: multiArgs);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.settings),
+              title: const Text('Settings'),
+              onTap: () {
+                Navigator.restorablePushNamed(context, SettingsView.routeName);
+              },
+            ),
+            ListTile(
+              title: const Text('Sign Out'),
+              onTap: () {
+                debugPrint('Sign Out Selected');
+              },
+            ),
+          ],
+        ),
+      )
+    );
+  }
 
   Widget tracksBottomBar(){
       return BottomNavigationBar(

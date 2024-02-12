@@ -149,26 +149,27 @@ def get_playlists(expires_at, access_token):
 
     user_playlists = {}
 
-    i = 1
+    i = 0
     for item in playlist_items:
-        if (item['name'] == ''):
-            unnamed = f'Unnamed {i}'
-            user_playlists[item['id']] = {
-                'title': unnamed, 
-                'link': item['tracks']['href'], 
-                'imageUrl': item['images'], 
-                'snapshotId': item['snapshot_id'],
-                'owner': item['owner']['id'],
-            }
+        id = item['id']
+        owner = item['owner']['id']
+        snapshotId = item['snapshot_id']
+        images = item['images']
+        link = item['tracks']['href']
+        title = item['name']
+
+        if (title == ''):
+            title = f'Unnamed {i}'
             i += 1
-        else:
-            user_playlists[item['id']] = {
-                'title': item['name'], 
-                'link': item['tracks']['href'], 
-                'imageUrl': item['images'], 
-                'snapshotId': item['snapshot_id'],
-                'owner': item['owner']['id'],
-            }
+
+        user_playlists[id] = {
+            'title': title, 
+            'link': link, 
+            'imageUrl': images, 
+            'snapshotId': snapshotId,
+            'owner': owner,
+        }
+        print(f'Title: {title} \n Owner: {owner}')
 
     #Manually add Liked_Songs playlist
     user_playlists['Liked_Songs'] = {
@@ -223,10 +224,11 @@ def get_tracks_total(playlist_id, expires_at, access_token):
     
     return jsonify({'status': 'Failed', 'message': 'Missing Playlist ID'})
 
-@app.route('/get-all-tracks/<playlist_id>/<expires_at>/<access_token>/<total_tracks>')
-def get_all_tracks(playlist_id, expires_at, access_token, total_tracks):
+@app.route('/get-all-tracks/<playlist_id>/<expires_at>/<access_token>/<total_tracks>/<offset>')
+def get_all_tracks(playlist_id, expires_at, access_token, total_tracks, offset):
     expires_at = float(expires_at)
     total_tracks = int(total_tracks)
+    offset = str(offset)
 
     if not access_token:
         return LOGGIN_MSG
@@ -244,51 +246,46 @@ def get_all_tracks(playlist_id, expires_at, access_token, total_tracks):
         }
 
         playlist_tracks = {}
-        
-        for offset in range(0, total_tracks, 50 ):
-            #offsetStr = str(offset)
-            print(f'Offset {offset}, Total: {total_tracks}')
+    
+        response = handleGetTracks(playlist_id, offset, header)
 
-            response = handleGetTracks(playlist_id, offset, header)
-
-            if response.status_code == 200:
-                tracks = response.json()
-                tracks_items = tracks['items']
-                
-                """
-                Puts all of a Users tracks in a dictionary 
-                with its associated images, preview_url, and artist
-                """
-                for item in tracks_items:
-
-                    #Checks if it is a Spotify track
-                    if item is not None:
-                        track_id = item['track']['id']
-
-                        if track_id is not None:
-                            track_title = item['track']['name']
-                            track_images = item['track']['album']['images']
-
-                            preview_url = item['track']['preview_url'] or ''
-                            
-                            track_artist = item['track']['artists'][0]['name']
-                            if track_artist and track_images and track_title:
-                                duplicate = duplicateCheck(track_id, playlist_tracks)
-
-                                if not duplicate:
-                                    playlist_tracks[track_id] = {
-                                        'title': track_title,
-                                        'imageUrl': track_images, 
-                                        'artist': track_artist,
-                                        'preview_url': preview_url,
-                                        'duplicates': 0,
-                                    }
-                                    print('Adding Track')
-
-                return jsonify({'status': 'Success', 'data': playlist_tracks})
+        if response.status_code == 200:
+            tracks = response.json()
+            tracks_items = tracks['items']
             
-            else:
-                return jsonify({'status': 'Failed', 'message': f'Failed to get all tracks: {response.status_code} {response.json()}'})
+            """
+            Puts all of a Users tracks in a dictionary 
+            with its associated images, preview_url, and artist
+            """
+            for item in tracks_items:
+
+                #Checks if it is a Spotify track
+                if item is not None:
+                    track_id = item['track']['id']
+
+                    if track_id is not None:
+                        track_title = item['track']['name']
+                        track_images = item['track']['album']['images']
+
+                        preview_url = item['track']['preview_url'] or ''
+                        
+                        track_artist = item['track']['artists'][0]['name']
+                        if track_artist and track_images and track_title:
+                            duplicate = duplicateCheck(track_id, playlist_tracks)
+
+                            if not duplicate:
+                                playlist_tracks[track_id] = {
+                                    'title': track_title,
+                                    'imageUrl': track_images, 
+                                    'artist': track_artist,
+                                    'preview_url': preview_url,
+                                    'duplicates': 0,
+                                }
+
+            return jsonify({'status': 'Success', 'data': playlist_tracks})
+        
+        else:
+            return jsonify({'status': 'Failed', 'message': f'Failed to get all tracks: {response.status_code} {response.json()}'})
            
     return jsonify({'status': 'Failed', 'message': 'Missing Playlist ID'})
 
@@ -369,12 +366,15 @@ def handleAddTracks(header, id, bodyUri, likedUris):
     if id != 'Liked_Songs':
         postUrl = f"{API_BASE_URL}playlists/{id}/tracks"
 
+        #Add track to other playlists
+        response = requests.post(postUrl, headers=header, json=bodyUri)
+
     else:
         bodyUri = {'ids': likedUris}
         postUrl = f"{API_BASE_URL}me/tracks"
 
-    #Add track to chosen playlist
-    response = requests.put(postUrl, headers=header, json=bodyUri)
+        #Add track to Liked Songs playlist
+        response = requests.put(postUrl, headers=header, json=bodyUri)
 
     if response.status_code != 201 and response.status_code != 200:
         print(f'Failed to add Track {response.reason}')

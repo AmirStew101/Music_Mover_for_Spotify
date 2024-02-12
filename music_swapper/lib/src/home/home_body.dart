@@ -61,54 +61,53 @@ class ImageGridState extends State<ImageGridWidget> {
               },
               //Aligns the image over its title
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
 
-                  //Playlist has an image url to display
-                  if (!imageUrl.contains('asset'))
-                    //Playlist Image
+                    //Playlist has an image url to display
+                    if (!imageUrl.contains('asset'))
+                      //Playlist Image
+                      Align(
+                        //Aligns the Image
+                        alignment: Alignment.topCenter,
+                        child: Image.network(
+                          imageUrl,
+                          fit: BoxFit.cover,
+                          height: 154,
+                          width: 155,
+                        ),
+                      ),
+
+                    //PLaylist doesn't have an image to display or its the Liked_Songs playlist
+                    if (imageUrl.contains('asset'))
+                      Align(
+                        //Aligns the Image
+                        alignment: Alignment.topCenter,
+                        child: Image(
+                          image: AssetImage(imageUrl),
+                          fit: BoxFit.cover,
+                          height: 154,
+                          width: 155,
+                        ),
+                      ),
+                      
+                    //Playlist Name
                     Align(
-                      //Aligns the Image
-                      alignment: Alignment.topCenter,
-                      child: Image.network(
-                        imageUrl,
-                        fit: BoxFit.cover,
-                        height: 154,
-                        width: 155,
+                      //Aligns the Image's Name
+                      alignment: Alignment.center,
+                      child: Text(
+                        imageName,
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        overflow: TextOverflow.ellipsis, //Displays (...) when oveflowed
                       ),
-                    ),
+                    )
+                  ],
+                ),
 
-                  //PLaylist doesn't have an image to display or its the Liked_Songs playlist
-                  if (imageUrl.contains('asset'))
-                    Align(
-                      //Aligns the Image
-                      alignment: Alignment.topCenter,
-                      child: Image(
-                        image: AssetImage(imageUrl),
-                        fit: BoxFit.cover,
-                        height: 154,
-                        width: 155,
-                      ),
-                    ),
-
-                  //Playlist Name
-                  Align(
-                    //Aligns the Image's Name
-                    alignment: Alignment.center,
-                    child: Text(
-                      key: const Key('assetImage'),
-                      imageName,
-                      style: const TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
-                      ),
-                      overflow: TextOverflow
-                          .ellipsis, //Displays (...) when ovefloed
-                    ),
-                  )
-                ],
-              ),
             ),
             
             //Playlist Divider underlining the Name

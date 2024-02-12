@@ -27,22 +27,28 @@ Future<int> getSpotifyTracksTotal(String playlistId, double expiresAt, String ac
 }
 
 Future<Map<String, dynamic>> getSpotifyPlaylistTracks(String playlistId, double expiresAt, String accessToken, int totalTracks) async {
-  try{  
-    final getTracksUrl ='$ngrok/get-all-tracks/$playlistId/$expiresAt/$accessToken/$totalTracks';
-    final response = await http.get(Uri.parse(getTracksUrl));
+  try{
+    Map<String, dynamic> tracks = {};
 
-    final responseDecoded = json.decode(response.body);
+    //Gets Tracks 50 at a time because of Spotify's limit
+    for (var offset = 0; offset < totalTracks; offset +=50){
+      debugPrint('Offset: $offset');
 
-    if (response.statusCode == 200){
-      Map<String, dynamic> tracks = responseDecoded['data'];
-      debugPrint('Spotify Tracks: ${tracks.length}');
+      final getTracksUrl ='$hosted/get-all-tracks/$playlistId/$expiresAt/$accessToken/$totalTracks/$offset';
+      final response = await http.get(Uri.parse(getTracksUrl));
 
-      tracks = getPlatformTrackImages(tracks);
-      return tracks;
-    }
-    else{
+      final responseDecoded = json.decode(response.body);
+
+      if (response.statusCode == 200){
+        tracks.addAll(responseDecoded['data']);
+      }
+      else{
       debugPrint('Failed to get Spotify Tracks : ${responseDecoded['message']}');
+      }
     }
+
+    tracks = getPlatformTrackImages(tracks);
+    return tracks;
   }
   catch (e){
     debugPrint('Caught Error in getSpotifyPlaylistTracks $e');
@@ -115,10 +121,10 @@ Future<bool> moveTracksRequest(List<String> tracks, String originId, String snap
 }
 
 Future<void> addTracksRequest(List<String> tracks, List<String> playlistIds, double expiresAt, String accessToken) async {
-  final moveTracksUrl ='$ngrok/add-to-playlists/$expiresAt/$accessToken';
+  final addTracksUrl ='$hosted/add-to-playlists/$expiresAt/$accessToken';
 
   final response = await http.post(
-    Uri.parse(moveTracksUrl),
+    Uri.parse(addTracksUrl),
     headers: {
     'Content-Type': 'application/json'
     },
@@ -133,7 +139,7 @@ Future<void> addTracksRequest(List<String> tracks, List<String> playlistIds, dou
 Future<void> removeTracksRequest(List<String> tracks, String originId, String snapshotId, double expiresAt, String accessToken) async{
   try{
     debugPrint('Remove Tracks Request: $tracks');
-    final removeTracksUrl ='$ngrok/remove-tracks/$originId/$snapshotId/$expiresAt/$accessToken';
+    final removeTracksUrl ='$hosted/remove-tracks/$originId/$snapshotId/$expiresAt/$accessToken';
 
     final response = await http.post(
       Uri.parse(removeTracksUrl),

@@ -3,103 +3,23 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:spotify_music_helper/src/about/about.dart';
-import 'package:spotify_music_helper/src/home/home_view.dart';
-import 'package:spotify_music_helper/src/settings/settings_view.dart';
 import 'package:spotify_music_helper/utils/database/database_model.dart';
 import 'package:spotify_music_helper/utils/database/databse_calls.dart';
 import 'package:spotify_music_helper/utils/globals.dart';
 import 'package:http/http.dart' as http;
 
-class OptionsMenu extends StatelessWidget {
-  const OptionsMenu({required this.callback, required this.user, super.key});
-  final Map<String, dynamic> callback;
-  final Map<String, dynamic> user;
-
-  @override
-  Widget build(BuildContext context) {
-    return DropdownMenu(
-      leadingIcon: const Icon(Icons.menu),
-      trailingIcon: const Icon(null),
-      selectedTrailingIcon: const Icon(null),
-      inputDecorationTheme: const InputDecorationTheme(
-          outlineBorder: BorderSide(color: Colors.black)),
-      dropdownMenuEntries: const [
-        DropdownMenuEntry(
-            value: 'home',
-            label: 'Home',
-            leadingIcon: Icon(Icons.home),
-            style: ButtonStyle(
-                overlayColor:
-                    MaterialStatePropertyAll(Color.fromARGB(255, 6, 163, 11))
-            )
-        ),
-        DropdownMenuEntry(
-            value: 'settings',
-            label: 'Settings',
-            leadingIcon: Icon(Icons.settings),
-            style: ButtonStyle(
-                overlayColor:
-                    MaterialStatePropertyAll(Color.fromARGB(255, 6, 163, 11))
-            )
-        ),
-        DropdownMenuEntry(
-            value: 'about',
-            label: 'About',
-            leadingIcon: Icon(Icons.question_mark),
-            style: ButtonStyle(
-                overlayColor:
-                    MaterialStatePropertyAll(Color.fromARGB(255, 6, 163, 11))
-            )
-        ),
-        DropdownMenuEntry(
-            value: 'contact',
-            label: 'Contact',
-            leadingIcon: Icon(Icons.question_answer),
-            style: ButtonStyle(
-                overlayColor:
-                    MaterialStatePropertyAll(Color.fromARGB(255, 6, 163, 11))
-            )
-        ),
-      ],
-      onSelected: (value) {
-        if (value == 'home') {
-          Map<String, dynamic> multiArgs = {
-                'callback': callback,
-                'user': user,
-              };
-          Navigator.restorablePushNamed(context, HomeView.routeName, arguments: multiArgs);
-        } else if (value == 'settings') {
-          Navigator.restorablePushNamed(context, SettingsView.routeName);
-        } else if (value == 'about') {
-          Map<String, dynamic> multiArgs = {
-                'callback': callback,
-                'user': user,
-              };
-          Navigator.restorablePushNamed(context, AboutView.routeName,
-              arguments: multiArgs);
-        } else {
-          debugPrint('Contact Selected');
-        }
-      },
-    );
-  }
-}
-
 final userRepo = Get.put(UserRepository());
 
 //Syncs the Users Spotify tracks with the tracks in database
-Future<bool> syncPlaylistTracksData(String userId, Map<String, dynamic> tracks, String playlistId) async{
+Future<void> syncPlaylistTracksData(String userId, Map<String, dynamic> tracks, String playlistId) async{
   debugPrint('Syncing Tracks: ${tracks.length}');
   try{
   await userRepo.syncPlaylistTracks(userId, tracks, playlistId);
   }
   catch (e){
     debugPrint('Error trying to Sync Playlist Tracks: $e');
-    return false;
   }
   debugPrint('Finished Syncing Tracks');
-  return true;
 }
 
 //Get a list of track names for a given playlits then get there details from
@@ -116,7 +36,14 @@ Future<Map<String, dynamic>> getDatabaseTracks(String userId, String playlistId)
 
 //Syncs the Users Spotify Playlists with the playlists in database
 Future<void> syncPlaylists(Map<String, dynamic> playlists, String userId) async{
+  debugPrint('Syncing Playlists');
+  try{
   await userRepo.syncUserPlaylists(userId, playlists);
+  }
+  catch (e){
+    debugPrint('Error trying to Sync Playlists: $e');
+  }
+  debugPrint('Finished Syncing Playlists');
 }
 
 Future<Map<String, dynamic>> getDatabasePlaylists(String userId) async{
