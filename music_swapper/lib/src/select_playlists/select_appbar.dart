@@ -1,6 +1,6 @@
 
 import 'package:flutter/material.dart';
-import 'package:spotify_music_helper/utils/universal_widgets.dart';
+import 'package:spotify_music_helper/src/utils/universal_widgets.dart';
 
 class SelectPlaylistSearchDelegate extends SearchDelegate {
   List<MapEntry<String, dynamic>> searchResults = []; //Names of each playlist

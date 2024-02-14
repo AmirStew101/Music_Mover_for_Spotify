@@ -1,9 +1,5 @@
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
-import 'package:spotify_music_helper/utils/object_models.dart';
-import 'package:spotify_music_helper/utils/playlists_requests.dart';
-import 'package:spotify_music_helper/utils/tracks_requests.dart';
-import 'package:spotify_music_helper/utils/universal_widgets.dart';
 
 //Creates the state to update tracks the user selected
 //Receives all the users tracks for the selected playlist

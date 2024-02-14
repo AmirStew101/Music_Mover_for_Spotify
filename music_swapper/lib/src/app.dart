@@ -71,20 +71,23 @@ class MyApp extends StatelessWidget {
               settings: routeSettings,
               builder: (BuildContext context) {
                 switch (routeSettings.name) {
+
                   //User is not signed in goes to Start page
                   case StartView.routeName:
-                    return const StartView();
+                    bool reLogin = routeSettings.arguments as bool;
+                    return StartView(reLogin: reLogin);
 
                   case SettingsView.routeName:
                     return SettingsView(controller: settingsController);
 
                   //Login to Spotify
                   case SpotLoginWidget.routeName:
-                    return const SpotLoginWidget();
+                    bool reLogin = routeSettings.arguments as bool;
+                    return SpotLoginWidget(reLogin: reLogin);
 
                   //View the users tracks
                   case TracksView.routeName:
-                  final currentPlaylist = routeSettings.arguments as Map<String, dynamic>;
+                    final currentPlaylist = routeSettings.arguments as Map<String, dynamic>;
                     return TracksView(currentPLaylist: currentPlaylist);
 
                   //The Apps details page
@@ -93,7 +96,7 @@ class MyApp extends StatelessWidget {
 
                   //Select playlists to move/add tracks to
                   case SelectPlaylistsViewWidget.routeName:
-                  final multiArgs = routeSettings.arguments as Map<String, dynamic>;
+                    final multiArgs = routeSettings.arguments as Map<String, dynamic>;
                     return SelectPlaylistsViewWidget(multiArgs: multiArgs);
 
                   //View the users playlist

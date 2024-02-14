@@ -5,7 +5,8 @@ import 'package:spotify_music_helper/src/login/spot_login_view.dart';
 import 'package:spotify_music_helper/src/settings/settings_view.dart';
 
 class StartView extends StatelessWidget {
-  const StartView({super.key});
+  const StartView({super.key, required this.reLogin});
+  final bool reLogin;
 
   static const routeName = '/Login_Screen';
 
@@ -37,25 +38,26 @@ class StartView extends StatelessWidget {
               children: [
                 //Login to Spotify
                 TextButton.icon(
-                  onPressed: () {
-                    Navigator.of(context).pushNamed(SpotLoginWidget.routeName);
-                  },
                   icon: const Icon(Icons.login),
                   label: const Text(
                     'Spotify Login',
                     textScaler: TextScaler.linear(1.5),
-                  )
+                  ),
+                  onPressed: () {
+                    debugPrint('Start View Relogin value $reLogin');
+                    Navigator.of(context).pushNamed(SpotLoginWidget.routeName, arguments: reLogin);
+                  },
                 ),
                 //Close the App
                 TextButton.icon(
-                  onPressed: () {
-                    exit(0);
-                  }, 
                   icon: const Icon(Icons.close), 
                   label: const Text(
                     'Close App',
                     textScaler: TextScaler.linear(1.5),
-                  )
+                  ),
+                  onPressed: () {
+                    exit(0);
+                  }, 
                 )
               ],
             )

@@ -1,14 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:spotify_music_helper/src/about/about.dart';
 import 'package:spotify_music_helper/src/home/home_appbar.dart';
 import 'package:spotify_music_helper/src/login/login_Screen.dart';
-import 'package:spotify_music_helper/src/login/spot_login_view.dart';
-import 'package:spotify_music_helper/src/settings/settings_view.dart';
-import 'package:spotify_music_helper/utils/object_models.dart';
-import 'package:spotify_music_helper/utils/playlists_requests.dart';
+import 'package:spotify_music_helper/src/utils/object_models.dart';
+import 'package:spotify_music_helper/src/utils/playlists_requests.dart';
 import 'package:spotify_music_helper/src/home/home_body.dart';
 import 'package:spotify_music_helper/src/tracks/tracks_view.dart';
-import 'package:spotify_music_helper/utils/universal_widgets.dart';
+import 'package:spotify_music_helper/src/utils/universal_widgets.dart';
 
 //Creates the state for the home screen to view/edit playlists
 class HomeView extends StatefulWidget {
@@ -36,8 +33,9 @@ class HomeViewState extends State<HomeView> {
     UserModel? secureUser = await SecureStorage().getUser();
 
     if (secureCall == null || secureUser == null){
+      bool reLogin = false;
       // ignore: use_build_context_synchronously
-      Navigator.of(context).pushReplacementNamed(StartView.routeName);
+      Navigator.of(context).pushReplacementNamed(StartView.routeName, arguments: reLogin);
     }
     else{
       receivedCall = secureCall;
@@ -86,9 +84,6 @@ class HomeViewState extends State<HomeView> {
   }
 
   Future<void> refreshPage() async{
-    if (error){
-      SpotLoginState().initiateLogin(context);
-    }
     setState(() {
       loaded = false;
       error = false;

@@ -2,9 +2,9 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
-import 'package:spotify_music_helper/utils/globals.dart';
-import 'package:spotify_music_helper/utils/object_models.dart';
-import 'package:spotify_music_helper/utils/universal_widgets.dart';
+import 'package:spotify_music_helper/src/utils/globals.dart';
+import 'package:spotify_music_helper/src/utils/object_models.dart';
+import 'package:spotify_music_helper/src/utils/universal_widgets.dart';
 
 Future<Map<String, dynamic>> getSpotifyPlaylists(double expiresAt, String accessToken, String userId) async {
   try {

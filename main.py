@@ -36,7 +36,7 @@ EXPIRES_MSG = {'status': 'Failed', 'message': 'No Expiration time received'}
 # def index():
 #     return "Spotify <a href='/get-auth-url/not'>Login</a>"
 
-@app.route('/get-auth-url', methods=['GET'])
+@app.route('/get-auth-url-no-dialog', methods=['GET'])
 def login():
     """
     To see playlists: playlist-read-private
@@ -54,6 +54,30 @@ def login():
         'scope': scope,
         'redirect_uri': SITE_REDIRECT_URI,
         'show_dialog': False #Forces the user to login again for Testing
+    }
+
+    auth_url = f"{AUTH_URL}?{urllib.parse.urlencode(params)}"
+
+    return jsonify({'status': 'Success', 'data': auth_url})
+
+@app.route('/get-auth-url-dialog', methods=['GET'])
+def re_login():
+    """
+    To see playlists: playlist-read-private
+    To see playlist tracks: 
+
+    To add tracks from playlist: POST
+    To remove tracks from playlist: DELETE
+    To create a playlist: playlist-modify-private playlist-modify-public
+    """
+    scope = 'playlist-read-private playlist-modify-private playlist-modify-public user-library-read user-library-modify user-read-private'
+
+    params = {
+        'client_id': CLIENT_ID,
+        'response_type': 'code',
+        'scope': scope,
+        'redirect_uri': SITE_REDIRECT_URI,
+        'show_dialog': True #Forces the user to login again for Testing
     }
 
     auth_url = f"{AUTH_URL}?{urllib.parse.urlencode(params)}"

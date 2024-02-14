@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:spotify_music_helper/src/home/home_view.dart';
 import 'package:spotify_music_helper/src/login/login_Screen.dart';
-import 'package:spotify_music_helper/src/settings/settings_view.dart';
-import 'package:spotify_music_helper/utils/object_models.dart';
-import 'package:spotify_music_helper/utils/universal_widgets.dart';
+import 'package:spotify_music_helper/src/utils/object_models.dart';
+import 'package:spotify_music_helper/src/utils/universal_widgets.dart';
 
 class AboutViewWidget extends StatefulWidget{
   const AboutViewWidget({super.key});

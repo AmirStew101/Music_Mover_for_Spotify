@@ -1,16 +1,20 @@
 
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:spotify_music_helper/src/about/about.dart';
 import 'package:spotify_music_helper/src/home/home_view.dart';
+import 'package:spotify_music_helper/src/login/login_Screen.dart';
 import 'package:spotify_music_helper/src/settings/settings_view.dart';
-import 'package:spotify_music_helper/utils/object_models.dart';
-import 'package:spotify_music_helper/utils/database/databse_calls.dart';
-import 'package:spotify_music_helper/utils/globals.dart';
+import 'package:spotify_music_helper/src/utils/object_models.dart';
+import 'package:spotify_music_helper/src/utils/database/databse_calls.dart';
+import 'package:spotify_music_helper/src/utils/globals.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:spotify_music_helper/src/utils/playlists_requests.dart';
+import 'package:spotify_music_helper/src/utils/tracks_requests.dart';
 
 final userRepo = Get.put(UserRepository());
 AndroidOptions getAndroidOptions() => const AndroidOptions(encryptedSharedPreferences: true);
@@ -49,7 +53,9 @@ class SecureStorage {
   }
 
   Future<void> removeTokens() async{
-
+    await storage.delete(key: accessTokenKey);
+    await storage.delete(key: expiresAtKey);
+    await storage.delete(key: refreshTokenKey);
   }
 
   Future<void> saveUser(UserModel user) async{
@@ -80,6 +86,11 @@ class SecureStorage {
     return null;
   }
 
+  Future<void> removeUser() async{
+    await storage.delete(key: userIdKey);
+    await storage.delete(key: userNameKey);
+    await storage.delete(key: userUriKey);
+  }
 }
 
 
@@ -160,6 +171,7 @@ class DatabaseStorage {
   }
 }
 
+
 String modifyBadQuery(String query){
   List badInput = ['\\', ';', '\'', '"', '@', '|'];
   String newQuery = '';
@@ -172,50 +184,121 @@ String modifyBadQuery(String query){
 }
 
 
-  Drawer optionsMenu(BuildContext context){
-    return Drawer(
-      elevation: 16,
-      width: 200,
-      child: Container(
-        alignment: Alignment.bottomLeft,
-        child: ListView(
-          children: [
-            const DrawerHeader(
-              decoration: BoxDecoration(color: Color.fromARGB(255, 6, 163, 11)),
-              child: Text(
-                'Sidebar',
-                style: TextStyle(fontSize: 18),
-              )
-            ),
-            ListTile(
-              leading: const Icon(Icons.home),
-              title: const Text('Playlists'),
-              onTap: () {
-                Navigator.restorablePushNamed(context, HomeView.routeName);
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.question_mark),
-              title: const Text('About'),
-              onTap: () {
-                Navigator.restorablePushNamed(context, AboutViewWidget.routeName);
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.settings),
-              title: const Text('Settings'),
-              onTap: () {
-                Navigator.restorablePushNamed(context, SettingsView.routeName);
-              },
-            ),
-            ListTile(
-              title: const Text('Sign Out'),
-              onTap: () {
-                debugPrint('Sign Out Selected');
-              },
-            ),
-          ],
-        ),
-      )
-    );
+Drawer optionsMenu(BuildContext context){
+  return Drawer(
+    elevation: 16,
+    width: 200,
+    child: Container(
+      alignment: Alignment.bottomLeft,
+      child: ListView(
+        children: [
+          const DrawerHeader(
+            decoration: BoxDecoration(color: Color.fromARGB(255, 6, 163, 11)),
+            child: Text(
+              'Sidebar Options',
+              style: TextStyle(fontSize: 18),
+            )
+          ),
+          ListTile(
+            leading: const Icon(Icons.album),
+            title: const Text('Playlists'),
+            onTap: () {
+              Navigator.restorablePushNamed(context, HomeView.routeName);
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.shopping_cart),
+            title: const Text('Store'),
+            onTap: () {
+              
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.question_mark),
+            title: const Text('About'),
+            onTap: () {
+              Navigator.restorablePushNamed(context, AboutViewWidget.routeName);
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.settings),
+            title: const Text('Settings'),
+            onTap: () {
+              Navigator.restorablePushNamed(context, SettingsView.routeName);
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.switch_account),
+            title: const Text('Sign Out'),
+            onTap: () {
+              SecureStorage().removeTokens();
+              SecureStorage().removeUser();
+
+              bool reLogin = true;
+              Navigator.pushNamedAndRemoveUntil(context, StartView.routeName, (route) => false, arguments: reLogin);
+              debugPrint('Sign Out Selected');
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.exit_to_app),
+            title: const Text('Exit App'),
+            onTap: () {
+              exit(0);
+            },
+          ),
+        ],
+      ),
+    )
+  );
+}
+
+//Used to organize what songs a user has in their Liked SOngs playlist
+class LikedSongs{
+  String likedId = 'Liked_Songs';
+
+  //Checks if the tracks in a playlist is a Liked Song
+  Future<Map<String, dynamic>?> checkLiked(Map<String, dynamic> playlistTracks, String userId) async{
+    Map<String, dynamic>? likedSongs = await getLikedSongs(userId);
+
+    if (likedSongs != null && likedSongs.isNotEmpty){
+      List liked = [];
+      for (var trackId in playlistTracks.keys){
+        if (likedSongs.containsKey(trackId)){
+          liked.add(trackId);
+        }
+      }
+    }
+    //User has no liked songs
+    if (likedSongs != null && likedSongs.isEmpty){
+      return likedSongs;
+    }
+
+    //User needs a new callback
+    return null;
   }
+
+  //Gets all the users liked songs
+  Future<Map<String, dynamic>?> getLikedSongs(String userId) async{
+    Map<String, dynamic> likedSongs = await userRepo.getTracks(userId, likedId);
+
+    //Database Liked Songs is empty
+    if (likedSongs.isEmpty){
+      CallbackModel? callback = await SecureStorage().getTokens();
+
+      //Get tracks from spotify
+      if (callback != null){
+        callback = await checkRefresh(callback, false);
+        int totalTracks = await getSpotifyTracksTotal(likedId, callback.expiresAt, callback.accessToken);
+        likedSongs = await getSpotifyPlaylistTracks(likedId, callback.expiresAt, callback.accessToken, totalTracks);
+      }
+      //User needs a new callback
+      else{
+        return null;
+      }
+    }
+
+    return likedSongs;
+  }
+
+
+}

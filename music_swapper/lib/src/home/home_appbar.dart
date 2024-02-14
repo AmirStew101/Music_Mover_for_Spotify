@@ -1,8 +1,5 @@
-
-import 'dart:math';
-
 import 'package:flutter/material.dart';
-import 'package:spotify_music_helper/utils/universal_widgets.dart';
+import 'package:spotify_music_helper/src/utils/universal_widgets.dart';
 
 class PlaylistSearchDelegate extends SearchDelegate {
   List<String> searchResults = [];

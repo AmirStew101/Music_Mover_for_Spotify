@@ -1,8 +1,8 @@
 // ignore: must_be_immutable
 import 'package:flutter/material.dart';
-import 'package:spotify_music_helper/utils/object_models.dart';
-import 'package:spotify_music_helper/utils/playlists_requests.dart';
-import 'package:spotify_music_helper/utils/universal_widgets.dart';
+import 'package:spotify_music_helper/src/utils/object_models.dart';
+import 'package:spotify_music_helper/src/utils/playlists_requests.dart';
+import 'package:spotify_music_helper/src/utils/universal_widgets.dart';
 
 class SelectBodyWidget extends StatefulWidget {
   const SelectBodyWidget(

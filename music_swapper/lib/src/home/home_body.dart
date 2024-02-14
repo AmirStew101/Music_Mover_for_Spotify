@@ -1,9 +1,11 @@
 
+import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:flutter/material.dart';
 import 'package:spotify_music_helper/src/tracks/tracks_view.dart';
-import 'package:spotify_music_helper/utils/object_models.dart';
-import 'package:spotify_music_helper/utils/playlists_requests.dart';
-import 'package:spotify_music_helper/utils/universal_widgets.dart';
+import 'package:spotify_music_helper/src/utils/analytics.dart';
+import 'package:spotify_music_helper/src/utils/object_models.dart';
+import 'package:spotify_music_helper/src/utils/playlists_requests.dart';
+import 'package:spotify_music_helper/src/utils/universal_widgets.dart';
 
 class ImageGridWidget extends StatefulWidget{
   const ImageGridWidget({required this.receivedCall, required this.playlists, required this.user, super.key});
@@ -20,6 +22,7 @@ class ImageGridState extends State<ImageGridWidget> {
   CallbackModel receivedCall = CallbackModel();
   Map<String, dynamic> playlists = {};
   UserModel user = UserModel();
+  FirebaseAnalytics analytics = FirebaseAnalytics.instance;
 
   @override
   void initState(){
@@ -28,6 +31,7 @@ class ImageGridState extends State<ImageGridWidget> {
     playlists = widget.playlists;
     user = widget.user;
   }
+
 
   @override
   Widget build(BuildContext context) {
@@ -52,6 +56,10 @@ class ImageGridState extends State<ImageGridWidget> {
               onTap: () {
                 MapEntry<String, dynamic> currEntry = playlists.entries.firstWhere((element) => element.value['title'] == imageName);
                 Map<String, dynamic> currentPlaylist = {currEntry.key: currEntry.value};
+
+                if (currEntry.key == 'Liked_Songs'){
+                  trackLikedSongs();
+                }
 
                 Navigator.restorablePushNamed(context, TracksView.routeName, arguments: currentPlaylist);
               },

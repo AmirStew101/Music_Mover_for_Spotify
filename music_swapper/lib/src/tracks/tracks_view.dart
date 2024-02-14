@@ -5,12 +5,12 @@ import 'package:spotify_music_helper/src/home/home_view.dart';
 import 'package:spotify_music_helper/src/login/login_Screen.dart';
 import 'package:spotify_music_helper/src/select_playlists/select_playlists_view.dart';
 import 'package:spotify_music_helper/src/settings/settings_view.dart';
-import 'package:spotify_music_helper/utils/object_models.dart';
-import 'package:spotify_music_helper/utils/playlists_requests.dart';
+import 'package:spotify_music_helper/src/utils/object_models.dart';
+import 'package:spotify_music_helper/src/utils/playlists_requests.dart';
 import 'package:spotify_music_helper/src/tracks/tracks_body_widgets.dart';
-import 'package:spotify_music_helper/utils/tracks_requests.dart';
+import 'package:spotify_music_helper/src/utils/tracks_requests.dart';
 import 'package:spotify_music_helper/src/tracks/tracks_appbar_widgets.dart';
-import 'package:spotify_music_helper/utils/universal_widgets.dart';
+import 'package:spotify_music_helper/src/utils/universal_widgets.dart';
 
 class TracksView extends StatefulWidget {
   static const routeName = '/tracksView';
@@ -60,8 +60,9 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
     UserModel? secureUser = await SecureStorage().getUser();
 
     if (secureCall == null || secureUser == null){
+      bool reLogin = false;
       // ignore: use_build_context_synchronously
-      Navigator.of(context).pushReplacementNamed(StartView.routeName);
+      Navigator.of(context).pushReplacementNamed(StartView.routeName, arguments: reLogin);
     }
     else{
       receivedCall = secureCall;
