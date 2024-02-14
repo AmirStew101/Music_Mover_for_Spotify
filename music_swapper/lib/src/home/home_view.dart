@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:spotify_music_helper/src/about/about.dart';
 import 'package:spotify_music_helper/src/home/home_appbar.dart';
+import 'package:spotify_music_helper/src/login/login_Screen.dart';
 import 'package:spotify_music_helper/src/login/spot_login_view.dart';
 import 'package:spotify_music_helper/src/settings/settings_view.dart';
+import 'package:spotify_music_helper/utils/object_models.dart';
 import 'package:spotify_music_helper/utils/playlists_requests.dart';
 import 'package:spotify_music_helper/src/home/home_body.dart';
 import 'package:spotify_music_helper/src/tracks/tracks_view.dart';
@@ -13,8 +15,7 @@ class HomeView extends StatefulWidget {
   static const routeName = '/Home';
 
   //Class definition with the required callback data needed from Spotify
-  const HomeView({super.key, required this.multiArgs});
-  final Map<String, dynamic> multiArgs;
+  const HomeView({super.key});
 
   @override
   State<HomeView> createState() => HomeViewState();
@@ -22,27 +23,38 @@ class HomeView extends StatefulWidget {
 
 //State widget for the Home screen
 class HomeViewState extends State<HomeView> {
-  Map<String, dynamic> receivedCall = {}; //required passed callback variable
-  Map<String, dynamic> user = {};
+  CallbackModel receivedCall = CallbackModel(); //required passed callback variable
+  UserModel user = UserModel();
 
   Map<String, dynamic> playlists = {}; //all the users playlists
   bool loaded = false;
   bool error = false;
   bool refresh = false;
 
+  Future<void> checkLogin() async {
+    CallbackModel? secureCall = await SecureStorage().getTokens();
+    UserModel? secureUser = await SecureStorage().getUser();
+
+    if (secureCall == null || secureUser == null){
+      // ignore: use_build_context_synchronously
+      Navigator.of(context).pushReplacementNamed(StartView.routeName);
+    }
+    else{
+      receivedCall = secureCall;
+      user = secureUser;
+      await fetchDatabasePlaylists();
+    }
+  }
+
   Future<void> fetchDatabasePlaylists() async{
     loaded = false;
-    final Map<String, dynamic> multiArgs = widget.multiArgs;
-    receivedCall = multiArgs['callback'];
-    user = multiArgs['user'];
-    debugPrint('User: $user Callback: $receivedCall');
-
     if (!refresh){
       debugPrint('Fetching Database Playlists');
-      playlists = await getDatabasePlaylists(user['id']);
+      playlists = await DatabaseStorage().getDatabasePlaylists(user.spotifyId);
     }
 
     if (playlists.isNotEmpty && playlists.length > 1 && !refresh){
+      debugPrint('Loaded');
       loaded = true;
     }
     else{
@@ -59,10 +71,10 @@ class HomeViewState extends State<HomeView> {
       //Checks to make sure Tokens are up to date before making a Spotify request
       receivedCall = await checkRefresh(receivedCall, forceRefresh);
 
-      playlists = await getSpotifyPlaylists(receivedCall['expiresAt'], receivedCall['accessToken'], user['id']);
+      playlists = await getSpotifyPlaylists(receivedCall.expiresAt, receivedCall.accessToken, user.spotifyId);
 
       //Checks all playlists if they are in database
-      await syncPlaylists(playlists, user['id']);
+      await DatabaseStorage().syncPlaylists(playlists, user.spotifyId);
     }
     catch (e){
       debugPrint('Caught an Error in Home fetchSpotifyPlaylists: $e');
@@ -75,7 +87,7 @@ class HomeViewState extends State<HomeView> {
 
   Future<void> refreshPage() async{
     if (error){
-      SpotLogin().initiateLogin(context);
+      SpotLoginState().initiateLogin(context);
     }
     setState(() {
       loaded = false;
@@ -139,13 +151,13 @@ class HomeViewState extends State<HomeView> {
         ],
       ),
 
-      drawer: homeOptionsMenu(),
+      drawer: optionsMenu(context),
 
       body: FutureBuilder<void>(
-        future: fetchDatabasePlaylists(),
+        future: checkLogin(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.done && loaded && !error) {
-            return ImageGridWidget(receivedCall: receivedCall, playlists: playlists, user: user,);
+            return ImageGridWidget(playlists: playlists, receivedCall: receivedCall, user: user);
           }
           else if(refresh) {
               return const Center(
@@ -194,137 +206,8 @@ class HomeViewState extends State<HomeView> {
   void tracksNavigate(String playlistName){
     MapEntry<String, dynamic> currEntry = playlists.entries.firstWhere((element) => element.value['title'] == playlistName);
     Map<String, dynamic> currentPlaylist = {currEntry.key: currEntry.value};
-    Map<String, dynamic> homeArgs = {
-                    'currentPlaylist': currentPlaylist,
-                    'callback': receivedCall,
-                    'user': user,
-    };
-    Navigator.restorablePushNamed(context, TracksView.routeName, arguments: homeArgs);
+
+    Navigator.restorablePushNamed(context, TracksView.routeName, arguments: currentPlaylist);
   }
 
-  Drawer homeOptionsMenu(){
-    return Drawer(
-      elevation: 16,
-      width: 200,
-      child: Container(
-        alignment: Alignment.bottomLeft,
-        child: ListView(
-          children: [
-            const DrawerHeader(
-              decoration: BoxDecoration(color: Color.fromARGB(255, 6, 163, 11)),
-              child: Text(
-                'Sidebar',
-                style: TextStyle(fontSize: 18),
-              )
-            ),
-            ListTile(
-              leading: const Icon(Icons.home),
-              title: const Text('Playlists'),
-              onTap: () {
-                Map<String, dynamic> multiArgs = {
-                'callback': receivedCall,
-                'user': user,
-                };
-
-                Navigator.restorablePushNamed(context, HomeView.routeName, arguments: multiArgs);
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.question_mark),
-              title: const Text('About'),
-              onTap: () {
-                Map<String, dynamic> multiArgs = {
-                'callback': receivedCall,
-                'user': user,
-                };
-                
-                Navigator.restorablePushNamed(context, AboutView.routeName, arguments: multiArgs);
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.settings),
-              title: const Text('Settings'),
-              onTap: () {
-                Navigator.restorablePushNamed(context, SettingsView.routeName);
-              },
-            ),
-            ListTile(
-              title: const Text('Sign Out'),
-              onTap: () {
-                debugPrint('Sign Out Selected');
-              },
-            ),
-          ],
-        ),
-      )
-    );
-  }
-
-}
-
-class HomeOptionsMenu extends Drawer {
-  const HomeOptionsMenu({required this.callback, required this.user, super.key});
-  final Map<String, dynamic> callback;
-  final Map<String, dynamic> user;
-
-  @override
-  Widget build(BuildContext context) {
-    return Drawer(
-      elevation: 16,
-      width: 200,
-      child: Container(
-        alignment: Alignment.bottomLeft,
-        child: ListView(
-          children: [
-            const DrawerHeader(
-              decoration: BoxDecoration(color: Color.fromARGB(255, 6, 163, 11)),
-              child: Text(
-                'Sidebar',
-                style: TextStyle(fontSize: 18),
-              )
-            ),
-            ListTile(
-              leading: const Icon(Icons.home),
-              title: const Text('Playlists'),
-              onTap: () {
-                Map<String, dynamic> multiArgs = {
-                'callback': callback,
-                'user': user,
-                };
-                debugPrint('Drawer Sending - User: $user Callback: $callback');
-                Navigator.restorablePushNamed(context, HomeView.routeName, arguments: multiArgs);
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.question_mark),
-              title: const Text('About'),
-              onTap: () {
-                Map<String, dynamic> multiArgs = {
-                'callback': callback,
-                'user': user,
-                };
-                
-                debugPrint('Drawer Sending - User: $user Callback: $callback');
-                Navigator.restorablePushNamed(context, AboutView.routeName, arguments: multiArgs);
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.settings),
-              title: const Text('Settings'),
-              onTap: () {
-                Navigator.restorablePushNamed(context, SettingsView.routeName);
-              },
-            ),
-            ListTile(
-              title: const Text('Sign Out'),
-              onTap: () {
-                debugPrint('Sign Out Selected');
-              },
-            ),
-          ],
-        ),
-      )
-    );
-  
-  }
 }

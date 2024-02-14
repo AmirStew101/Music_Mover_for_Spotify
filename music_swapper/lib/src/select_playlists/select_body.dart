@@ -1,5 +1,6 @@
 // ignore: must_be_immutable
 import 'package:flutter/material.dart';
+import 'package:spotify_music_helper/utils/object_models.dart';
 import 'package:spotify_music_helper/utils/playlists_requests.dart';
 import 'package:spotify_music_helper/utils/universal_widgets.dart';
 
@@ -18,9 +19,9 @@ class SelectBodyWidget extends StatefulWidget {
   final Map<String, dynamic> selectedPlaylistsMap;
   final Map<String, dynamic> currentPlaylist;
   final Map<String, dynamic> playlists;
-  final Map<String, dynamic> receivedCall;
+  final CallbackModel receivedCall;
   final void Function(List<MapEntry<String, dynamic>>) sendSelected;
-  final Map<String, dynamic> user;
+  final UserModel user;
 
   @override
   State<SelectBodyWidget> createState() => SelectBodyState();
@@ -31,8 +32,8 @@ class SelectBodyState extends State<SelectBodyWidget> {
   //Recived values
   Map<String, dynamic> playlists = {};
   Map<String, dynamic> currentPlaylist = {};
-  Map<String, dynamic> receivedCall = {};
-  Map<String, dynamic> user = {};
+  CallbackModel receivedCall = CallbackModel();
+  UserModel user = UserModel();
   late final void Function(List<MapEntry<String, dynamic>>) sendSelected;
 
   List<MapEntry<String, dynamic>> selectedPlaylists = [];
@@ -48,6 +49,7 @@ class SelectBodyState extends State<SelectBodyWidget> {
     receivedCall = widget.receivedCall;
     currentId = currentPlaylist.entries.single.key;
     user = widget.user;
+
     Map<String, dynamic> receivedSelected = widget.selectedPlaylistsMap;
 
     selectedPlaylists = List.generate(playlists.length, (index) {
@@ -75,10 +77,10 @@ class SelectBodyState extends State<SelectBodyWidget> {
     //Checks to make sure Tokens are up to date before making a Spotify request
     receivedCall = await checkRefresh(receivedCall, forceRefresh);
 
-    playlists = await getSpotifyPlaylists(receivedCall['expiresAt'], receivedCall['accessToken'], user['username']);
+    playlists = await getSpotifyPlaylists(receivedCall.expiresAt, receivedCall.accessToken, user.spotifyId);
 
     //Checks all playlists if they are in database
-    await syncPlaylists(playlists, user['id']);
+    await DatabaseStorage().syncPlaylists(playlists, user.spotifyId);
 
     playlists.forEach((key, value) {
       //Gets the current 'chosen' value by checking if selectedList has the playlist

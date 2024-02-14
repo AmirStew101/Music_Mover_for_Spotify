@@ -6,17 +6,17 @@ class UserModel{
   final String spotifyId;
   final String uri;
   
-  const UserModel({
+  UserModel({
     this.username,
-    required this.spotifyId,
-    required this.uri,
+    this.spotifyId = '',
+    this.uri = '',
   });
 
   toJson(){
     return {
-      'Username': username,
-      'Uri': uri,
-    };
+        'Username': username,
+        'Uri': uri,
+      };
   }
 }
 
@@ -70,3 +70,14 @@ class PlaylistModel {
   }
 }
 
+class CallbackModel{
+  double expiresAt;
+  String accessToken;
+  String refreshToken;
+
+  CallbackModel({
+    this.expiresAt = 0,
+    this.accessToken = '',
+    this.refreshToken = '',
+  });
+}

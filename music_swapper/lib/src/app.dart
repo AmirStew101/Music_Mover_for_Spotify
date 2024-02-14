@@ -71,24 +71,35 @@ class MyApp extends StatelessWidget {
               settings: routeSettings,
               builder: (BuildContext context) {
                 switch (routeSettings.name) {
+                  //User is not signed in goes to Start page
+                  case StartView.routeName:
+                    return const StartView();
+
                   case SettingsView.routeName:
                     return SettingsView(controller: settingsController);
-                  case SpotViewContainer.routeName:
-                    return const SpotViewContainer();
-                  case HomeView.routeName:
-                    final Map<String, dynamic> multiArgs = routeSettings.arguments as Map<String, dynamic>;
-                    return HomeView(multiArgs: multiArgs);
+
+                  //Login to Spotify
+                  case SpotLoginWidget.routeName:
+                    return const SpotLoginWidget();
+
+                  //View the users tracks
                   case TracksView.routeName:
-                    final Map<String, dynamic> multiArgs = routeSettings.arguments as Map<String, dynamic>;
-                    return TracksView(multiArgs: multiArgs);
-                  case AboutView.routeName:
-                    final Map<String, dynamic> multiArgs = routeSettings.arguments as Map<String, dynamic>;
-                    return AboutView(multiArgs: multiArgs,);
+                  final currentPlaylist = routeSettings.arguments as Map<String, dynamic>;
+                    return TracksView(currentPLaylist: currentPlaylist);
+
+                  //The Apps details page
+                  case AboutViewWidget.routeName:
+                    return const AboutViewWidget();
+
+                  //Select playlists to move/add tracks to
                   case SelectPlaylistsViewWidget.routeName:
-                    final Map<String, dynamic> multiArgs = routeSettings.arguments as Map<String, dynamic>;
+                  final multiArgs = routeSettings.arguments as Map<String, dynamic>;
                     return SelectPlaylistsViewWidget(multiArgs: multiArgs);
+
+                  //View the users playlist
                   default:
-                    return const StartView();
+                    return const HomeView();
+                    
                 }
               },
             );

@@ -3,7 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:get/get.dart';
-import 'package:spotify_music_helper/utils/database/database_model.dart';
+import 'package:spotify_music_helper/utils/object_models.dart';
 
 
 final db = FirebaseFirestore.instance;
@@ -20,8 +20,12 @@ class UserRepository extends GetxController {
       final DocumentSnapshot<Map<String, dynamic>> userExists = await usersRef.doc(user.spotifyId).get();
 
       if (userExists.exists) {
+        debugPrint('User exists');
+        final newUsername = user.username;
+        await usersRef.doc(user.spotifyId).update({'Username': newUsername});
         return true;
       }
+      debugPrint('User doesn\'t exist');
       return false;
     }
     catch (e){

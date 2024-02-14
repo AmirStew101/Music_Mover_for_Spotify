@@ -1,14 +1,15 @@
 
 import 'package:flutter/material.dart';
 import 'package:spotify_music_helper/src/tracks/tracks_view.dart';
+import 'package:spotify_music_helper/utils/object_models.dart';
 import 'package:spotify_music_helper/utils/playlists_requests.dart';
 import 'package:spotify_music_helper/utils/universal_widgets.dart';
 
 class ImageGridWidget extends StatefulWidget{
   const ImageGridWidget({required this.receivedCall, required this.playlists, required this.user, super.key});
-  final Map<String, dynamic> receivedCall;
+  final CallbackModel receivedCall;
   final Map<String, dynamic> playlists;
-  final Map<String, dynamic> user;
+  final UserModel user;
 
   @override
   State<ImageGridWidget> createState() => ImageGridState();
@@ -16,9 +17,9 @@ class ImageGridWidget extends StatefulWidget{
 
 //Class for the Playlist Images with their Names under them
 class ImageGridState extends State<ImageGridWidget> {
-  Map<String, dynamic> receivedCall = {};
+  CallbackModel receivedCall = CallbackModel();
   Map<String, dynamic> playlists = {};
-  Map<String, dynamic> user = {};
+  UserModel user = UserModel();
 
   @override
   void initState(){
@@ -51,13 +52,8 @@ class ImageGridState extends State<ImageGridWidget> {
               onTap: () {
                 MapEntry<String, dynamic> currEntry = playlists.entries.firstWhere((element) => element.value['title'] == imageName);
                 Map<String, dynamic> currentPlaylist = {currEntry.key: currEntry.value};
-                
-                Map<String, dynamic> homeArgs = {
-                  'currentPlaylist': currentPlaylist,
-                  'callback': receivedCall,
-                  'user': user,
-                };
-                Navigator.restorablePushNamed(context, TracksView.routeName, arguments: homeArgs);
+
+                Navigator.restorablePushNamed(context, TracksView.routeName, arguments: currentPlaylist);
               },
               //Aligns the image over its title
               child: Column(

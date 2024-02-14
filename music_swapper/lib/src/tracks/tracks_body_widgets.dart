@@ -1,5 +1,6 @@
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
+import 'package:spotify_music_helper/utils/object_models.dart';
 import 'package:spotify_music_helper/utils/playlists_requests.dart';
 import 'package:spotify_music_helper/utils/tracks_requests.dart';
 import 'package:spotify_music_helper/utils/universal_widgets.dart';
@@ -11,16 +12,12 @@ class TrackListWidget extends StatefulWidget {
       {required this.allTracks,
       required this.selectedTracksMap,
       required this.sendTracks,
-      required this.receivedCall,
       required this.playlistId,
-      required this.user,
       super.key});
 
   final Map<String, dynamic> allTracks;
   final Map<String, dynamic> selectedTracksMap;
-  final Map<String, dynamic> receivedCall;
   final String playlistId;
-  final Map<String, dynamic> user;
   final void Function(List<MapEntry<String, dynamic>>) sendTracks;
 
   @override
@@ -31,8 +28,6 @@ class TrackListWidget extends StatefulWidget {
 class TrackListState extends State<TrackListWidget> {
   //Map of the track with key = 'Track ID' and value = {images:, previewUrl:, artist:, title:}
   Map<String, dynamic> allTracks = {};
-  Map<String, dynamic> receivedCall = {};
-  Map<String, dynamic> user = {};
 
   final audioPlayer = AudioPlayer(); //Used to play previewUrl
 
@@ -52,11 +47,9 @@ class TrackListState extends State<TrackListWidget> {
   @override
   void initState() {
     super.initState();
-    user = widget.user;
     playlistId = widget.playlistId;
     sendTracks = widget.sendTracks;
     allTracks = widget.allTracks;
-    receivedCall = widget.receivedCall;
 
     initialSelect();
   }

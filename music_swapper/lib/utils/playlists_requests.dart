@@ -3,6 +3,8 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:spotify_music_helper/utils/globals.dart';
+import 'package:spotify_music_helper/utils/object_models.dart';
+import 'package:spotify_music_helper/utils/universal_widgets.dart';
 
 Future<Map<String, dynamic>> getSpotifyPlaylists(double expiresAt, String accessToken, String userId) async {
   try {
@@ -117,7 +119,7 @@ Map<String, dynamic> getPlaylistImages(Map<String, dynamic> playlists) {
   throw Exception("Failed Platform is not supported");
 }
 
-Future<Map<String, dynamic>> spotRefreshToken(double expiresAt, String refreshToken) async {
+Future<CallbackModel?> spotRefreshToken(double expiresAt, String refreshToken) async {
   debugPrint('Spotify Refresh');
   try{
     final refreshUrl = '$hosted/refresh-token/$expiresAt/$refreshToken';
@@ -127,10 +129,13 @@ Future<Map<String, dynamic>> spotRefreshToken(double expiresAt, String refreshTo
 
     if (responseDecode['status'] == 'Success') {
       Map<String, dynamic> info = responseDecode['data'];
-      return info;
+      CallbackModel callbackModel = CallbackModel(expiresAt: info['expiresAt'], accessToken: info['accessToken'], refreshToken: info['refreshToken']);
+      SecureStorage().saveTokens(callbackModel);
+
+      return callbackModel;
     } 
     else {
-      return responseDecode;
+      return null;
     }
   }
   catch (e){
@@ -140,22 +145,22 @@ Future<Map<String, dynamic>> spotRefreshToken(double expiresAt, String refreshTo
 }
 
 //Checks if the Token has expired
-Future<Map<String, dynamic>> checkRefresh(Map<String, dynamic> checkCall, bool forceRefresh) async {
+Future<CallbackModel> checkRefresh(CallbackModel checkCall, bool forceRefresh) async {
   try{
     //Get the current time in seconds to be the same as in Python
     double currentTime = DateTime.now().millisecondsSinceEpoch.toDouble() / 1000;
 
     //Checks if the token is expired and gets a new one if so
-    if (currentTime > checkCall['expiresAt'] || forceRefresh) {
-      final response = await spotRefreshToken(checkCall['expiresAt'], checkCall['refreshToken']);
+    if (currentTime > checkCall.expiresAt || forceRefresh) {
+      final response = await spotRefreshToken(checkCall.expiresAt, checkCall.refreshToken);
 
       //The function deals with the status if response has a status token is still good
       //response without status is the new token data
-      if (!response.containsKey('status')) {
+      if (response != null) {
         checkCall = response;
       }
       else{
-        debugPrint('Failed to get Spotify Playlists: ${response['message']}');
+        debugPrint('Failed to get Spotify Playlists:');
       }
     }
 

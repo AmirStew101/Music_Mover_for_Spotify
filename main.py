@@ -472,7 +472,7 @@ def get_user_info(expires_at, access_token):
     user_name = user_info['display_name']
 
     if user_name == None:
-        user_name = 'userName'
+        user_name = ''
 
     spot_helper_info = {
         'displayName':  user_name,

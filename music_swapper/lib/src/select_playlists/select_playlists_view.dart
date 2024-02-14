@@ -2,8 +2,10 @@
 
 import 'package:another_flushbar/flushbar.dart';
 import 'package:flutter/material.dart';
+import 'package:spotify_music_helper/src/login/login_Screen.dart';
 import 'package:spotify_music_helper/src/select_playlists/select_body.dart';
 import 'package:spotify_music_helper/src/tracks/tracks_view.dart';
+import 'package:spotify_music_helper/utils/object_models.dart';
 import 'package:spotify_music_helper/utils/playlists_requests.dart';
 import 'package:spotify_music_helper/src/select_playlists/select_appbar.dart';
 import 'package:spotify_music_helper/utils/tracks_requests.dart';
@@ -20,11 +22,11 @@ class SelectPlaylistsViewWidget extends StatefulWidget {
 
 class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
   //Passed variables
-  Map<String, dynamic> receivedCall = {};
+  CallbackModel receivedCall = CallbackModel();
   Map<String, dynamic> selectedTracksMap = {};
   Map<String, dynamic> currentPlaylist = {};
   String option = '';
-  Map<String, dynamic> user = {};
+  UserModel user = UserModel();
 
   bool selectAll = false;
   Map<String, dynamic> allPlaylists = {};
@@ -37,17 +39,29 @@ class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
   void initState() {
     super.initState();
     final multiArgs = widget.multiArgs;
-    receivedCall = multiArgs['callback'];
     selectedTracksMap = multiArgs['selectedTracks'];
     currentPlaylist = multiArgs['currentPlaylist'];
     option = multiArgs['option'];
-    user = multiArgs['user'];
 
     playlistId = currentPlaylist.keys.single;
   }
 
+  Future<void> checkLogin() async{
+    CallbackModel? secureCall = await SecureStorage().getTokens();
+    UserModel? secureUser = await SecureStorage().getUser();
+
+    if (secureCall == null || secureUser == null){
+      Navigator.of(context).pushReplacementNamed(StartView.routeName);
+    }
+    else{
+      receivedCall = secureCall;
+      user = secureUser;
+      await fetchDatabasePlaylists();
+    }
+  }
+
   Future<void> fetchDatabasePlaylists() async{
-    allPlaylists = await getDatabasePlaylists(user['id']);
+    allPlaylists = await DatabaseStorage().getDatabasePlaylists(user.spotifyId);
 
     //Checks if only the Liked_Songs playlist is the only playlist
     if (allPlaylists.length == 1){
@@ -61,10 +75,10 @@ class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
     bool forceRefresh = false;
     receivedCall = await checkRefresh(receivedCall, forceRefresh);
 
-    allPlaylists = await getSpotifyPlaylists(receivedCall['expiresAt'], receivedCall['accessToken'], user['id']);
+    allPlaylists = await getSpotifyPlaylists(receivedCall.expiresAt, receivedCall.accessToken, user.spotifyId);
 
     //Checks all playlists if they are in database
-    await syncPlaylists(allPlaylists, user['id']);
+    await DatabaseStorage().syncPlaylists(allPlaylists, user.spotifyId);
 
     String currentId = currentPlaylist.entries.single.key;
     allPlaylists.remove(currentId);
@@ -115,7 +129,7 @@ class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
         ],
       ),
       body: FutureBuilder<void>(
-        future: fetchDatabasePlaylists(),
+        future: checkLogin(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.done) {
             return SelectBodyWidget(
@@ -164,7 +178,7 @@ class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
                   : 'Successfully added $totalChosen songs to $totalPlaylists playlists';
 
             await handleOptionSelect();
-            await removeDatabaseTracks(user['id'], trackIds, playlistId);
+            await DatabaseStorage().removeDatabaseTracks(user.spotifyId, trackIds, playlistId);
             navigateToTracks();
 
             //Notification for the User alerting them to the result
@@ -235,15 +249,15 @@ class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
       debugPrint('Move Option');
       
       receivedCall = await checkRefresh(receivedCall, false);
-      await moveTracksRequest(trackIds, currentId, currentSnapId, playlistIds, receivedCall['expiresAt'], receivedCall['accessToken']);
-      await removeDatabaseTracks(user['id'], trackIds, playlistId);
+      await moveTracksRequest(trackIds, currentId, currentSnapId, playlistIds, receivedCall.expiresAt, receivedCall.accessToken);
+      await DatabaseStorage().removeDatabaseTracks(user.spotifyId, trackIds, playlistId);
     }
     //Adds tracks to Playlists
     else {
       debugPrint('Add Option');
 
       receivedCall = await checkRefresh(receivedCall, false);
-      await addTracksRequest(trackIds, playlistIds, receivedCall['expiresAt'], receivedCall['accessToken']);
+      await addTracksRequest(trackIds, playlistIds, receivedCall.expiresAt, receivedCall.accessToken);
     }
   }
 

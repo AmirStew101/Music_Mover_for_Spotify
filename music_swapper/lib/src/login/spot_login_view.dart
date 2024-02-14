@@ -3,21 +3,22 @@ import 'dart:convert';
 import 'package:another_flushbar/flushbar.dart';
 import 'package:flutter/material.dart';
 import 'package:spotify_music_helper/src/home/home_view.dart';
-import 'package:spotify_music_helper/utils/database/database_model.dart';
+import 'package:spotify_music_helper/src/login/login_Screen.dart';
+import 'package:spotify_music_helper/utils/object_models.dart';
 import 'package:spotify_music_helper/utils/globals.dart';
 import 'package:spotify_music_helper/utils/universal_widgets.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:http/http.dart' as http;
 
-class SpotViewContainer extends StatefulWidget {
-  const SpotViewContainer({super.key});
+class SpotLoginWidget extends StatefulWidget {
+  const SpotLoginWidget({super.key});
   static const routeName = '/SpotLogin';
 
   @override
-  State<SpotViewContainer> createState() => SpotLogin();
+  State<SpotLoginWidget> createState() => SpotLoginState();
 }
 
-class SpotLogin extends State<SpotViewContainer> {
+class SpotLoginState extends State<SpotLoginWidget> {
 
   //Spotify Login view
   Future<WebViewController> initiateLogin(BuildContext context) async {
@@ -56,25 +57,27 @@ class SpotLogin extends State<SpotViewContainer> {
             if (request.url.startsWith('$hosted/callback')) {
               callback = await getCallback(request.url);
               
-              final UserModel userModel = await syncUserData(callback['expiresAt'], callback['accessToken']);
-              final Map<String, dynamic> user = {'id': userModel.spotifyId, 'displayName': userModel.username, 'uri': userModel.uri};
+              //No errors in getting the callback
+              if (callback.isNotEmpty){
+                final UserModel userModel = await DatabaseStorage().syncUserData(callback['expiresAt'], callback['accessToken']);
+                final CallbackModel callbackModel = CallbackModel(expiresAt: callback['expiresAt'], accessToken: callback['accessToken'], refreshToken: callback['refreshToken']);
 
-              Map<String, dynamic> multiArgs = {
-                'callback': callback,
-                'user': user,
-              };
+                SecureStorage().saveTokens(callbackModel);
+                SecureStorage().saveUser(userModel);
 
-              // ignore: use_build_context_synchronously
-              Navigator.pushNamed(context, HomeView.routeName, arguments: multiArgs);
-
-              Flushbar(
-                title: 'Success',
-                message: 'User created',
-                duration: const Duration(seconds: 3),
-                flushbarPosition: FlushbarPosition.BOTTOM,
-                titleColor: const Color.fromARGB(255, 6, 163, 11),
-                messageColor: const Color.fromARGB(255, 6, 163, 11),
-              );
+                // ignore: use_build_context_synchronously
+                Navigator.pushNamedAndRemoveUntil(context, HomeView.routeName, (route) => false);
+              }
+              else{
+                const Center(
+                  child: Text(
+                    'Problem with connecting to Spotify',
+                    textScaler: TextScaler.linear(1.5),),
+                );
+                Future.delayed(const Duration(seconds: 3));
+                // ignore: use_build_context_synchronously
+                Navigator.pushNamedAndRemoveUntil(context, StartView.routeName, (route) => false);
+              }
 
               return NavigationDecision.prevent;
             }
@@ -103,7 +106,7 @@ Future<Map> getCallback(callRequest) async {
     return info;
   }
 
-  throw Exception('Failed to get callback info');
+  return {};
 }
 
 
