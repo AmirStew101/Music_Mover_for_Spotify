@@ -4,6 +4,8 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:spotify_music_helper/src/utils/globals.dart';
+import 'package:spotify_music_helper/src/utils/object_models.dart';
+import 'package:spotify_music_helper/src/utils/universal_widgets.dart';
 
 Future<int> getSpotifyTracksTotal(String playlistId, double expiresAt, String accessToken) async{
   try{
@@ -26,13 +28,12 @@ Future<int> getSpotifyTracksTotal(String playlistId, double expiresAt, String ac
   return 0;
 }
 
-Future<Map<String, dynamic>> getSpotifyPlaylistTracks(String playlistId, double expiresAt, String accessToken, int totalTracks) async {
+Future<Map<String, TrackModel>> getSpotifyPlaylistTracks(String playlistId, double expiresAt, String accessToken, int totalTracks) async {
   try{
     Map<String, dynamic> tracks = {};
 
     //Gets Tracks 50 at a time because of Spotify's limit
     for (var offset = 0; offset < totalTracks; offset +=50){
-      debugPrint('Offset: $offset');
 
       final getTracksUrl ='$hosted/get-all-tracks/$playlistId/$expiresAt/$accessToken/$totalTracks/$offset';
       final response = await http.get(Uri.parse(getTracksUrl));
@@ -47,8 +48,8 @@ Future<Map<String, dynamic>> getSpotifyPlaylistTracks(String playlistId, double 
       }
     }
 
-    tracks = getPlatformTrackImages(tracks);
-    return tracks;
+    Map<String, TrackModel> newTracks = getPlatformTrackImages(tracks);
+    return newTracks;
   }
   catch (e){
     debugPrint('Caught Error in getSpotifyPlaylistTracks $e');
@@ -57,14 +58,15 @@ Future<Map<String, dynamic>> getSpotifyPlaylistTracks(String playlistId, double 
   throw Exception('Error getting Spotify tracks');
 }
 
-Map<String, dynamic> getPlatformTrackImages(Map<String, dynamic> tracks) {
+Map<String, TrackModel> getPlatformTrackImages(Map<String, dynamic> tracks) {
   //The chosen image url
   String imageUrl = '';
+  Map<String, TrackModel> newTracks = {};
 
   if (Platform.isAndroid || Platform.isIOS) {
     //Goes through each Playlist {name '', ID '', Link '', Images [{}]} and takes the Images
     for (var item in tracks.entries) {
-      List imagesList = item.value['imageUrl']; //The Image list for the current Playlist
+      List<dynamic> imagesList = item.value['imageUrl']; //The Image list for the current Playlist
       int middleIndex = 0; //position of the smallest image in the list
 
       if (imagesList.length > 2) {
@@ -72,52 +74,22 @@ Map<String, dynamic> getPlatformTrackImages(Map<String, dynamic> tracks) {
       }
 
       imageUrl = item.value['imageUrl'][middleIndex]['url'];
-      tracks[item.key]['imageUrl'] = imageUrl;
+
+      TrackModel newTrack = TrackModel(
+        id: item.key, 
+        imageUrl: imageUrl, 
+        artist: item.value['artist'], 
+        title: item.value['title'], 
+        duplicates: item.value['duplicates']
+      );
+
+      newTracks[newTrack.id] = newTrack;
     }
 
-    return tracks;
+    return newTracks;
   } 
-  else if (Platform.isMacOS || Platform.isWindows) {
 
-    for (var item in tracks.entries) {
-      //The Image list for the current Playlist
-      List<dynamic> imagesList = item.value['imageUrl']; 
-      int largestIndex = 0; //position of the largest image in the list
-      int largest = 0;
-      int index = 0;
-
-      if (imagesList.length > 1) {
-        //Iterates through the current Image Map {height, url, width} for the largest image
-        for (var image in imagesList) {
-          if (image['height'] > largest) {
-            largest = image['height'];
-            largestIndex = index;
-          }
-          index++;
-        }
-      }
-
-      imageUrl = item.value['images'][largestIndex]['url'];
-      tracks[item.key]['imageUrl'] = imageUrl;
-    }
-
-    return tracks;
-  }
   throw Exception("Failed Platform is not supported");
-}
-
-Future<bool> moveTracksRequest(List<String> tracks, String originId, String snapshotId, List<String> playlistIds, double expiresAt, String accessToken) async {
-  try{
-    await addTracksRequest(tracks, playlistIds, expiresAt, accessToken);
-    await removeTracksRequest(tracks, originId, snapshotId, expiresAt, accessToken);
-  }
-  catch (e){
-    debugPrint('Failed to move Tracks $e');
-    return false;
-  }
-  
-  debugPrint('Moved Tracks');
-  return true;
 }
 
 Future<void> addTracksRequest(List<String> tracks, List<String> playlistIds, double expiresAt, String accessToken) async {

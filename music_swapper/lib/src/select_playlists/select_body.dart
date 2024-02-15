@@ -16,9 +16,9 @@ class SelectBodyWidget extends StatefulWidget {
       }
   );
 
-  final Map<String, dynamic> selectedPlaylistsMap;
-  final Map<String, dynamic> currentPlaylist;
-  final Map<String, dynamic> playlists;
+  final Map<String, PlaylistModel> selectedPlaylistsMap;
+  final PlaylistModel currentPlaylist;
+  final Map<String, PlaylistModel> playlists;
   final CallbackModel receivedCall;
   final void Function(List<MapEntry<String, dynamic>>) sendSelected;
   final UserModel user;
@@ -30,8 +30,8 @@ class SelectBodyWidget extends StatefulWidget {
 //Users Playlists to move selected songs to
 class SelectBodyState extends State<SelectBodyWidget> {
   //Recived values
-  Map<String, dynamic> playlists = {};
-  Map<String, dynamic> currentPlaylist = {};
+  Map<String, PlaylistModel> playlists = {};
+  PlaylistModel currentPlaylist = const PlaylistModel();
   CallbackModel receivedCall = CallbackModel();
   UserModel user = UserModel();
   late final void Function(List<MapEntry<String, dynamic>>) sendSelected;
@@ -47,20 +47,19 @@ class SelectBodyState extends State<SelectBodyWidget> {
     sendSelected = widget.sendSelected;
     currentPlaylist = widget.currentPlaylist;
     receivedCall = widget.receivedCall;
-    currentId = currentPlaylist.entries.single.key;
+    currentId = currentPlaylist.id;
     user = widget.user;
 
-    Map<String, dynamic> receivedSelected = widget.selectedPlaylistsMap;
+    Map<String, PlaylistModel> receivedSelected = widget.selectedPlaylistsMap;
 
     selectedPlaylists = List.generate(playlists.length, (index) {
-        MapEntry currPlaylist = playlists.entries.elementAt(index);
+        MapEntry<String, PlaylistModel> currPlaylist = playlists.entries.elementAt(index);
 
-        String playlistTitle = currPlaylist.value['title'];
+        String playlistTitle = currPlaylist.value.title;
         String playlistId = currPlaylist.key;
         bool selected = false;
 
         if (receivedSelected.containsKey(playlistId)){
-          debugPrint('Selected $playlistTitle');
           selected = true;
         }
 
@@ -86,11 +85,9 @@ class SelectBodyState extends State<SelectBodyWidget> {
       //Gets the current 'chosen' value by checking if selectedList has the playlist
       //And if it is marked as true
       //returns true when playlist 'chosen' is true and false in any other case
-      bool chosen = selectedPlaylists.contains(MapEntry(key, {'chosen': true, 'title': value['title']}));
-      if (chosen){
-        debugPrint('Refesh chosen ${value['title']}');
-      }
-      Map<String, dynamic> selectMap = {'chosen': chosen, 'title': value['title']};
+      bool chosen = selectedPlaylists.contains(MapEntry(key, {'chosen': true, 'title': value.title}));
+
+      Map<String, dynamic> selectMap = {'chosen': chosen, 'title': value.title};
 
       selectedPlaylists.add(MapEntry(key, selectMap));
     });
@@ -117,8 +114,8 @@ class SelectBodyState extends State<SelectBodyWidget> {
             ListView.builder(
               itemCount: playlists.length,
               itemBuilder: (context, index) {
-                MapEntry<String, dynamic> playEntry = playlists.entries.elementAt(index);
-                String playTitle = playEntry.value['title'];
+                MapEntry<String, PlaylistModel> playEntry = playlists.entries.elementAt(index);
+                String playTitle = playEntry.value.title;
                 String playId = playEntry.key;
                 bool chosen = selectedPlaylists[index].value['chosen'];
                 Map<String, dynamic> selectMap = {'chosen': !chosen, 'title': playTitle};
@@ -170,7 +167,7 @@ class SelectBodyState extends State<SelectBodyWidget> {
                       if (selectAll) {
                         selectedPlaylists.clear();
                         playlists.forEach((key, value) {
-                          Map<String, dynamic> selectMap = {'chosen': true, 'title': value['title']};
+                          Map<String, dynamic> selectMap = {'chosen': true, 'title': value.title};
                           selectedPlaylists.add(MapEntry(key, selectMap));
                         },);
                         
@@ -180,7 +177,7 @@ class SelectBodyState extends State<SelectBodyWidget> {
                         //Deselects all check boxes
                         selectedPlaylists.clear();
                         playlists.forEach((key, value) {
-                          Map<String, dynamic> selectMap = {'chosen': false, 'title': value['title']};
+                          Map<String, dynamic> selectMap = {'chosen': false, 'title': value.title};
                           selectedPlaylists.add(MapEntry(key, selectMap));
                         },);
                         

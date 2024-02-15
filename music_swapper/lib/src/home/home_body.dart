@@ -10,7 +10,7 @@ import 'package:spotify_music_helper/src/utils/universal_widgets.dart';
 class ImageGridWidget extends StatefulWidget{
   const ImageGridWidget({required this.receivedCall, required this.playlists, required this.user, super.key});
   final CallbackModel receivedCall;
-  final Map<String, dynamic> playlists;
+  final Map<String, PlaylistModel> playlists;
   final UserModel user;
 
   @override
@@ -20,7 +20,7 @@ class ImageGridWidget extends StatefulWidget{
 //Class for the Playlist Images with their Names under them
 class ImageGridState extends State<ImageGridWidget> {
   CallbackModel receivedCall = CallbackModel();
-  Map<String, dynamic> playlists = {};
+  Map<String, PlaylistModel> playlists = {};
   UserModel user = UserModel();
   FirebaseAnalytics analytics = FirebaseAnalytics.instance;
 
@@ -47,21 +47,21 @@ class ImageGridState extends State<ImageGridWidget> {
         itemBuilder: (context, index) {
           //Gets the Map items by index with the extra item in mind
           final item = playlists.entries.elementAt(index);
-          final String imageName = item.value['title'];
-          String imageUrl = item.value['imageUrl'];
+          final String imageName = item.value.title;
+          String imageUrl = item.value.imageUrl;
 
           return Column(children: [
             //Displays Images that can be clicked
             InkWell(
-              onTap: () {
-                MapEntry<String, dynamic> currEntry = playlists.entries.firstWhere((element) => element.value['title'] == imageName);
-                Map<String, dynamic> currentPlaylist = {currEntry.key: currEntry.value};
+              onTap: () async {
+                Map<String, dynamic> currPlaylist = item.value.toJson();
 
-                if (currEntry.key == 'Liked_Songs'){
-                  trackLikedSongs();
+                if (item.value.title == 'Liked_Songs'){
+                  await trackLikedSongs();
                 }
 
-                Navigator.restorablePushNamed(context, TracksView.routeName, arguments: currentPlaylist);
+                // ignore: use_build_context_synchronously
+                Navigator.restorablePushNamed(context, TracksView.routeName, arguments: currPlaylist);
               },
               //Aligns the image over its title
               child: Column(

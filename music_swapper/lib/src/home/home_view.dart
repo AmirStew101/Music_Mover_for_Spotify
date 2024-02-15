@@ -1,6 +1,9 @@
+// ignore_for_file: use_build_context_synchronously
+
+import 'package:another_flushbar/flushbar.dart';
 import 'package:flutter/material.dart';
 import 'package:spotify_music_helper/src/home/home_appbar.dart';
-import 'package:spotify_music_helper/src/login/login_Screen.dart';
+import 'package:spotify_music_helper/src/login/start_screen.dart';
 import 'package:spotify_music_helper/src/utils/object_models.dart';
 import 'package:spotify_music_helper/src/utils/playlists_requests.dart';
 import 'package:spotify_music_helper/src/home/home_body.dart';
@@ -12,7 +15,8 @@ class HomeView extends StatefulWidget {
   static const routeName = '/Home';
 
   //Class definition with the required callback data needed from Spotify
-  const HomeView({super.key});
+  const HomeView({super.key, required this.initial});
+  final bool initial;
 
   @override
   State<HomeView> createState() => HomeViewState();
@@ -23,7 +27,7 @@ class HomeViewState extends State<HomeView> {
   CallbackModel receivedCall = CallbackModel(); //required passed callback variable
   UserModel user = UserModel();
 
-  Map<String, dynamic> playlists = {}; //all the users playlists
+  Map<String, PlaylistModel> playlists = {}; //all the users playlists
   bool loaded = false;
   bool error = false;
   bool refresh = false;
@@ -33,9 +37,14 @@ class HomeViewState extends State<HomeView> {
     UserModel? secureUser = await SecureStorage().getUser();
 
     if (secureCall == null || secureUser == null){
-      bool reLogin = false;
-      // ignore: use_build_context_synchronously
-      Navigator.of(context).pushReplacementNamed(StartView.routeName, arguments: reLogin);
+      bool initial = widget.initial;
+      StartArguments startArgs = const StartArguments(reLogin: false, hasUser: true);
+
+      Navigator.of(context).pushReplacementNamed(StartViewWidget.routeName, arguments: startArgs);
+
+      if (!initial){
+        storageCheck(context, secureCall, secureUser);
+      }
     }
     else{
       receivedCall = secureCall;
@@ -139,7 +148,7 @@ class HomeViewState extends State<HomeView> {
 
                 //Checks if user selected a playlist before search closed
                 if (result != null) {
-                  tracksNavigate(result);
+                  navigateToTracks(result);
                 }
               }
           ),
@@ -198,11 +207,16 @@ class HomeViewState extends State<HomeView> {
   }
 
   //Navigate to Tracks page for chosen Playlist
-  void tracksNavigate(String playlistName){
-    MapEntry<String, dynamic> currEntry = playlists.entries.firstWhere((element) => element.value['title'] == playlistName);
-    Map<String, dynamic> currentPlaylist = {currEntry.key: currEntry.value};
+  void navigateToTracks(String playlistName){
+    try{
+      MapEntry<String, PlaylistModel> currEntry = playlists.entries.firstWhere((element) => element.value.title == playlistName);
+      Map<String, dynamic> currPlaylist = currEntry.value.toJson();
 
-    Navigator.restorablePushNamed(context, TracksView.routeName, arguments: currentPlaylist);
+      Navigator.restorablePushNamed(context, TracksView.routeName, arguments: currPlaylist);
+    }
+    catch (e){
+      debugPrint('Found it');
+    }
   }
 
 }

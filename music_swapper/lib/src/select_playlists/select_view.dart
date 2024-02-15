@@ -2,19 +2,20 @@
 
 import 'package:another_flushbar/flushbar.dart';
 import 'package:flutter/material.dart';
-import 'package:spotify_music_helper/src/login/login_Screen.dart';
+import 'package:spotify_music_helper/src/home/home_view.dart';
+import 'package:spotify_music_helper/src/login/start_screen.dart';
 import 'package:spotify_music_helper/src/select_playlists/select_body.dart';
 import 'package:spotify_music_helper/src/tracks/tracks_view.dart';
 import 'package:spotify_music_helper/src/utils/object_models.dart';
 import 'package:spotify_music_helper/src/utils/playlists_requests.dart';
-import 'package:spotify_music_helper/src/select_playlists/select_appbar.dart';
+import 'package:spotify_music_helper/src/select_playlists/select_search.dart';
 import 'package:spotify_music_helper/src/utils/tracks_requests.dart';
 import 'package:spotify_music_helper/src/utils/universal_widgets.dart';
 
 class SelectPlaylistsViewWidget extends StatefulWidget {
   static const routeName = '/SelectPlaylists';
-  const SelectPlaylistsViewWidget({super.key, required this.multiArgs});
-  final Map<String, dynamic> multiArgs;
+  const SelectPlaylistsViewWidget({super.key, required this.trackArgs});
+  final Map<String, dynamic> trackArgs;
 
   @override
   State<SelectPlaylistsViewWidget> createState() => SelectPlaylistsViewState();
@@ -23,27 +24,30 @@ class SelectPlaylistsViewWidget extends StatefulWidget {
 class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
   //Passed variables
   CallbackModel receivedCall = CallbackModel();
-  Map<String, dynamic> selectedTracksMap = {};
-  Map<String, dynamic> currentPlaylist = {};
+  Map<String, TrackModel> selectedTracksMap = {};
+  PlaylistModel currentPlaylist = const PlaylistModel();
   String option = '';
   UserModel user = UserModel();
+  Map<String, TrackModel> allTracks = {};
 
   bool selectAll = false;
-  Map<String, dynamic> allPlaylists = {};
+  Map<String, PlaylistModel> allPlaylists = {};
   String playlistId = '';
   
   //Stores Key: playlist ID w/ Values: Title & bool of if 'chosen'
-  Map<String, dynamic> selectedPlaylistsMap = {};
+  Map<String, PlaylistModel> selectedPlaylistsMap = {};
 
   @override
   void initState() {
     super.initState();
-    final multiArgs = widget.multiArgs;
-    selectedTracksMap = multiArgs['selectedTracks'];
-    currentPlaylist = multiArgs['currentPlaylist'];
-    option = multiArgs['option'];
+    final trackArgs = const TrackArguments().toTrackArgs(widget.trackArgs);
+    selectedTracksMap = trackArgs.selectedTracks;
+    currentPlaylist = trackArgs.currentPlaylist;
+    option = trackArgs.option;
+    allTracks = trackArgs.allTracks;
+    
 
-    playlistId = currentPlaylist.keys.single;
+    playlistId = currentPlaylist.id;
   }
 
   Future<void> checkLogin() async{
@@ -52,7 +56,8 @@ class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
 
     if (secureCall == null || secureUser == null){
       bool reLogin = false;
-      Navigator.of(context).pushReplacementNamed(StartView.routeName, arguments: reLogin);
+      Navigator.of(context).pushReplacementNamed(StartViewWidget.routeName, arguments: reLogin);
+      storageCheck(context, secureCall, secureUser);
     }
     else{
       receivedCall = secureCall;
@@ -68,7 +73,7 @@ class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
     if (allPlaylists.length == 1){
       await fetchSpotifyPlaylists();
     }
-    String currentId = currentPlaylist.entries.single.key;
+    String currentId = currentPlaylist.id;
     allPlaylists.remove(currentId);
   }
 
@@ -81,7 +86,7 @@ class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
     //Checks all playlists if they are in database
     await DatabaseStorage().syncPlaylists(allPlaylists, user.spotifyId);
 
-    String currentId = currentPlaylist.entries.single.key;
+    String currentId = currentPlaylist.id;
     allPlaylists.remove(currentId);
   }
 
@@ -93,7 +98,7 @@ class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
       String playlistId = playlist.key;
 
       if (playlist.value['chosen']){
-        selectedPlaylistsMap[playlistId] = allPlaylists[playlistId];
+        selectedPlaylistsMap[playlistId] = allPlaylists[playlistId]!;
       }
     }
   }
@@ -151,10 +156,6 @@ class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
 
 
   Widget selectBottomBar(){
-    List<String> trackIds = List.generate(selectedTracksMap.length, (index) {
-      final currTrack = selectedTracksMap.entries.elementAt(index);
-      return currTrack.key;
-    });
 
     Icon optionIcon = const Icon(Icons.arrow_forward);
     String optionText = 'Move Songs to Playlist(s)';
@@ -178,12 +179,15 @@ class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
                   ? 'Successfully moved $totalChosen songs to $totalPlaylists playlists'
                   : 'Successfully added $totalChosen songs to $totalPlaylists playlists';
 
-            await handleOptionSelect();
-            await DatabaseStorage().removeDatabaseTracks(user.spotifyId, trackIds, playlistId);
+            await handleOptionSelect()
+            .catchError((e){
+              debugPrint('Caught Error in select_playlists_view.dart at line ${getCurrentLine(offset: 2)} $e');
+            });
             navigateToTracks();
 
             //Notification for the User alerting them to the result
             Flushbar(
+              backgroundColor: const Color.fromARGB(255, 10, 182, 16),
               title: 'Success Message',
               duration: const Duration(seconds: 5),
               flushbarPosition: FlushbarPosition.TOP,
@@ -212,10 +216,14 @@ class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
                       ? 'Successfully moved $totalChosen songs to $totalPlaylists playlists'
                       : 'Successfully added $totalChosen songs to $totalPlaylists playlists';
 
-                await handleOptionSelect();
+                await handleOptionSelect()
+                .catchError((e){
+                  debugPrint('Caught Error in select_playlists_view.dart at line ${getCurrentLine(offset: 2)} $e');
+                });
                 navigateToTracks();
 
                 Flushbar(
+                  backgroundColor: const Color.fromARGB(255, 2, 155, 7),
                   title: 'Success Message',
                   duration: const Duration(seconds: 5),
                   flushbarPosition: FlushbarPosition.TOP,
@@ -230,9 +238,6 @@ class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
   }
 
   Future<void> handleOptionSelect() async {
-    String currentId = currentPlaylist.entries.single.key;
-    String currentSnapId = currentPlaylist.entries.single.value['snapshotId'];
-
     //Get Ids for selected tracks
     List<String> trackIds = [];
     for (var track in selectedTracksMap.entries) {
@@ -250,8 +255,8 @@ class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
       debugPrint('Move Option');
       
       receivedCall = await checkRefresh(receivedCall, false);
-      await moveTracksRequest(trackIds, currentId, currentSnapId, playlistIds, receivedCall.expiresAt, receivedCall.accessToken);
-      await DatabaseStorage().removeDatabaseTracks(user.spotifyId, trackIds, playlistId);
+      await addTracksRequest(trackIds, playlistIds, receivedCall.expiresAt, receivedCall.accessToken);
+      await removeTracks(receivedCall, currentPlaylist, selectedTracksMap, allTracks, user);
     }
     //Adds tracks to Playlists
     else {
@@ -264,13 +269,12 @@ class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
 
   //FUnction to exit playlists select menu
   void navigateToTracks(){
-    debugPrint('Navigate');
-    Map<String, dynamic> multiArgs = {
-      'currentPlaylist': currentPlaylist,
-      'callback': receivedCall,
-      'user': user,
-      };
-      Navigator.popAndPushNamed(context, TracksView.routeName, arguments: multiArgs);
+      debugPrint('Navigate');
+      Map<String, dynamic> sendPlaylist = currentPlaylist.toJson();
+      //Removes the Stacked Pages until the Home page is the only one Left
+      Navigator.popUntil(context, ModalRoute.withName(HomeView.routeName) );
+      //Adds the New Tracks Page to Stack
+      Navigator.restorablePushNamed(context, TracksView.routeName, arguments: sendPlaylist);
   }
 
 }

@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:spotify_music_helper/src/login/login_Screen.dart';
+import 'package:spotify_music_helper/src/login/start_screen.dart';
 import 'package:spotify_music_helper/src/utils/object_models.dart';
 import 'package:spotify_music_helper/src/utils/universal_widgets.dart';
 
@@ -23,7 +23,7 @@ class AboutViewState extends State<AboutViewWidget> {
 
     if (secureCall == null || secureUser == null){
       // ignore: use_build_context_synchronously
-      Navigator.of(context).pushReplacementNamed(StartView.routeName);
+      Navigator.of(context).pushReplacementNamed(StartViewWidget.routeName);
     }
     else{
       callback = secureCall;
@@ -39,7 +39,6 @@ class AboutViewState extends State<AboutViewWidget> {
           builder: (context) => IconButton(
             icon: const Icon(Icons.menu), 
             onPressed: ()  {
-              debugPrint('Sending to Drawer - User: $user Callback: $callback');
               Scaffold.of(context).openDrawer();
             },
           )

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:spotify_music_helper/src/utils/object_models.dart';
 import 'package:spotify_music_helper/src/utils/universal_widgets.dart';
 
 class PlaylistSearchDelegate extends SearchDelegate {
@@ -6,9 +7,9 @@ class PlaylistSearchDelegate extends SearchDelegate {
 
   //Search Constructor setting the search results to the Playlist image names and
   //setting playlistImages variable
-  PlaylistSearchDelegate(Map<String, dynamic> playlists) {
+  PlaylistSearchDelegate(Map<String, PlaylistModel> playlists) {
     playlists.forEach((key, value) {
-      searchResults.add(value['title']);
+      searchResults.add(value.title);
     });
   }
 

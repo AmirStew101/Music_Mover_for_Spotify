@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:spotify_music_helper/src/utils/object_models.dart';
 import 'package:spotify_music_helper/src/utils/universal_widgets.dart';
 
 class TracksSearchDelegate extends SearchDelegate {
   //Will have a key: track name & value: Artist & ID
   List<MapEntry<String, dynamic>> searchResults = [];
   
-  Map<String, dynamic> playlistTracks = {}; //All of the users tracks for the playlist
+  Map<String, TrackModel> playlistTracks = {}; //All of the users tracks for the playlist
 
   bool artistFilter = false;
   
@@ -15,14 +16,13 @@ class TracksSearchDelegate extends SearchDelegate {
 
   //Gets all the tracks for the playlist from tracks
   //Gets all the selected Tracks from previous widget
-  TracksSearchDelegate(Map<String, dynamic> allTracks, Map<String, dynamic> tracksSelectedMap) {
+  TracksSearchDelegate(Map<String, TrackModel> allTracks, Map<String, TrackModel> tracksSelectedMap) {
     playlistTracks = allTracks;
-    debugPrint('Incoming Selected: $tracksSelectedMap');
 
     allTracks.forEach((key, value) {
-      String trackTitle = value['title'];
+      String trackTitle = value.title;
 
-      Map<String, dynamic> searchMap = {'artist': value['artist'], 'title': trackTitle};
+      Map<String, dynamic> searchMap = {'artist': value.artist, 'title': trackTitle};
       searchResults.add(MapEntry(key, searchMap));
 
       bool chosen = tracksSelectedMap.containsKey(key);
@@ -146,6 +146,7 @@ class TracksSearchDelegate extends SearchDelegate {
               final suggestion = trackSuggestions[index];
               String trackId = suggestion.key;
 
+              //Get the data and location of track that matches suggestion
               MapEntry<String, dynamic> chosenTrack = chosenTracksList.firstWhere((track) => track.key == trackId);
               int chosenIndex = chosenTracksList.indexWhere((track) => track.key == trackId);
 
@@ -162,6 +163,7 @@ class TracksSearchDelegate extends SearchDelegate {
                 //Keeps track of tracks user selects
                 onChanged: (value) {
                   setState(() {
+                    //Changes track that matches the suggestion
                     chosenTracksList[chosenIndex] = MapEntry(trackId, chosenMap);
                   });
                 },),

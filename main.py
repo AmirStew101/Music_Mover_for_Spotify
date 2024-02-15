@@ -296,14 +296,26 @@ def get_all_tracks(playlist_id, expires_at, access_token, total_tracks, offset):
                         track_artist = item['track']['artists'][0]['name']
                         if track_artist and track_images and track_title:
                             duplicate = duplicateCheck(track_id, playlist_tracks)
+                            
 
-                            if not duplicate:
+                            #Track has Zero duplicates
+                            if duplicate == 0:
                                 playlist_tracks[track_id] = {
                                     'title': track_title,
                                     'imageUrl': track_images, 
                                     'artist': track_artist,
                                     'preview_url': preview_url,
-                                    'duplicates': 0,
+                                    'duplicates': 0
+                                }
+                            #Track has a duplicate
+                            else:
+                                track_id = f'{track_id}_{duplicate}'
+                                playlist_tracks[track_id] = {
+                                    'title': track_title,
+                                    'imageUrl': track_images, 
+                                    'artist': track_artist,
+                                    'preview_url': preview_url,
+                                    'duplicates': duplicate
                                 }
 
             return jsonify({'status': 'Success', 'data': playlist_tracks})
@@ -326,9 +338,9 @@ def handleGetTracks(playlist_id, offsetStr, header):
 def duplicateCheck(track_id, playlist_tracks):
     if playlist_tracks.get(track_id):
         playlist_tracks[track_id]['duplicates'] += 1
-        return True
+        return playlist_tracks[track_id]['duplicates']
     
-    return False
+    return 0
 
 
 @app.route('/add-to-playlists/<expires_at>/<access_token>', methods=['POST'])

@@ -4,9 +4,10 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:spotify_music_helper/src/about/about.dart';
 import 'package:spotify_music_helper/src/home/home_view.dart';
 import 'package:spotify_music_helper/src/login/spot_login_view.dart';
-import 'package:spotify_music_helper/src/select_playlists/select_playlists_view.dart';
+import 'package:spotify_music_helper/src/select_playlists/select_view.dart';
 import 'package:spotify_music_helper/src/tracks/tracks_view.dart';
-import 'package:spotify_music_helper/src/login/login_Screen.dart';
+import 'package:spotify_music_helper/src/login/start_screen.dart';
+import 'package:spotify_music_helper/src/utils/object_models.dart';
 
 import 'settings/settings_controller.dart';
 import 'settings/settings_view.dart';
@@ -73,9 +74,9 @@ class MyApp extends StatelessWidget {
                 switch (routeSettings.name) {
 
                   //User is not signed in goes to Start page
-                  case StartView.routeName:
-                    bool reLogin = routeSettings.arguments as bool;
-                    return StartView(reLogin: reLogin);
+                  case StartViewWidget.routeName:
+                    final startArgs = routeSettings.arguments as StartArguments;
+                    return StartViewWidget(startArgs: startArgs);
 
                   case SettingsView.routeName:
                     return SettingsView(controller: settingsController);
@@ -96,12 +97,15 @@ class MyApp extends StatelessWidget {
 
                   //Select playlists to move/add tracks to
                   case SelectPlaylistsViewWidget.routeName:
-                    final multiArgs = routeSettings.arguments as Map<String, dynamic>;
-                    return SelectPlaylistsViewWidget(multiArgs: multiArgs);
+                    final trackArgs = routeSettings.arguments as Map<String, dynamic>;
+                    return SelectPlaylistsViewWidget(trackArgs: trackArgs);
+
+                  case HomeView.routeName:
+                    return const HomeView(initial: false);
 
                   //View the users playlist
                   default:
-                    return const HomeView();
+                    return const HomeView(initial: true);
                     
                 }
               },

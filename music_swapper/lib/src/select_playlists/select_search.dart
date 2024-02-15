@@ -1,5 +1,6 @@
 
 import 'package:flutter/material.dart';
+import 'package:spotify_music_helper/src/utils/object_models.dart';
 import 'package:spotify_music_helper/src/utils/universal_widgets.dart';
 
 class SelectPlaylistSearchDelegate extends SearchDelegate {
@@ -7,13 +8,13 @@ class SelectPlaylistSearchDelegate extends SearchDelegate {
   List<MapEntry<String, dynamic>> selectedList = [];
 
   //Search Constructor setting the search results to the Playlist names
-  SelectPlaylistSearchDelegate(Map<String, dynamic> playlists, Map<String, dynamic> selectedPlaylistsMap) {
+  SelectPlaylistSearchDelegate(Map<String, PlaylistModel> playlists, Map<String, PlaylistModel> selectedPlaylistsMap) {
     if (selectedPlaylistsMap.isNotEmpty){
       playlists.forEach((key, value) {
-        searchResults.add(MapEntry(key, value['title']));
+        searchResults.add(MapEntry(key, value.title));
 
         bool chosen = false;
-        String playlistTitle = value['title'];
+        String playlistTitle = value.title;
 
         Map<String, dynamic> selectMap = {'chosen': chosen, 'title': playlistTitle};
 
@@ -26,9 +27,9 @@ class SelectPlaylistSearchDelegate extends SearchDelegate {
     }
     else{
       playlists.forEach((key, value) {
-        searchResults.add(MapEntry(key, value['title']));
+        searchResults.add(MapEntry(key, value.title));
 
-        Map<String, dynamic> selectMap = {'chosen': false, 'title': value['title']};
+        Map<String, dynamic> selectMap = {'chosen': false, 'title': value.title};
         selectedList.add(MapEntry(key, selectMap));
       });
     }
@@ -97,21 +98,26 @@ class SelectPlaylistSearchDelegate extends SearchDelegate {
           itemBuilder: (context, index) {
             final suggestion = suggestions[index];
             String playTitle = suggestion.value;
-            bool chosen = selectedList[index].value['chosen'];
             String playId = suggestion.key;
+
+            //Get the data and location of playlist that matches suggestion
+            MapEntry<String, dynamic> chosenPlaylist = selectedList.firstWhere((playlist) => playlist.key == playId);
+            int chosenIndex = selectedList.indexWhere((playlist) => playlist.key == playId);
+
+            bool chosen = chosenPlaylist.value['chosen'];
 
             Map<String, dynamic> playMap = {'chosen': !chosen, 'title': playTitle};
 
             return ListTile(
               leading: Checkbox(
-                  onChanged: (value) {
-                    setState((){
-                      debugPrint('Checkbox clicked: $playTitle');
-                      selectedList[index] = MapEntry(playId, playMap);
-                    });
-                  },
-
-                  value: chosen,
+                value: chosen,
+                onChanged: (value) {
+                  setState((){
+                    debugPrint('Checkbox clicked: $playTitle');
+                    selectedList[chosenIndex] = MapEntry(playId, playMap);
+                    debugPrint('Selected: ${selectedList[chosenIndex]}');
+                  });
+                },
               ),
 
               title: Text(playTitle, textScaler: const TextScaler.linear(1.2)),
@@ -119,7 +125,8 @@ class SelectPlaylistSearchDelegate extends SearchDelegate {
               onTap: () {
                 setState((){
                   debugPrint('Box clicked: $playTitle');
-                  selectedList[index] = MapEntry(playId, playMap);
+                  selectedList[chosenIndex] = MapEntry(playId, playMap);
+                  debugPrint('Selected: ${selectedList[chosenIndex]}');
                 });
               },
             );

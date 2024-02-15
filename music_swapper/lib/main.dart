@@ -1,6 +1,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
+import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:spotify_music_helper/firebase_options.dart';
 import 'package:spotify_music_helper/src/utils/analytics.dart';
 
@@ -12,6 +14,8 @@ bool shouldUseFirestoreEmulator = false;
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  
+  //Firebase initialization
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
   FirebaseFirestore.instance.settings = const Settings(
     persistenceEnabled: true,
@@ -19,6 +23,12 @@ Future<void> main() async {
   if (shouldUseFirestoreEmulator){
     FirebaseFirestore.instance.useFirestoreEmulator('localhost', 8080);
   }
+
+  //Google AdMob initialization
+  await MobileAds.instance.initialize();
+
+  await FirebaseAnalytics.instance.app.setAutomaticDataCollectionEnabled(true);
+
   // Set up the SettingsController, which will glue user settings to multiple
   // Flutter Widgets.
   final settingsController = SettingsController(SettingsService());

@@ -1,9 +1,11 @@
+// ignore_for_file: use_build_context_synchronously
+
 import 'dart:convert';
 
 import 'package:another_flushbar/flushbar.dart';
 import 'package:flutter/material.dart';
 import 'package:spotify_music_helper/src/home/home_view.dart';
-import 'package:spotify_music_helper/src/login/login_Screen.dart';
+import 'package:spotify_music_helper/src/login/start_screen.dart';
 import 'package:spotify_music_helper/src/utils/object_models.dart';
 import 'package:spotify_music_helper/src/utils/globals.dart';
 import 'package:spotify_music_helper/src/utils/universal_widgets.dart';
@@ -78,29 +80,36 @@ class SpotLoginState extends State<SpotLoginWidget> {
               debugPrint('Spotify Login Loading (progress: $progress%)');
             },
             onNavigationRequest: (NavigationRequest request) async {
+              //Spotify sent the callback tokens
               if (request.url.startsWith('$hosted/callback')) {
                 callback = await getCallback(request.url);
                 
                 //No errors in getting the callback
                 if (callback.isNotEmpty){
-                  final UserModel userModel = await DatabaseStorage().syncUserData(callback['expiresAt'], callback['accessToken']);
-                  final CallbackModel callbackModel = CallbackModel(expiresAt: callback['expiresAt'], accessToken: callback['accessToken'], refreshToken: callback['refreshToken']);
+                  final UserModel? syncedUser = await DatabaseStorage().syncUserData(callback['expiresAt'], callback['accessToken']);
 
-                  SecureStorage().saveTokens(callbackModel);
-                  SecureStorage().saveUser(userModel);
+                  if (syncedUser != null){
+                    final CallbackModel callbackModel = CallbackModel(expiresAt: callback['expiresAt'], accessToken: callback['accessToken'], refreshToken: callback['refreshToken']);
 
-                  // ignore: use_build_context_synchronously
-                  Navigator.pushNamedAndRemoveUntil(context, HomeView.routeName, (route) => false);
+                    SecureStorage().saveTokens(callbackModel);
+                    SecureStorage().saveUser(syncedUser);
+
+                    Navigator.pushNamedAndRemoveUntil(context, HomeView.routeName, (route) => false);
+                  }
+                  else{
+                    Map<String, dynamic> startArgs = {'relogin': false, 'gotUser': true};
+                    Navigator.pushNamedAndRemoveUntil(context, StartViewWidget.routeName, (route) => false, arguments: startArgs);
+                  }
                 }
+                //Spotify was unable to send the callback
                 else{
                   const Center(
                     child: Text(
-                      'Problem with connecting to Spotify',
+                      'Problem with connecting to Spotify redirecting back to Start page',
                       textScaler: TextScaler.linear(1.5),),
                   );
                   Future.delayed(const Duration(seconds: 3));
-                  // ignore: use_build_context_synchronously
-                  Navigator.pushNamedAndRemoveUntil(context, StartView.routeName, (route) => false);
+                  Navigator.pushNamedAndRemoveUntil(context, StartViewWidget.routeName, (route) => false);
                 }
 
                 return NavigationDecision.prevent;

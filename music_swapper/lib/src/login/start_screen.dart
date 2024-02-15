@@ -1,14 +1,36 @@
 import 'dart:io';
 
+import 'package:another_flushbar/flushbar.dart';
 import 'package:flutter/material.dart';
 import 'package:spotify_music_helper/src/login/spot_login_view.dart';
 import 'package:spotify_music_helper/src/settings/settings_view.dart';
+import 'package:spotify_music_helper/src/utils/object_models.dart';
 
-class StartView extends StatelessWidget {
-  const StartView({super.key, required this.reLogin});
-  final bool reLogin;
+class StartViewWidget extends StatefulWidget{
+  const StartViewWidget({
+    super.key, 
+    required this.startArgs}
+  );
 
-  static const routeName = '/Login_Screen';
+  final StartArguments startArgs;
+
+  static const routeName = '/Start_Screen';
+
+  @override
+  State<StatefulWidget> createState() => StartViewState();
+}
+
+class StartViewState extends State<StartViewWidget> {
+  bool reLogin = false;
+  bool hasUser = true;
+
+  @override
+  void initState(){
+    super.initState();
+    StartArguments widgetArgs = widget.startArgs;
+    reLogin = widgetArgs.reLogin;
+    hasUser = widgetArgs.hasUser;
+  }
 
   @override
   Widget build(BuildContext context) {
