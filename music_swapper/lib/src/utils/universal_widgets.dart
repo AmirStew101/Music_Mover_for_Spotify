@@ -1,18 +1,19 @@
 
 // ignore_for_file: use_build_context_synchronously
 
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
 import 'package:another_flushbar/flushbar.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:spotify_music_helper/src/about/about.dart';
+import 'package:spotify_music_helper/src/info/info_page.dart';
 import 'package:spotify_music_helper/src/home/home_view.dart';
 import 'package:spotify_music_helper/src/login/start_screen.dart';
 import 'package:spotify_music_helper/src/settings/settings_view.dart';
 import 'package:spotify_music_helper/src/utils/object_models.dart';
-import 'package:spotify_music_helper/src/utils/database/databse_calls.dart';
+import 'package:spotify_music_helper/src/utils/databse_calls.dart';
 import 'package:spotify_music_helper/src/utils/globals.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -35,7 +36,7 @@ int getCurrentLine({int offset = 0}){
   }
 
    return lineNum;
-}
+}//getCurrentLine
 
 String getTrackId(String trackId){
   int underScoreIndex = trackId.indexOf('_');
@@ -46,7 +47,7 @@ String getTrackId(String trackId){
   }
 
   return result;
-}
+}//getTrackId
 
 class SecureStorage {
   final accessTokenKey = 'access_token';
@@ -56,6 +57,8 @@ class SecureStorage {
   final userIdKey = 'userId';
   final userNameKey = 'userName';
   final userUriKey = 'userUri';
+  final subscribedKey = 'subscribed';
+  final tierKey = 'tier';
 
   Future<void> saveTokens(CallbackModel tokensModel) async {
     await storage.write(key: accessTokenKey, value: tokensModel.accessToken);
@@ -86,11 +89,13 @@ class SecureStorage {
   }
 
   Future<void> saveUser(UserModel user) async{
-    await storage.write(key: 'userId', value: user.spotifyId);
-    await storage.write(key: 'userUri', value: user.uri);
+    await storage.write(key: userIdKey, value: user.spotifyId);
+    await storage.write(key: userUriKey, value: user.uri);
+    await storage.write(key: subscribedKey, value: user.subscribed.toString());
+    await storage.write(key: tierKey, value: user.tier.toString());
 
     if (user.username != null){
-      await storage.write(key: 'userName', value: user.username);
+      await storage.write(key: userNameKey, value: user.username);
     }
   }
 
@@ -98,14 +103,27 @@ class SecureStorage {
     final userId = await storage.read(key: userIdKey);
     final userName = await storage.read(key: userNameKey);
     final userUri = await storage.read(key: userUriKey);
+    final subscribed = await storage.read(key: subscribedKey);
+    final tier = await storage.read(key: tierKey);
 
-    if (userId != null && userUri != null){
+    if (userId != null && userUri != null && subscribed != null && tier != null){
       if (userName != null){
-        UserModel userModel = UserModel(spotifyId: userId, uri: userUri, username: userName);
+        UserModel userModel = UserModel(
+          spotifyId: userId, 
+          uri: userUri, 
+          username: userName, 
+          subscribed: bool.parse(subscribed), 
+          tier: int.parse(tier));
+
         return userModel;
       }
       else{
-        UserModel userModel = UserModel(spotifyId: userId, uri: userUri);
+        UserModel userModel = UserModel(
+          spotifyId: userId, 
+          uri: userUri, 
+          subscribed: bool.parse(subscribed), 
+          tier: int.parse(tier));
+
         return userModel;
       }
     }
@@ -117,22 +135,11 @@ class SecureStorage {
     await storage.delete(key: userIdKey);
     await storage.delete(key: userNameKey);
     await storage.delete(key: userUriKey);
+    await storage.delete(key: subscribedKey);
+    await storage.delete(key: tierKey); 
   }
-}
+}//SecureStorage
 
-class SecureSubscriptionStorage {
-  final subscribedKey = 'subscribed';
-  final tierKey = 'tier';
-
-  Future<void> saveSubscription(UserModel user) async{
-
-  }
-
-  Future<void> cancelSubscription() async{
-
-  }
-
-}
 
 //Used to organize what songs a user has in their Liked SOngs playlist
 class LikedSongs{
@@ -182,15 +189,14 @@ class LikedSongs{
     return likedSongs;
   }
 
-}
+}//LikedSongs
 
 class DatabaseStorage { 
 
   //Syncs the Users Spotify tracks with the tracks in database
-  Future<void> syncPlaylistTracksData(String userId, Map<String, TrackModel> tracks, String playlistId) async{
+  Future<void> syncPlaylistTracksData(String userId, Map<String, TrackModel> tracks, String playlistId, bool updateDatabase) async{
     debugPrint('Syncing Tracks: ${tracks.length}');
     try{
-      bool updateDatabase = true;
       await userRepo.syncPlaylistTracks(userId, tracks, playlistId, updateDatabase);
     }
     catch (e){
@@ -231,10 +237,9 @@ class DatabaseStorage {
 
 
   //Syncs the Users Spotify Playlists with the playlists in database
-  Future<void> syncPlaylists(Map<String, PlaylistModel> playlists, String userId) async{
+  Future<void> syncPlaylists(Map<String, PlaylistModel> playlists, String userId, bool updateDatabase) async{
     debugPrint('Syncing Playlists');
     try{
-      bool updateDatabase = false;
       await userRepo.syncUserPlaylists(userId, playlists, updateDatabase);
     }
     catch (e){
@@ -261,7 +266,7 @@ class DatabaseStorage {
       userInfo = responseDecoded['data'];
 
       //Converts user from Spotify to Firestore user
-      UserModel user = UserModel(username: userInfo['user_name'] , spotifyId: userInfo['id'], uri: userInfo['uri']);
+      UserModel user = UserModel(username: userInfo['user_name'] , spotifyId: userInfo['id'], uri: userInfo['uri'], subscribed: false, tier: 0);
 
       //Checks if user is already in the database
       if (!await userRepo.hasUser(user)){
@@ -286,8 +291,6 @@ class DatabaseStorage {
     return null;
   }
 
-}
-
 
   Future<void> removeTracks(CallbackModel callback, PlaylistModel currentPlaylist, Map<String, TrackModel> selectedTracksMap, Map<String, TrackModel> allTracks, UserModel user) async {
 
@@ -302,7 +305,7 @@ class DatabaseStorage {
       for (var track in selectedTracksMap.entries) {
         String id = getTrackId(track.key);
         //Updates how many tracks are being deleted
-        removeTracks.update(id, (value) => value++, ifAbsent: () => 0);
+        removeTracks.update(id, (value) => value += 1, ifAbsent: () => 0);
       }
       debugPrint('RemoveTracks: $removeTracks');
 
@@ -400,6 +403,8 @@ class DatabaseStorage {
     }
  }
 
+}//DatabaseStorage
+
 
 String modifyBadQuery(String query){
   List badInput = ['\\', ';', '\'', '"', '@', '|'];
@@ -410,7 +415,7 @@ String modifyBadQuery(String query){
     }
   }
   return newQuery;
-}
+}//modifyBadQuery
 
 
 Drawer optionsMenu(BuildContext context){
@@ -436,24 +441,17 @@ Drawer optionsMenu(BuildContext context){
             },
           ),
           ListTile(
-            leading: const Icon(Icons.shopping_cart),
-            title: const Text('Store'),
-            onTap: () {
-              
-            },
-          ),
-          ListTile(
             leading: const Icon(Icons.question_mark),
-            title: const Text('About'),
+            title: const Text('Info'),
             onTap: () {
-              Navigator.restorablePushNamed(context, AboutViewWidget.routeName);
+              Navigator.restorablePushNamed(context, InfoView.routeName);
             },
           ),
           ListTile(
             leading: const Icon(Icons.settings),
             title: const Text('Settings'),
             onTap: () {
-              Navigator.restorablePushNamed(context, SettingsView.routeName);
+              Navigator.restorablePushNamed(context, SettingsViewWidget.routeName);
             },
           ),
           ListTile(
@@ -463,8 +461,8 @@ Drawer optionsMenu(BuildContext context){
               SecureStorage().removeTokens();
               SecureStorage().removeUser();
 
-              StartArguments startArgs = const StartArguments(reLogin: true, hasUser: true);
-              Navigator.pushNamedAndRemoveUntil(context, StartViewWidget.routeName, (route) => false, arguments: startArgs);
+              bool reLogin = true;
+              Navigator.pushNamedAndRemoveUntil(context, StartViewWidget.routeName, (route) => false, arguments: reLogin);
               debugPrint('Sign Out Selected');
             },
           ),
@@ -479,7 +477,7 @@ Drawer optionsMenu(BuildContext context){
       ),
     )
   );
-}
+}//OptionsMenu
 
 
 void storageCheck(BuildContext context, CallbackModel? secureCall, UserModel? secureUser){
@@ -511,4 +509,6 @@ void storageCheck(BuildContext context, CallbackModel? secureCall, UserModel? se
       message: 'Failed to connect to Spotify',
     ).show(context);
   }
-}
+}//storageCheck
+
+  

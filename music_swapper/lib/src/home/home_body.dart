@@ -21,7 +21,7 @@ class ImageGridWidget extends StatefulWidget{
 class ImageGridState extends State<ImageGridWidget> {
   CallbackModel receivedCall = CallbackModel();
   Map<String, PlaylistModel> playlists = {};
-  UserModel user = UserModel();
+  UserModel user = UserModel.defaultUser();
   FirebaseAnalytics analytics = FirebaseAnalytics.instance;
 
   @override
@@ -57,7 +57,7 @@ class ImageGridState extends State<ImageGridWidget> {
                 Map<String, dynamic> currPlaylist = item.value.toJson();
 
                 if (item.value.title == 'Liked_Songs'){
-                  await trackLikedSongs();
+                  await AppAnalytics().trackLikedSongs();
                 }
 
                 // ignore: use_build_context_synchronously

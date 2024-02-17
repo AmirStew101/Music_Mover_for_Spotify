@@ -283,17 +283,17 @@ def get_all_tracks(playlist_id, expires_at, access_token, total_tracks, offset):
             """
             for item in tracks_items:
 
-                #Checks if it is a Spotify track
-                if item is not None:
+                #Checks if the item is a complete item
+                if 'track' in item and item['track'] is not None:
                     track_id = item['track']['id']
 
                     if track_id is not None:
                         track_title = item['track']['name']
                         track_images = item['track']['album']['images']
-
                         preview_url = item['track']['preview_url'] or ''
                         
                         track_artist = item['track']['artists'][0]['name']
+
                         if track_artist and track_images and track_title:
                             duplicate = duplicateCheck(track_id, playlist_tracks)
                             

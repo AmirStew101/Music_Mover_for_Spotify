@@ -27,8 +27,6 @@ Future<void> main() async {
   //Google AdMob initialization
   await MobileAds.instance.initialize();
 
-  await FirebaseAnalytics.instance.app.setAutomaticDataCollectionEnabled(true);
-
   // Set up the SettingsController, which will glue user settings to multiple
   // Flutter Widgets.
   final settingsController = SettingsController(SettingsService());

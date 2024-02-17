@@ -9,10 +9,10 @@ import 'package:spotify_music_helper/src/utils/object_models.dart';
 class StartViewWidget extends StatefulWidget{
   const StartViewWidget({
     super.key, 
-    required this.startArgs}
+    required this.reLogin}
   );
 
-  final StartArguments startArgs;
+  final bool reLogin;
 
   static const routeName = '/Start_Screen';
 
@@ -22,14 +22,11 @@ class StartViewWidget extends StatefulWidget{
 
 class StartViewState extends State<StartViewWidget> {
   bool reLogin = false;
-  bool hasUser = true;
 
   @override
   void initState(){
     super.initState();
-    StartArguments widgetArgs = widget.startArgs;
-    reLogin = widgetArgs.reLogin;
-    hasUser = widgetArgs.hasUser;
+    reLogin = widget.reLogin;
   }
 
   @override

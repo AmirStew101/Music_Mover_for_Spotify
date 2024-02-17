@@ -9,13 +9,17 @@ import 'package:spotify_music_helper/src/utils/universal_widgets.dart';
 
 Future<int> getSpotifyTracksTotal(String playlistId, double expiresAt, String accessToken) async{
   try{
+    dynamic responseDecoded;
+
     final getTotalUrl = '$hosted/get-tracks-total/$playlistId/$expiresAt/$accessToken';
     final response = await http.get(Uri.parse(getTotalUrl));
 
-    final responseDecoded = json.decode(response.body);
-
     if (response.statusCode == 200){
-      return responseDecoded['totalTracks'];
+      responseDecoded = json.decode(response.body);
+
+      if (responseDecoded['status'] == 'Success'){
+        return responseDecoded['totalTracks'];
+      }
     }
     else{
       debugPrint('Failed to get Spotify Total Tracks : ${responseDecoded['message']}');
@@ -25,12 +29,13 @@ Future<int> getSpotifyTracksTotal(String playlistId, double expiresAt, String ac
   catch (e){
     debugPrint('Caught Error in getSpotifyTracksTotal: $e');
   }
-  return 0;
+  return -1;
 }
 
 Future<Map<String, TrackModel>> getSpotifyPlaylistTracks(String playlistId, double expiresAt, String accessToken, int totalTracks) async {
   try{
     Map<String, dynamic> tracks = {};
+    dynamic responseDecoded;
 
     //Gets Tracks 50 at a time because of Spotify's limit
     for (var offset = 0; offset < totalTracks; offset +=50){
@@ -38,13 +43,15 @@ Future<Map<String, TrackModel>> getSpotifyPlaylistTracks(String playlistId, doub
       final getTracksUrl ='$hosted/get-all-tracks/$playlistId/$expiresAt/$accessToken/$totalTracks/$offset';
       final response = await http.get(Uri.parse(getTracksUrl));
 
-      final responseDecoded = json.decode(response.body);
-
       if (response.statusCode == 200){
-        tracks.addAll(responseDecoded['data']);
+        responseDecoded = json.decode(response.body);
+
+        if (responseDecoded['status'] == 'Success'){
+          tracks.addAll(responseDecoded['data']);
+        }
       }
       else{
-      debugPrint('Failed to get Spotify Tracks : ${responseDecoded['message']}');
+        throw Exception('Failed to get Spotify Tracks : ${responseDecoded['message']}');
       }
     }
 
@@ -52,7 +59,7 @@ Future<Map<String, TrackModel>> getSpotifyPlaylistTracks(String playlistId, doub
     return newTracks;
   }
   catch (e){
-    debugPrint('Caught Error in getSpotifyPlaylistTracks $e');
+    debugPrint('tracks_requests.dart line: ${getCurrentLine()} caught error: $e');
   }
 
   throw Exception('Error getting Spotify tracks');

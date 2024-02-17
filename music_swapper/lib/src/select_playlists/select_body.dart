@@ -33,7 +33,7 @@ class SelectBodyState extends State<SelectBodyWidget> {
   Map<String, PlaylistModel> playlists = {};
   PlaylistModel currentPlaylist = const PlaylistModel();
   CallbackModel receivedCall = CallbackModel();
-  UserModel user = UserModel();
+  UserModel user = UserModel.defaultUser();
   late final void Function(List<MapEntry<String, dynamic>>) sendSelected;
 
   List<MapEntry<String, dynamic>> selectedPlaylists = [];
@@ -78,8 +78,9 @@ class SelectBodyState extends State<SelectBodyWidget> {
 
     playlists = await getSpotifyPlaylists(receivedCall.expiresAt, receivedCall.accessToken, user.spotifyId);
 
+    bool updateDatabase = false;
     //Checks all playlists if they are in database
-    await DatabaseStorage().syncPlaylists(playlists, user.spotifyId);
+    await DatabaseStorage().syncPlaylists(playlists, user.spotifyId, updateDatabase);
 
     playlists.forEach((key, value) {
       //Gets the current 'chosen' value by checking if selectedList has the playlist

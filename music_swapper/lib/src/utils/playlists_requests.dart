@@ -24,7 +24,7 @@ Future<Map<String, PlaylistModel>> getSpotifyPlaylists(double expiresAt, String 
         return newPlaylists;
       }
       else{
-        debugPrint('Failed to get Spotify Playlists: ${responseDecode['message']}');
+        throw Exception('Failed to get Spotify Playlists: ${responseDecode['message']}');
       }
     }
   }

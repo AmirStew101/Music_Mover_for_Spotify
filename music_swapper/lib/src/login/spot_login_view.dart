@@ -6,6 +6,7 @@ import 'package:another_flushbar/flushbar.dart';
 import 'package:flutter/material.dart';
 import 'package:spotify_music_helper/src/home/home_view.dart';
 import 'package:spotify_music_helper/src/login/start_screen.dart';
+import 'package:spotify_music_helper/src/utils/analytics.dart';
 import 'package:spotify_music_helper/src/utils/object_models.dart';
 import 'package:spotify_music_helper/src/utils/globals.dart';
 import 'package:spotify_music_helper/src/utils/universal_widgets.dart';
@@ -51,6 +52,7 @@ class SpotLoginState extends State<SpotLoginWidget> {
     }
     catch (e){
       debugPrint('Caught Error in spot_login_view.dart in function initialLogin trying to get authUrl $e');
+      loginIssue();
     }
 
     final authUrl = responseDecode['data']; //The authorization url to get Spotify access
@@ -94,22 +96,16 @@ class SpotLoginState extends State<SpotLoginWidget> {
                     SecureStorage().saveTokens(callbackModel);
                     SecureStorage().saveUser(syncedUser);
 
+                    await AppAnalytics().trackSpotifyLogin(syncedUser);
                     Navigator.pushNamedAndRemoveUntil(context, HomeView.routeName, (route) => false);
                   }
                   else{
-                    Map<String, dynamic> startArgs = {'relogin': false, 'gotUser': true};
-                    Navigator.pushNamedAndRemoveUntil(context, StartViewWidget.routeName, (route) => false, arguments: startArgs);
+                    loginIssue();
                   }
                 }
                 //Spotify was unable to send the callback
                 else{
-                  const Center(
-                    child: Text(
-                      'Problem with connecting to Spotify redirecting back to Start page',
-                      textScaler: TextScaler.linear(1.5),),
-                  );
-                  Future.delayed(const Duration(seconds: 3));
-                  Navigator.pushNamedAndRemoveUntil(context, StartViewWidget.routeName, (route) => false);
+                  loginIssue();
                 }
 
                 return NavigationDecision.prevent;
@@ -142,6 +138,17 @@ Future<Map> getCallback(callRequest) async {
   return {};
 }
 
+void loginIssue({bool loginReset = true, bool hasUser = false}){
+  const Center(
+    child: Text(
+      'Problem with connecting to Spotify redirecting back to Start page',
+      textScaler: TextScaler.linear(1.5),),
+    );
+  Future.delayed(const Duration(seconds: 3));
+
+  bool reLogin = loginReset;
+  Navigator.pushNamedAndRemoveUntil(context, StartViewWidget.routeName, (route) => false, arguments: reLogin);
+}
 
   @override
   Widget build(BuildContext context) {

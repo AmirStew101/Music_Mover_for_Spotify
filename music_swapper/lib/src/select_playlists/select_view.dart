@@ -9,6 +9,7 @@ import 'package:spotify_music_helper/src/tracks/tracks_view.dart';
 import 'package:spotify_music_helper/src/utils/object_models.dart';
 import 'package:spotify_music_helper/src/utils/playlists_requests.dart';
 import 'package:spotify_music_helper/src/select_playlists/select_search.dart';
+import 'package:spotify_music_helper/src/utils/sync_services.dart';
 import 'package:spotify_music_helper/src/utils/tracks_requests.dart';
 import 'package:spotify_music_helper/src/utils/universal_widgets.dart';
 
@@ -22,12 +23,14 @@ class SelectPlaylistsViewWidget extends StatefulWidget {
 }
 
 class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
+  late ScaffoldMessengerState scaffoldMessengerState;
+
   //Passed variables
   CallbackModel receivedCall = CallbackModel();
   Map<String, TrackModel> selectedTracksMap = {};
   PlaylistModel currentPlaylist = const PlaylistModel();
   String option = '';
-  UserModel user = UserModel();
+  UserModel user = UserModel.defaultUser();
   Map<String, TrackModel> allTracks = {};
 
   bool selectAll = false;
@@ -36,6 +39,9 @@ class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
   
   //Stores Key: playlist ID w/ Values: Title & bool of if 'chosen'
   Map<String, PlaylistModel> selectedPlaylistsMap = {};
+
+  bool adding = false;
+  bool error = false;
 
   @override
   void initState() {
@@ -46,8 +52,13 @@ class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
     option = trackArgs.option;
     allTracks = trackArgs.allTracks;
     
-
     playlistId = currentPlaylist.id;
+  }
+
+    @override
+  void didChangeDependencies(){
+    super.didChangeDependencies();
+    scaffoldMessengerState = ScaffoldMessenger.of(context);
   }
 
   Future<void> checkLogin() async{
@@ -71,7 +82,8 @@ class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
 
     //Checks if only the Liked_Songs playlist is the only playlist
     if (allPlaylists.length == 1){
-      await fetchSpotifyPlaylists();
+      await fetchSpotifyPlaylists()
+      .catchError((e) => error = true);
     }
     String currentId = currentPlaylist.id;
     allPlaylists.remove(currentId);
@@ -79,12 +91,22 @@ class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
 
   Future<void> fetchSpotifyPlaylists() async {
     bool forceRefresh = false;
-    receivedCall = await checkRefresh(receivedCall, forceRefresh);
+    receivedCall = await checkRefresh(receivedCall, forceRefresh)
+    .catchError((e) {
+      error = true;
+      return Future.value(CallbackModel());
+    });
 
-    allPlaylists = await getSpotifyPlaylists(receivedCall.expiresAt, receivedCall.accessToken, user.spotifyId);
+    allPlaylists = await getSpotifyPlaylists(receivedCall.expiresAt, receivedCall.accessToken, user.spotifyId)
+    .catchError((e) {
+      error = true;
+      return Future.value(<String, PlaylistModel>{});
+    });
 
+    bool updateDatabase = false;
     //Checks all playlists if they are in database
-    await DatabaseStorage().syncPlaylists(allPlaylists, user.spotifyId);
+    await DatabaseStorage().syncPlaylists(allPlaylists, user.spotifyId, updateDatabase)
+    .onError((error, stackTrace) => error = true);
 
     String currentId = currentPlaylist.id;
     allPlaylists.remove(currentId);
@@ -137,7 +159,35 @@ class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
       body: FutureBuilder<void>(
         future: checkLogin(),
         builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.done) {
+          if (error){
+            return const Center(
+              child: Column(
+                children: [
+                  Center(
+                    child: CircularProgressIndicator.adaptive(),
+                  ),
+                  Center(
+                    child: Text(
+                      'Connection Error',
+                      textScaler: TextScaler.linear(1.3),
+                    )
+                  ),
+                ]),
+            );
+          }
+          else if (adding){
+            return const Center(
+              child: Column(
+                children: [
+                  CircularProgressIndicator.adaptive(),
+                  Text(
+                    'Adding Tracks to Playlists',
+                    textScaler: TextScaler.linear(1.3),
+                  )
+                ]),
+            );
+          }
+          else if (snapshot.connectionState == ConnectionState.done) {
             return SelectBodyWidget(
               sendSelected: receiveSelected,
               selectedPlaylistsMap: selectedPlaylistsMap,
@@ -145,7 +195,8 @@ class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
               currentPlaylist: currentPlaylist,
               receivedCall: receivedCall,
               user: user);
-          } else {
+          } 
+          else {
             return const Center(child: CircularProgressIndicator());
           }
         },
@@ -169,6 +220,7 @@ class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
       child: InkWell(
         onTap: () async {
           if (selectedTracksMap.isNotEmpty){
+            adding = true;
             int totalChosen = selectedTracksMap.length;
             
             //Sets variables for User Notification
@@ -178,6 +230,10 @@ class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
             String optionMsg = (option == 'move')
                   ? 'Successfully moved $totalChosen songs to $totalPlaylists playlists'
                   : 'Successfully added $totalChosen songs to $totalPlaylists playlists';
+
+            setState(() {
+              //Updates adding
+            });
 
             await handleOptionSelect()
             .catchError((e){
@@ -206,6 +262,7 @@ class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
             icon: optionIcon,
             onPressed: () async {
               if (selectedTracksMap.isNotEmpty){
+                adding = true;
                 int totalChosen = selectedTracksMap.length;
             
                 //Sets variables for User Notification
@@ -215,6 +272,10 @@ class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
                 String optionMsg = (option == 'move')
                       ? 'Successfully moved $totalChosen songs to $totalPlaylists playlists'
                       : 'Successfully added $totalChosen songs to $totalPlaylists playlists';
+
+                setState(() {
+                  //Updates adding
+                });
 
                 await handleOptionSelect()
                 .catchError((e){
@@ -256,7 +317,9 @@ class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
       
       receivedCall = await checkRefresh(receivedCall, false);
       await addTracksRequest(trackIds, playlistIds, receivedCall.expiresAt, receivedCall.accessToken);
-      await removeTracks(receivedCall, currentPlaylist, selectedTracksMap, allTracks, user);
+      await DatabaseStorage().removeTracks(receivedCall, currentPlaylist, selectedTracksMap, allTracks, user);
+
+      await SpotifySync().startUpdate(playlistIds, scaffoldMessengerState);
     }
     //Adds tracks to Playlists
     else {
@@ -264,6 +327,7 @@ class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
 
       receivedCall = await checkRefresh(receivedCall, false);
       await addTracksRequest(trackIds, playlistIds, receivedCall.expiresAt, receivedCall.accessToken);
+      await SpotifySync().startUpdate(playlistIds, scaffoldMessengerState);
     }
   }
 

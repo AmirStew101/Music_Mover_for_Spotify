@@ -1,16 +1,14 @@
 // ignore_for_file: use_build_context_synchronously
 
 import 'dart:async';
-import 'dart:ffi';
 
 import 'package:another_flushbar/flushbar.dart';
 import 'package:flutter/material.dart';
-import 'package:get/get.dart';
+import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:spotify_music_helper/src/login/start_screen.dart';
 import 'package:spotify_music_helper/src/select_playlists/select_view.dart';
 import 'package:spotify_music_helper/src/utils/object_models.dart';
 import 'package:spotify_music_helper/src/utils/playlists_requests.dart';
-import 'package:spotify_music_helper/src/tracks/tracks_body.dart';
 import 'package:spotify_music_helper/src/utils/tracks_requests.dart';
 import 'package:spotify_music_helper/src/tracks/tracks_search.dart';
 import 'package:spotify_music_helper/src/utils/universal_widgets.dart';
@@ -27,32 +25,45 @@ class TracksView extends StatefulWidget {
 }
 
 class TracksViewState extends State<TracksView> with SingleTickerProviderStateMixin{
-  //Passed arguments
-  CallbackModel receivedCall = CallbackModel(); //Received Spotify callback arguments as Map
-  UserModel user = UserModel();
-  String playlistId = '';
+  //Passed argument
   PlaylistModel currentPlaylist = const PlaylistModel();
+
+  CallbackModel receivedCall = CallbackModel();
+  UserModel user = UserModel.defaultUser();
+
+  String playlistId = '';
 
   Map<String, TrackModel> allTracks = {}; //Tracks for the chosen playlist
   //All of the selected tracks 
   //key: Track ID
-  //values: Track Title, Artist, Image Url, PreviewUrl
-  Map<String, TrackModel> selectedTracksMap = {}; 
+  //values: TrackModel {Id, Track Title, Artist, Image Url, PreviewUrl}
+  Map<String, TrackModel> selectedTracksMap = {};
   String playlistName = '';
+
+  //List of all tracks with Key: ID and Value: if Chosen & Title
+  List<MapEntry<String, dynamic>> selectedTracksList = [];
+  //List<MapEntry<String, dynamic>> playingList = [];
 
   int totalTracks = -1;
   bool refresh = false;
   bool loaded = false; //Tracks loaded status
   bool selectAll = false;
+  bool selectingAll = false;
   bool error = false;
+  bool homeTimer = false;
+  
   late TabController tabController;
 
-  //Users Loading text
-  final List<String> syncTexts = ['Syncing Tracks', 'First time Syncing a lot of Tracks may take awhile', 'Someone has a lot of Tracks to Sync, over 1000?'];
-  int syncIndex = 0;
+  //Users Smart Sync text
+  final List<String> smartSyncTexts = ['Smart Syncing Tracks.', 'First time Syncing a lot of Tracks may take awhile.', 'Someone has a lot of Tracks to Sync, over 1000?'];
 
-  final List<String> loadTexts = ['Loading Tracks', 'First time Loading a lot of Tracks may take awhile', 'Someone has a lot of Tracks to Load, over 1000?'];
-  int loadIndex = 0;
+  //Users Deep Sync text
+  final List<String> deepSyncTexts = ['Deep Syncing Tracks.', 'Deep syncing updates every track so it might take awhile.', 'Someone has a lot of Tracks to Sync, over 1000?'];
+
+  final List<String> loadTexts = ['Loading Tracks.', 'First time Loading a lot of Tracks may take awhile.', 'Someone has a lot of Tracks to Load, over 1000?'];
+  int loadingIndex = 0;
+
+  bool deepSync = false;
 
 
 
@@ -65,11 +76,104 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
     playlistId = currentPlaylist.id;
     playlistName = currentPlaylist.title;
     
-    tabController = TabController(length: 2, vsync: this);
+    tabController = TabController(length: 3, vsync: this);
+  }
+
+  void selectListUpdate() {
+    debugPrint('Updating Select');
+    //Initializes the selected playlists
+    selectedTracksList = List.generate(allTracks.length, (index) {
+      MapEntry<String, TrackModel> currTrack = allTracks.entries.elementAt(index);
+      //MapEntry<String, dynamic>? prevTrack = prevMap[currTrack.key];
+
+      String trackTitle = currTrack.value.title;
+      String trackId = currTrack.key;
+      bool selected = false;
+
+      //If the track is already selected from past widget
+      if (selectedTracksMap.containsKey(trackId) || selectAll) {
+        selected = true;
+      }
+
+      Map<String, dynamic> selectMap = {
+        'chosen': selected,
+        'title': trackTitle
+      };
+
+      return MapEntry(trackId, selectMap);
+    });
+
+    //Initializes the playing list
+    // playingList = List.generate(allTracks.length, (index) {
+    //   String trackTitle = allTracks.entries.elementAt(index).value.title;
+    //   String trackId = allTracks.entries.elementAt(index).key;
+    //   String? playUrl = allTracks.entries.elementAt(index).value.previewUrl;
+    //
+    //   Map<String, dynamic> playMap = {
+    //     'playing': false,
+    //     'title': trackTitle,
+    //     'playUrl': playUrl ?? ''
+    //   };
+    //
+    //   return MapEntry(trackId, playMap);
+    // });
+
+    selectingAll = false;
   }
 
 
+  void startSyncTimer(){
+    if (homeTimer && mounted){
+      Timer.periodic(const Duration(seconds: 5), (timer) {
+        debugPrint('Sync Timer');
+        if(mounted){
+          setState(() {
+            loadingIndex = (loadingIndex + 1) % smartSyncTexts.length;
+          });
+        }
+        else{
+          loadingIndex = 0;
+          timer.cancel();
+        }
+        if(loaded && mounted){
+          loadingIndex = 0;
+          timer.cancel();
+          debugPrint('\nCancel Timer!\n');
+          setState(() {
+            //Stops the timer and resets messages
+          });
+        }
+      });
+     }
+  }
+
+  void startLoadTimer(){
+    if(homeTimer && mounted){
+      Timer.periodic(const Duration(seconds: 5), (timer) {
+        debugPrint('Load Timer');
+        if(mounted){
+          setState(() {
+            loadingIndex = (loadingIndex + 1) % loadTexts.length;
+          });
+        }
+        else{
+          loadingIndex = 0;
+          timer.cancel();
+        }
+        if(loaded && mounted){
+          loadingIndex = 0;
+          timer.cancel();
+          debugPrint('\nCancel Timer!\n');
+          setState(() {
+            //Stops the timer and resets messages
+          });
+        }
+      });
+    }
+  }
+
   Future<void> checkLogin() async{
+    debugPrint('Check Login');
     CallbackModel? secureCall = await SecureStorage().getTokens();
     UserModel? secureUser = await SecureStorage().getUser();
 
@@ -80,7 +184,15 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
 
       storageCheck(context, secureCall, secureUser);
     }
-    else{
+    else if(!homeTimer && mounted && !loaded && !selectingAll){
+      if (!loaded && !refresh){
+        homeTimer = true;
+        startLoadTimer();
+      }
+      else if (!loaded && refresh){
+        homeTimer = true;
+        startSyncTimer();
+      }
       receivedCall = secureCall;
       user = secureUser;
       await fetchDatabaseTracks().catchError((e){
@@ -88,21 +200,29 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
         debugPrint('Error when trying to fetchDatabaseTracks ${getCurrentLine()} $e');
       });
     }
+
   }
 
   Future<void> fetchDatabaseTracks() async{
+
+    //Gets Tracks from database when not refreshing
     if (!refresh){
       debugPrint('\nCalling Database');
 
       //Fills Users tracks from the Database
       allTracks = await DatabaseStorage().getDatabaseTracks(user.spotifyId, playlistId, context);
     }
-
+    
+    //If not refreshing page and Database has tracks Page is loaded
     if (allTracks.isNotEmpty && !refresh){
       totalTracks = allTracks.length;
+
+      selectListUpdate();
+
       loaded = true;
       debugPrint('\nLoaded Tracks');
     }
+    //Page is refreshing or Database has no tracks
     else{
       await fetchSpotifyTracks().catchError((e){
         error = true;
@@ -117,7 +237,6 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
     //Checks if Token needs to be refreshed
     receivedCall = await checkRefresh(receivedCall, false); 
     totalTracks = await getSpotifyTracksTotal(playlistId, receivedCall.expiresAt, receivedCall.accessToken);
-    debugPrint('Total Spotify Tracks: $totalTracks');
 
     if (totalTracks > 0) {
       allTracks = await getSpotifyPlaylistTracks(
@@ -127,39 +246,24 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
           totalTracks,
       ); //gets user tracks for playlist
 
+
+      selectListUpdate();      
+
       //Adds tracks to database for faster retreival later
-      await DatabaseStorage().syncPlaylistTracksData(user.spotifyId, allTracks, playlistId);
+      await DatabaseStorage().syncPlaylistTracksData(user.spotifyId, allTracks, playlistId, deepSync);
     }
 
     debugPrint('Loaded Tracks');
+
     loaded = true; //Tracks if the tracks are loaded to be shown
     refresh = false;
-  }
-
-
-  //Updates the chosen tracks function argument for TrackListWidget
-  void receiveValue(List<MapEntry<String, dynamic>> chosenTracks) {
-    for (var element in chosenTracks) {
-      bool trackState = element.value['chosen'];
-      String trackId = element.key;
-
-      //Track is in Searched Tracks but it was unchecked in Widget
-      //Track is removed from Searched tracks
-      if (selectedTracksMap.containsKey(trackId) && trackState == false) {
-        selectedTracksMap.removeWhere((key, value) => key == allTracks[trackId]!.id);
-      }
-      //Track is not in Searched Tracks but it was checked in Widget
-      //Adds the Track to Searched Tracks
-      if (!selectedTracksMap.containsKey(trackId) && trackState == true) {
-        selectedTracksMap[trackId] = allTracks[trackId]!;
-      }
-    }
   }
 
 
   Future<void> deleteRefresh() async{
     debugPrint('Delete Refresh');
     loaded = false;
+    selectAll = false;
 
     selectedTracksMap.clear();
 
@@ -169,8 +273,9 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
   }
 
 
-  Future<void> refreshTracks() async{
-    selectedTracksMap.clear();
+  Future<void> refreshTracks(bool syncOption) async{
+    deepSync = syncOption;
+    selectAll = false;
     refresh = true;
     loaded = false;
     setState(() {
@@ -182,18 +287,22 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
   void handleSelectAll(){
     //Updates checkbox
     selectAll = !selectAll;
-    loaded = false;
+
+    //Prevents Calls to Database and Spotify while selecting all
+    selectingAll = true;
   
     //Selects all the check boxes
     if (selectAll) {
-      selectedTracksMap = allTracks;
+      selectedTracksMap.addAll(allTracks);
     }
     else {
       selectedTracksMap.clear();
     }
 
+    selectListUpdate();
+
     setState(() {
-      
+      //Updates selected tracks
     });
   }
 
@@ -217,20 +326,47 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
             bottom: TabBar(
               controller: tabController,
               tabs: [
-                //Tracks Refresh Button
+
+                //Smart Sync tracks for PLaylist
                 Tab(
                   child: InkWell(
                     onTap: () async{
-                      await refreshTracks();
+                      if (!selectingAll){
+                        await refreshTracks(false);
+                      }
                     },
                     child: Row(children: [ 
                     IconButton(
                       icon: const Icon(Icons.refresh),
                       onPressed: () async{
-                        await refreshTracks();
+                        if (!selectingAll){
+                          await refreshTracks(false);
+                        }
                       },
                     ),
-                    const Text('Refresh'),
+                    const Text('Smart'),
+                  ],),
+                )
+                ),
+
+                //Deep SYnc Tracks for Playlist
+                Tab(
+                  child: InkWell(
+                    onTap: () async{
+                      if (!selectingAll){
+                        await refreshTracks(true);
+                      }
+                    },
+                    child: Row(children: [ 
+                    IconButton(
+                      icon: const Icon(Icons.refresh),
+                      onPressed: () async{
+                        if (!selectingAll){
+                          await refreshTracks(true);
+                        }
+                      },
+                    ),
+                    const Text('Deep'),
                   ],),
                 )
                 ),
@@ -238,16 +374,20 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
                 //Select All checkbox
                 Tab(child: InkWell(
                   onTap: () {
-                    handleSelectAll();
+                    if (!selectingAll){
+                      handleSelectAll();
+                    }
                   },
                   child: Row(children: [
                   Checkbox(
                     value: selectAll,
                     onChanged: (value) {
-                      handleSelectAll();
+                      if (!selectingAll){
+                        handleSelectAll();
+                      }
                     },
                   ),
-                  const Text('Select Al'),
+                  const Text('All'),
                 ],),
                 )
                 )
@@ -298,16 +438,12 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
     return FutureBuilder<void>(
           future: checkLogin().catchError((e) => debugPrint('\nTracks_view.dart line ${getCurrentLine()} error in tracks_view: $e')),
           builder: (context, snapshot) {
-            
-            //Playlist has tracks and Tracks finished loading
-            if (loaded && totalTracks > 0) {
-              return TrackListWidget(
-                playlistId: playlistId,
-                allTracks: allTracks,
-                selectedTracksMap: selectedTracksMap,
-                sendTracks: receiveValue,
+
+            if (selectingAll){
+              return const Center(
+                  child: CircularProgressIndicator(color: Color.fromARGB(255, 22, 199, 28),)
               );
-            } 
+            }
             //Playlist doesn't have Tracks
             else if (loaded && totalTracks <= 0) {
               return const Center(
@@ -318,11 +454,17 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
                   )
               );
             }
+            //Playlist has tracks and Tracks finished loading
+            else if (loaded && totalTracks > 0) {
+              homeTimer = false;
+              return tracksViewBody();
+            } 
             else if(error){
               return const Center(
                 child: Text(
                   'Error getting tracks',
-                  textScaler: TextScaler.linear(2)
+                  textScaler: TextScaler.linear(2),
+                  textAlign: TextAlign.center,
                 )
               );
             }
@@ -333,19 +475,33 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       const CircularProgressIndicator(strokeWidth: 6,),
-                      if(refresh) 
+
+                      //Smart Sync was pressed
+                      if(refresh && !deepSync) 
                         Center(child: 
                           Text(
-                            syncTexts[syncIndex],
-                            textScaler: const TextScaler.linear(2)
+                            smartSyncTexts[loadingIndex],
+                            textScaler: const TextScaler.linear(2),
+                            textAlign: TextAlign.center,
                           )
                         )
-                      
+
+                      //Deep Sync was pressed
+                      else if(refresh && deepSync)
+                        Center(child: 
+                          Text(
+                            deepSyncTexts[loadingIndex],
+                            textScaler: const TextScaler.linear(2),
+                            textAlign: TextAlign.center,
+                          )
+                        )
+                      //Just loaded page
                       else
                         Center(child: 
                           Text(
-                            loadTexts[loadIndex],
-                            textScaler: const TextScaler.linear(2)
+                            loadTexts[loadingIndex],
+                            textScaler: const TextScaler.linear(2),
+                            textAlign: TextAlign.center,
                           )
                         )
                     ]
@@ -354,6 +510,162 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
             }
           },
         );
+  }
+
+  Widget tracksViewBody(){
+    //Stack for the hovering select all button & tracks view
+    return Stack(children: [
+      ListView.builder(
+          itemCount: allTracks.length,
+          itemBuilder: (context, index) {
+            final trackMap = allTracks.entries.elementAt(index);
+
+            //Used for displaying track information
+            final trackTitle = trackMap.value.title;
+            final trackImage = trackMap.value.imageUrl;
+            //final trackPrevUrl = trackMap.value.previewUrl ?? '';
+            final trackArtist = trackMap.value.artist;
+
+            //Used to update Selected Tracks
+            bool chosen = selectedTracksList[index].value['chosen'];
+            final trackId = selectedTracksList[index].key;
+            final selectMap = {'chosen': !chosen, 'title': trackTitle};
+
+            //Alligns the songs as a Column
+            return Column(children: [
+              //Lets the entire left section with checkbox and Title be selected
+              InkWell(
+                  onTap: () {
+                    
+                    selectedTracksList[index] = MapEntry(trackId, selectMap);
+
+                    if (!chosen){
+                      selectedTracksMap[trackId] = allTracks[trackId]!;
+                    }
+                    else{
+                      selectedTracksMap.remove(trackId);
+                    }
+                    
+                    setState(() {
+                      //updateds selected Tracks List & Map
+                    });
+                  },
+                  //Container puts the Tracks image in the background
+                  child: Container(
+                    clipBehavior: Clip.hardEdge,
+                      decoration: BoxDecoration(
+                          image: DecorationImage(
+                            alignment: Alignment.topRight,
+                            image: NetworkImage(trackImage),
+                            fit: BoxFit.contain,
+                          ),
+                          shape: BoxShape.rectangle),
+
+                      //Aligns the Track Name, Checkbox, Artist Name, Preview Button as a Row
+                      child: trackRows(index, trackTitle, trackArtist),
+                  )
+              ),
+              //The grey divider line between each Row to look nice
+              const Divider(
+                height: 1,
+                color: Colors.grey,
+              ),
+              if (index == allTracks.length-1)
+                const SizedBox(
+                  height: 90,
+                ),
+            ]);
+          }),
+          
+      if (user.subscribed)
+        //Shows an ad if user isn't subscribed
+        Positioned(
+          bottom: 5,
+          child: adRow(),
+        )
+      ],
+    );
+  }
+
+  //Banner Ad setup
+  Widget adRow(){
+    final width = MediaQuery.of(context).size.width;
+
+    final BannerAd bannerAd = BannerAd(
+      size: AdSize.fluid, 
+      adUnitId: 'ca-app-pub-3940256099942544/6300978111', 
+      listener: BannerAdListener(
+        onAdLoaded: (ad) => debugPrint('Ad Loaded\n'),
+        onAdClicked: (ad) => debugPrint('Ad Clicked\n'),), 
+      request: const AdRequest(),
+    );
+
+    bannerAd.load();
+    
+    return SizedBox(
+      width: width,
+      height: 70,
+      //Creates the ad banner
+      child: AdWidget(
+        ad: bannerAd,
+      ),
+    );
+  }
+
+  //Creates the State for each Tracks Row
+  Widget trackRows(int index, String trackTitle, String trackArtist) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisAlignment: MainAxisAlignment.start,
+      children: [
+        //Design & Functinoality for the checkbox button when selected and not
+        Checkbox(
+          value: selectedTracksList[index].value['chosen'],
+          onChanged: (value) {
+            
+            bool chosen = selectedTracksList[index].value['chosen'];
+            String trackId = selectedTracksList[index].key;
+            Map<String, dynamic> selectMap = {
+              'chosen': !chosen,
+              'title': trackTitle
+            };
+
+            selectedTracksList[index] = MapEntry(trackId, selectMap);
+            if (!chosen){
+              selectedTracksMap[trackId] = allTracks[trackId]!;
+            }
+            else{
+              selectedTracksMap.remove(trackId);
+            }
+
+            setState(() {
+                //Updates selected track List & Map
+            });
+          },
+        ),
+
+        //Track Names & Artist Names design and Functionality
+        Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              //Name of the Track shown to user
+              children: [
+                Text(
+                  trackTitle.length > 25
+                  ? '${trackTitle.substring(0, 25)}...'
+                  : trackTitle,
+                  textScaler: const TextScaler.linear(1.2),
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(color: Color.fromARGB(255, 6, 163, 11)),
+                ),
+                //Name of track Artist show to user
+                Text(
+                  'By: $trackArtist',
+                  textScaler: const TextScaler.linear(0.8),
+                ),
+              ])
+      ]
+    );
   }
 
   Widget tracksBottomBar(){
@@ -401,7 +713,7 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
             String playlistTitle = currentPlaylist.title;
             debugPrint('Tracks to Delete: $selectedTracksMap');
 
-            await removeTracks(receivedCall, currentPlaylist, selectedTracksMap, allTracks, user);
+            await DatabaseStorage().removeTracks(receivedCall, currentPlaylist, selectedTracksMap, allTracks, user);
             await deleteRefresh();
 
             Flushbar(

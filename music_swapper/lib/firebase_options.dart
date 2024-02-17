@@ -17,7 +17,10 @@ import 'package:flutter/foundation.dart'
 class DefaultFirebaseOptions {
   static FirebaseOptions get currentPlatform {
     if (kIsWeb) {
-      return web;
+      throw UnsupportedError(
+        'DefaultFirebaseOptions have not been configured for web - '
+        'you can reconfigure this by running the FlutterFire CLI again.',
+      );
     }
     switch (defaultTargetPlatform) {
       case TargetPlatform.android:
@@ -25,7 +28,10 @@ class DefaultFirebaseOptions {
       case TargetPlatform.iOS:
         return ios;
       case TargetPlatform.macOS:
-        return macos;
+        throw UnsupportedError(
+          'DefaultFirebaseOptions have not been configured for macos - '
+          'you can reconfigure this by running the FlutterFire CLI again.',
+        );
       case TargetPlatform.windows:
         throw UnsupportedError(
           'DefaultFirebaseOptions have not been configured for windows - '
@@ -43,19 +49,9 @@ class DefaultFirebaseOptions {
     }
   }
 
-  static const FirebaseOptions web = FirebaseOptions(
-    apiKey: 'AIzaSyC4gISTDhNhOXC3FMMaKgfjnX5mMLnBFso',
-    appId: '1:662074339029:web:e1b68f53050db503cabc5c',
-    messagingSenderId: '662074339029',
-    projectId: 'spot-helper-1688d',
-    authDomain: 'spot-helper-1688d.firebaseapp.com',
-    storageBucket: 'spot-helper-1688d.appspot.com',
-    measurementId: 'G-N80B94TF0L',
-  );
-
   static const FirebaseOptions android = FirebaseOptions(
     apiKey: 'AIzaSyBf9B1pjHVck7ZuQW2kXRkRLMpkw7i75eg',
-    appId: '1:662074339029:android:bfa23f10c92738b0cabc5c',
+    appId: '1:662074339029:android:b59665d029b9fb48cabc5c',
     messagingSenderId: '662074339029',
     projectId: 'spot-helper-1688d',
     storageBucket: 'spot-helper-1688d.appspot.com',
@@ -68,14 +64,5 @@ class DefaultFirebaseOptions {
     projectId: 'spot-helper-1688d',
     storageBucket: 'spot-helper-1688d.appspot.com',
     iosBundleId: 'com.example.musicSwapper',
-  );
-
-  static const FirebaseOptions macos = FirebaseOptions(
-    apiKey: 'AIzaSyBPjbPnzsgBFATdBKedc5_6I6_HGMomWyM',
-    appId: '1:662074339029:ios:74fcef567dec84f5cabc5c',
-    messagingSenderId: '662074339029',
-    projectId: 'spot-helper-1688d',
-    storageBucket: 'spot-helper-1688d.appspot.com',
-    iosBundleId: 'com.example.musicSwapper.RunnerTests',
   );
 }

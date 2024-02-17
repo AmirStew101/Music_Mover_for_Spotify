@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
-import 'package:spotify_music_helper/src/about/about.dart';
+import 'package:spotify_music_helper/src/info/info_page.dart';
 import 'package:spotify_music_helper/src/home/home_view.dart';
 import 'package:spotify_music_helper/src/login/spot_login_view.dart';
 import 'package:spotify_music_helper/src/select_playlists/select_view.dart';
@@ -75,11 +75,11 @@ class MyApp extends StatelessWidget {
 
                   //User is not signed in goes to Start page
                   case StartViewWidget.routeName:
-                    final startArgs = routeSettings.arguments as StartArguments;
-                    return StartViewWidget(startArgs: startArgs);
+                    final reLogin = routeSettings.arguments as bool;
+                    return StartViewWidget(reLogin: reLogin);
 
-                  case SettingsView.routeName:
-                    return SettingsView(controller: settingsController);
+                  case SettingsViewWidget.routeName:
+                    return SettingsViewWidget(controller: settingsController);
 
                   //Login to Spotify
                   case SpotLoginWidget.routeName:
@@ -92,8 +92,8 @@ class MyApp extends StatelessWidget {
                     return TracksView(currentPLaylist: currentPlaylist);
 
                   //The Apps details page
-                  case AboutViewWidget.routeName:
-                    return const AboutViewWidget();
+                  case InfoView.routeName:
+                    return const InfoView();
 
                   //Select playlists to move/add tracks to
                   case SelectPlaylistsViewWidget.routeName:

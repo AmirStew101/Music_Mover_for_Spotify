@@ -4,7 +4,7 @@
 import 'package:flutter/material.dart';
 
 class UserModel{
-  final String? username;
+  String? username;
   final String spotifyId;
   final String uri;
   final bool subscribed;
@@ -12,11 +12,17 @@ class UserModel{
   
   UserModel({
     this.username,
-    this.spotifyId = '',
-    this.uri = '',
-    this.subscribed = false,
-    this.tier = 0,
+    required this.spotifyId,
+    required this.uri,
+    required this.subscribed,
+    required this.tier,
   });
+
+  UserModel.defaultUser() : 
+  spotifyId = '', 
+  uri = '',
+  subscribed = false,
+  tier = 0;
 
   toJson(){
     return {
@@ -155,7 +161,6 @@ class PlaylistModel {
   }
 
   PlaylistModel mapToModel(Map<String, dynamic> playlist){
-    debugPrint('Playlist: $playlist\n');
     return PlaylistModel(
       id: playlist.entries.single.key,
       title: playlist.entries.single.value['title'],
@@ -276,30 +281,6 @@ class TrackArguments{
       currentPlaylist: const PlaylistModel().mapToModel(trackArgs['currentPlaylist']), 
       option: trackArgs['option'], 
       allTracks: allTracks
-    );
-  }
-}
-
-class StartArguments{
-  final bool reLogin;
-  final bool hasUser;
-
-  const StartArguments({
-    required this.reLogin,
-    required this.hasUser,
-  });
-
-  Map<String, dynamic> toJson(){
-    return {
-      'reLogin': reLogin,
-      'hasUser': hasUser,
-    };
-  }
-
-  StartArguments toTrackArgs(Map<String, dynamic> startArgs){
-    return StartArguments(
-      reLogin: startArgs['reLogin'], 
-      hasUser: startArgs['hasUser']
     );
   }
 }
