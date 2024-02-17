@@ -1,6 +1,5 @@
 // ignore_for_file: use_build_context_synchronously
 
-import 'package:another_flushbar/flushbar.dart';
 import 'package:flutter/material.dart';
 import 'package:spotify_music_helper/src/utils/object_models.dart';
 import 'package:spotify_music_helper/src/utils/playlists_requests.dart';
@@ -94,8 +93,6 @@ class SpotifySync{
                 //Start animation
                 controller.repeat();
               }
-
-              bool updateDatabase = false;
 
               if (option == allOption){
                 updateDatabase = true;

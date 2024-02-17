@@ -7,7 +7,6 @@ import 'package:spotify_music_helper/src/login/spot_login_view.dart';
 import 'package:spotify_music_helper/src/select_playlists/select_view.dart';
 import 'package:spotify_music_helper/src/tracks/tracks_view.dart';
 import 'package:spotify_music_helper/src/login/start_screen.dart';
-import 'package:spotify_music_helper/src/utils/object_models.dart';
 
 import 'settings/settings_controller.dart';
 import 'settings/settings_view.dart';
