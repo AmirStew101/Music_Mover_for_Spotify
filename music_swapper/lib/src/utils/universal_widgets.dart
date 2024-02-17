@@ -8,6 +8,7 @@ import 'dart:io';
 import 'package:another_flushbar/flushbar.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:spotify_music_helper/src/info/info_page.dart';
 import 'package:spotify_music_helper/src/home/home_view.dart';
 import 'package:spotify_music_helper/src/login/start_screen.dart';
@@ -59,6 +60,7 @@ class SecureStorage {
   final userUriKey = 'userUri';
   final subscribedKey = 'subscribed';
   final tierKey = 'tier';
+  final expirationKey = 'expiration';
 
   Future<void> saveTokens(CallbackModel tokensModel) async {
     await storage.write(key: accessTokenKey, value: tokensModel.accessToken);
@@ -105,15 +107,18 @@ class SecureStorage {
     final userUri = await storage.read(key: userUriKey);
     final subscribed = await storage.read(key: subscribedKey);
     final tier = await storage.read(key: tierKey);
+    final expiration = await storage.read(key: expirationKey);
 
-    if (userId != null && userUri != null && subscribed != null && tier != null){
+    if (userId != null && userUri != null && subscribed != null && tier != null && expiration != null){
       if (userName != null){
         UserModel userModel = UserModel(
           spotifyId: userId, 
           uri: userUri, 
           username: userName, 
           subscribed: bool.parse(subscribed), 
-          tier: int.parse(tier));
+          tier: int.parse(tier),
+          expiration: DateTime.parse(expiration),
+        );
 
         return userModel;
       }
@@ -122,7 +127,9 @@ class SecureStorage {
           spotifyId: userId, 
           uri: userUri, 
           subscribed: bool.parse(subscribed), 
-          tier: int.parse(tier));
+          tier: int.parse(tier),
+          expiration: DateTime.parse(expiration),
+          );
 
         return userModel;
       }
@@ -141,7 +148,7 @@ class SecureStorage {
 }//SecureStorage
 
 
-//Used to organize what songs a user has in their Liked SOngs playlist
+//Used to organize what songs a user has in their Liked Songs playlist
 class LikedSongs{
   String likedId = 'Liked_Songs';
 
@@ -177,8 +184,11 @@ class LikedSongs{
       //Get tracks from spotify
       if (callback != null){
         callback = await checkRefresh(callback, false);
-        int totalTracks = await getSpotifyTracksTotal(likedId, callback.expiresAt, callback.accessToken);
-        likedSongs = await getSpotifyPlaylistTracks(likedId, callback.expiresAt, callback.accessToken, totalTracks);
+        
+        if (callback != null){
+          int totalTracks = await getSpotifyTracksTotal(likedId, callback.expiresAt, callback.accessToken);
+          likedSongs = await getSpotifyPlaylistTracks(likedId, callback.expiresAt, callback.accessToken, totalTracks);
+        }
       }
       //User needs a new callback
       else{
@@ -195,14 +205,12 @@ class DatabaseStorage {
 
   //Syncs the Users Spotify tracks with the tracks in database
   Future<void> syncPlaylistTracksData(String userId, Map<String, TrackModel> tracks, String playlistId, bool updateDatabase) async{
-    debugPrint('Syncing Tracks: ${tracks.length}');
     try{
       await userRepo.syncPlaylistTracks(userId, tracks, playlistId, updateDatabase);
     }
     catch (e){
       debugPrint('Error trying to Sync Playlist Tracks: $e');
     }
-    debugPrint('Finished Syncing Tracks');
   }
 
   //Get a list of track names for a given playlits then get there details from
@@ -221,8 +229,6 @@ class DatabaseStorage {
       return {};
     });
 
-    debugPrint('Database Tracks Total: ${tracks.length}');
-
     return tracks;
   }
 
@@ -238,14 +244,12 @@ class DatabaseStorage {
 
   //Syncs the Users Spotify Playlists with the playlists in database
   Future<void> syncPlaylists(Map<String, PlaylistModel> playlists, String userId, bool updateDatabase) async{
-    debugPrint('Syncing Playlists');
     try{
       await userRepo.syncUserPlaylists(userId, playlists, updateDatabase);
     }
     catch (e){
       debugPrint('Error trying to Sync Playlists: $e');
     }
-    debugPrint('Finished Syncing Playlists');
   }
 
   Future<Map<String, PlaylistModel>> getDatabasePlaylists(String userId) async{
@@ -264,9 +268,14 @@ class DatabaseStorage {
     if (response.statusCode == 200){
       final responseDecoded = json.decode(response.body);
       userInfo = responseDecoded['data'];
+      final time = DateTime.now();
+      final timeParse = DateTime.parse(time.toString());
+      debugPrint('Date Time now: $time');
+      debugPrint('Parse it: $timeParse');
+      debugPrint('Get Day from it: ${timeParse.day}');
 
       //Converts user from Spotify to Firestore user
-      UserModel user = UserModel(username: userInfo['user_name'] , spotifyId: userInfo['id'], uri: userInfo['uri'], subscribed: false, tier: 0);
+      UserModel user = UserModel(username: userInfo['user_name'] , spotifyId: userInfo['id'], uri: userInfo['uri'], subscribed: false, tier: 0, expiration: DateTime.now());
 
       //Checks if user is already in the database
       if (!await userRepo.hasUser(user)){
@@ -296,7 +305,6 @@ class DatabaseStorage {
 
     String playlistId = currentPlaylist.id;
     String snapId = currentPlaylist.snapshotId;
-    debugPrint('Selected Map: $selectedTracksMap');
 
     if (playlistId != 'Liked_Songs'){
       //Tracks & how many times to remove it
@@ -307,7 +315,6 @@ class DatabaseStorage {
         //Updates how many tracks are being deleted
         removeTracks.update(id, (value) => value += 1, ifAbsent: () => 0);
       }
-      debugPrint('RemoveTracks: $removeTracks');
 
       List<String> spotifyAddIds = [];
       //Tracks to be removed from the database starting from the last element
@@ -323,15 +330,12 @@ class DatabaseStorage {
         String id = track.key;
 
         removeTrackIds.add(id);
-        debugPrint('\nRemove Tracks: $removeTracks');
-        debugPrint('Tracks Total: $tracksTotal');
 
         //Remove database tracks starting from the last added track duplicate
         for (int i = tracksTotal; i >= 0; i--){
 
           //Removes all of database tracks
           if (removeTracks == tracksTotal){
-            debugPrint('Remove all Tracks database');
             String remove = '${id}_$i';
             databaseRemoveIds.add(remove);
           }
@@ -340,12 +344,10 @@ class DatabaseStorage {
           if (i <= removeTracks){
             if (i == 0){
               databaseRemoveIds.add(id);
-              debugPrint('Database Remove: $id');
             }
             else{
               String remove = '${id}_$i';
               databaseRemoveIds.add(remove);
-              debugPrint('Database Remove: $remove');
             }
             
           }
@@ -353,13 +355,17 @@ class DatabaseStorage {
           //Spotify API deletes all tracks whith one delete call
           else{
             spotifyAddIds.add(id);
-            debugPrint('Spotify add');
           }
         }
       }
 
       try{
-        callback = await checkRefresh(callback, false);
+        final result = await checkRefresh(callback, false); 
+
+        if (result != null){
+          callback = result;
+        }
+
       }
       catch (e){
         debugPrint('Tracks_view.dart line: ${getCurrentLine(offset: 3)} in function removeTracks $e');
@@ -373,7 +379,6 @@ class DatabaseStorage {
 
         //Replaces tracks that user wanted to keep
         if (spotifyAddIds.isNotEmpty){
-          debugPrint('Add tracks back: $spotifyAddIds');
           List<String> playlistIds = [playlistId];
           await addTracksRequest(spotifyAddIds, playlistIds, callback.expiresAt, callback.accessToken);
         }
@@ -390,7 +395,11 @@ class DatabaseStorage {
       }
 
       try{
-        callback = await checkRefresh(callback, false);
+        final result = await checkRefresh(callback, false); 
+
+        if (result != null){
+          callback = result;
+        }
       }
       catch (e){
         debugPrint('Tracks_view.dart line ${getCurrentLine(offset: 3)} in function removeTracks $e');
@@ -511,4 +520,34 @@ void storageCheck(BuildContext context, CallbackModel? secureCall, UserModel? se
   }
 }//storageCheck
 
+//Banner Ad setup
+Widget adRow(BuildContext context, UserModel user){
+  if (user.subscribed){
+    return Container();
+  }
+
+  final width = MediaQuery.of(context).size.width;
+
+  final BannerAd bannerAd = BannerAd(
+    size: AdSize.fluid, 
+    adUnitId: 'ca-app-pub-3940256099942544/6300978111', 
+    listener: BannerAdListener(
+      onAdLoaded: (ad) => debugPrint('Ad Loaded\n'),
+      onAdClicked: (ad) => debugPrint('Ad Clicked\n'),), 
+    request: const AdRequest(),
+  );
+
+  bannerAd.load();
   
+  return Positioned(
+    bottom: 5,
+    child: SizedBox(
+      width: width,
+      height: 70,
+      //Creates the ad banner
+      child: AdWidget(
+        ad: bannerAd,
+      ),
+    )
+  );
+}

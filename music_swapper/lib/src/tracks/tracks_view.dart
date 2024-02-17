@@ -80,7 +80,6 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
   }
 
   void selectListUpdate() {
-    debugPrint('Updating Select');
     //Initializes the selected playlists
     selectedTracksList = List.generate(allTracks.length, (index) {
       MapEntry<String, TrackModel> currTrack = allTracks.entries.elementAt(index);
@@ -125,7 +124,6 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
   void startSyncTimer(){
     if (homeTimer && mounted){
       Timer.periodic(const Duration(seconds: 5), (timer) {
-        debugPrint('Sync Timer');
         if(mounted){
           setState(() {
             loadingIndex = (loadingIndex + 1) % smartSyncTexts.length;
@@ -138,7 +136,6 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
         if(loaded && mounted){
           loadingIndex = 0;
           timer.cancel();
-          debugPrint('\nCancel Timer!\n');
           setState(() {
             //Stops the timer and resets messages
           });
@@ -150,7 +147,6 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
   void startLoadTimer(){
     if(homeTimer && mounted){
       Timer.periodic(const Duration(seconds: 5), (timer) {
-        debugPrint('Load Timer');
         if(mounted){
           setState(() {
             loadingIndex = (loadingIndex + 1) % loadTexts.length;
@@ -163,7 +159,6 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
         if(loaded && mounted){
           loadingIndex = 0;
           timer.cancel();
-          debugPrint('\nCancel Timer!\n');
           setState(() {
             //Stops the timer and resets messages
           });
@@ -173,7 +168,6 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
   }
 
   Future<void> checkLogin() async{
-    debugPrint('Check Login');
     CallbackModel? secureCall = await SecureStorage().getTokens();
     UserModel? secureUser = await SecureStorage().getUser();
 
@@ -207,7 +201,6 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
 
     //Gets Tracks from database when not refreshing
     if (!refresh){
-      debugPrint('\nCalling Database');
 
       //Fills Users tracks from the Database
       allTracks = await DatabaseStorage().getDatabaseTracks(user.spotifyId, playlistId, context);
@@ -220,7 +213,6 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
       selectListUpdate();
 
       loaded = true;
-      debugPrint('\nLoaded Tracks');
     }
     //Page is refreshing or Database has no tracks
     else{
@@ -233,9 +225,13 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
 
   //Gets the users tracks for the selected Playlist
   Future<void> fetchSpotifyTracks() async {
-    debugPrint('\nCalling Spot');
     //Checks if Token needs to be refreshed
-    receivedCall = await checkRefresh(receivedCall, false); 
+    final result = await checkRefresh(receivedCall, false); 
+
+    if (result != null){
+      receivedCall = result;
+    }
+
     totalTracks = await getSpotifyTracksTotal(playlistId, receivedCall.expiresAt, receivedCall.accessToken);
 
     if (totalTracks > 0) {
@@ -247,13 +243,17 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
       ); //gets user tracks for playlist
 
 
-      selectListUpdate();      
-
+      selectListUpdate();
+       ScaffoldMessengerState().showSnackBar(
+          const SnackBar(
+            content: Text('Tracks received from Spotify'),
+            duration: Duration(seconds: 8),
+            backgroundColor: Color.fromARGB(255, 1, 167, 7),
+          )
+      );
       //Adds tracks to database for faster retreival later
       await DatabaseStorage().syncPlaylistTracksData(user.spotifyId, allTracks, playlistId, deepSync);
     }
-
-    debugPrint('Loaded Tracks');
 
     loaded = true; //Tracks if the tracks are loaded to be shown
     refresh = false;
@@ -261,7 +261,6 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
 
 
   Future<void> deleteRefresh() async{
-    debugPrint('Delete Refresh');
     loaded = false;
     selectAll = false;
 
@@ -565,11 +564,14 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
                       child: trackRows(index, trackTitle, trackArtist),
                   )
               ),
+              
               //The grey divider line between each Row to look nice
               const Divider(
                 height: 1,
                 color: Colors.grey,
               ),
+
+              //Makes space so last item isn't behind ad
               if (index == allTracks.length-1)
                 const SizedBox(
                   height: 90,
@@ -577,38 +579,9 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
             ]);
           }),
           
-      if (user.subscribed)
         //Shows an ad if user isn't subscribed
-        Positioned(
-          bottom: 5,
-          child: adRow(),
-        )
+        adRow(context, user)
       ],
-    );
-  }
-
-  //Banner Ad setup
-  Widget adRow(){
-    final width = MediaQuery.of(context).size.width;
-
-    final BannerAd bannerAd = BannerAd(
-      size: AdSize.fluid, 
-      adUnitId: 'ca-app-pub-3940256099942544/6300978111', 
-      listener: BannerAdListener(
-        onAdLoaded: (ad) => debugPrint('Ad Loaded\n'),
-        onAdClicked: (ad) => debugPrint('Ad Clicked\n'),), 
-      request: const AdRequest(),
-    );
-
-    bannerAd.load();
-    
-    return SizedBox(
-      width: width,
-      height: 70,
-      //Creates the ad banner
-      child: AdWidget(
-        ad: bannerAd,
-      ),
     );
   }
 
@@ -711,7 +684,6 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
           else if (value == 2 && selectedTracksMap.isNotEmpty){
             int tracksDeleted = selectedTracksMap.length;
             String playlistTitle = currentPlaylist.title;
-            debugPrint('Tracks to Delete: $selectedTracksMap');
 
             await DatabaseStorage().removeTracks(receivedCall, currentPlaylist, selectedTracksMap, allTracks, user);
             await deleteRefresh();

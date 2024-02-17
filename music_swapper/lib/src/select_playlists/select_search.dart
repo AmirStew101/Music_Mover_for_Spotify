@@ -113,9 +113,7 @@ class SelectPlaylistSearchDelegate extends SearchDelegate {
                 value: chosen,
                 onChanged: (value) {
                   setState((){
-                    debugPrint('Checkbox clicked: $playTitle');
                     selectedList[chosenIndex] = MapEntry(playId, playMap);
-                    debugPrint('Selected: ${selectedList[chosenIndex]}');
                   });
                 },
               ),
@@ -124,9 +122,7 @@ class SelectPlaylistSearchDelegate extends SearchDelegate {
 
               onTap: () {
                 setState((){
-                  debugPrint('Box clicked: $playTitle');
                   selectedList[chosenIndex] = MapEntry(playId, playMap);
-                  debugPrint('Selected: ${selectedList[chosenIndex]}');
                 });
               },
             );

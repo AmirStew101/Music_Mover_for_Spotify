@@ -89,7 +89,6 @@ Map<String, PlaylistModel> getPlaylistImages(Map<String, dynamic> playlists) {
 }
 
 Future<CallbackModel?> spotRefreshToken(double expiresAt, String refreshToken) async {
-  debugPrint('Spotify Refresh');
   try{
     final refreshUrl = '$hosted/refresh-token/$expiresAt/$refreshToken';
 
@@ -114,7 +113,7 @@ Future<CallbackModel?> spotRefreshToken(double expiresAt, String refreshToken) a
 }
 
 //Checks if the Token has expired
-Future<CallbackModel> checkRefresh(CallbackModel checkCall, bool forceRefresh) async {
+Future<CallbackModel?> checkRefresh(CallbackModel checkCall, bool forceRefresh) async {
   try{
     //Get the current time in seconds to be the same as in Python
     double currentTime = DateTime.now().millisecondsSinceEpoch.toDouble() / 1000;
@@ -137,6 +136,6 @@ Future<CallbackModel> checkRefresh(CallbackModel checkCall, bool forceRefresh) a
   }
   catch (e){
     debugPrint('Caught Error in checkRefresh: $e');
+    return null;
   }
-  throw Exception('Error trying to check callback in playlists_requests.dart');
 }

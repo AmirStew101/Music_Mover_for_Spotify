@@ -1,6 +1,8 @@
 // ignore_for_file: use_build_context_synchronously
 
 import 'package:flutter/material.dart';
+import 'package:spotify_music_helper/src/login/start_screen.dart';
+import 'package:spotify_music_helper/src/utils/object_models.dart';
 import 'package:spotify_music_helper/src/utils/sync_services.dart';
 import 'package:spotify_music_helper/src/utils/universal_widgets.dart';
 
@@ -30,6 +32,8 @@ class SettingsViewState extends State<SettingsViewWidget> with TickerProviderSta
   late AnimationController playlistsController;
   late AnimationController tracksController;
   late ScaffoldMessengerState scaffoldMessenger;
+
+  UserModel user = UserModel.defaultUser();
   
   bool isPressed = false;
 
@@ -68,6 +72,18 @@ class SettingsViewState extends State<SettingsViewWidget> with TickerProviderSta
       vsync: this,
       duration: const Duration(seconds: 3)
     );
+  }
+
+  Future<void> getUser() async{
+    final result = await SecureStorage().getUser();
+
+    if(result != null){
+      user = result;
+    }
+    else{
+      bool reLogin = false;
+      Navigator.of(context).pushReplacementNamed(StartViewWidget.routeName, arguments: reLogin);
+    }
   }
 
   @override
@@ -262,17 +278,29 @@ class SettingsViewState extends State<SettingsViewWidget> with TickerProviderSta
               },
             ),
             const Divider(color: Colors.grey),
-
-            ListTile(
+            if (user.subscribed)
+              ListTile(
               leading: const Icon(Icons.monetization_on_rounded),
               title: const Text(
-                '\$1 monthly subscription to remove adds',
+                'Cancel Subscription',
                 textScaler: TextScaler.linear(1.1),
                 ),
               onTap: () {
                 debugPrint('Open purchase Menu');
               },
             ),
+
+            if(!user.subscribed)
+              ListTile(
+                leading: const Icon(Icons.monetization_on_rounded),
+                title: const Text(
+                  '\$1 monthly subscription to remove adds',
+                  textScaler: TextScaler.linear(1.1),
+                  ),
+                onTap: () {
+                  debugPrint('Open purchase Menu');
+                },
+              ),
 
         ]),
       ),

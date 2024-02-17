@@ -64,7 +64,11 @@ class SpotifySync{
       CallbackModel receivedCall = callback;
 
       try{
-        receivedCall = await checkRefresh(receivedCall, false);
+        final result = await checkRefresh(receivedCall, false); 
+
+        if (result != null){
+          receivedCall = result;
+        }
 
         int tracksTotal = await getSpotifyTracksTotal(playlistId, receivedCall.expiresAt, receivedCall.accessToken);
         Map<String, TrackModel> tracks = await getSpotifyPlaylistTracks(playlistId, receivedCall.expiresAt, receivedCall.accessToken, tracksTotal);
@@ -127,7 +131,11 @@ class SpotifySync{
       CallbackModel receivedCall = callback;
 
       try{
-        receivedCall = await checkRefresh(receivedCall, false);
+        final result = await checkRefresh(receivedCall, false); 
+
+        if (result != null){
+          receivedCall = result;
+        }
         final playlists = await getSpotifyPlaylists(receivedCall.expiresAt, receivedCall.accessToken, user.spotifyId);
 
         await DatabaseStorage().syncPlaylists(playlists, user.spotifyId, updateDatabase);
@@ -175,14 +183,23 @@ class SpotifySync{
 
       CallbackModel receivedCall = callback;
 
-      receivedCall = await checkRefresh(receivedCall, false);
+      final result = await checkRefresh(receivedCall, false); 
+
+      if (result != null){
+        receivedCall = result;
+      }
       Map<String, PlaylistModel> playlists = await getSpotifyPlaylists(receivedCall.expiresAt, receivedCall.accessToken, user.spotifyId);
       
       //Gets every Playlist's Tracks and syncs Tracks to database
       for (var playlist in playlists.entries){
         try{
           debugPrint('Getting tracks for ${playlist.value.title} ${playlist.key}');
-          receivedCall = await checkRefresh(receivedCall, false);
+          
+          final result = await checkRefresh(receivedCall, false); 
+
+          if (result != null){
+            receivedCall = result;
+          }
 
           int tracksTotal = await getSpotifyTracksTotal(playlist.value.id, receivedCall.expiresAt, receivedCall.accessToken);
           Map<String, TrackModel> tracks = await getSpotifyPlaylistTracks(playlist.value.id, receivedCall.expiresAt, receivedCall.accessToken, tracksTotal);

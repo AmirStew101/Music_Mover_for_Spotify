@@ -39,6 +39,7 @@ class SelectBodyState extends State<SelectBodyWidget> {
   List<MapEntry<String, dynamic>> selectedPlaylists = [];
   String currentId = '';
   bool selectAll = false;
+  bool error = false;
 
   @override
   void initState() {
@@ -74,7 +75,13 @@ class SelectBodyState extends State<SelectBodyWidget> {
     try{
     bool forceRefresh = false;
     //Checks to make sure Tokens are up to date before making a Spotify request
-    receivedCall = await checkRefresh(receivedCall, forceRefresh);
+    final result = await checkRefresh(receivedCall, forceRefresh);
+
+    //Ignore the error
+    if (result != null){
+      receivedCall = result;
+    }
+    
 
     playlists = await getSpotifyPlaylists(receivedCall.expiresAt, receivedCall.accessToken, user.spotifyId);
 

@@ -5,6 +5,7 @@ class UserModel{
   final String uri;
   final bool subscribed;
   final int tier;
+  final DateTime expiration;
   
   UserModel({
     this.username,
@@ -12,13 +13,15 @@ class UserModel{
     required this.uri,
     required this.subscribed,
     required this.tier,
+    required this.expiration,
   });
 
   UserModel.defaultUser() : 
   spotifyId = '', 
   uri = '',
   subscribed = false,
-  tier = 0;
+  tier = 0,
+  expiration = DateTime.now();
 
   toJson(){
     return {
@@ -26,6 +29,7 @@ class UserModel{
         'uri': uri,
         'subscribed': subscribed,
         'tier': tier,
+        'expiration': expiration,
       };
   }
 }

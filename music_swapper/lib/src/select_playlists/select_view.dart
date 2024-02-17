@@ -91,11 +91,15 @@ class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
 
   Future<void> fetchSpotifyPlaylists() async {
     bool forceRefresh = false;
-    receivedCall = await checkRefresh(receivedCall, forceRefresh)
+    final result = await checkRefresh(receivedCall, forceRefresh)
     .catchError((e) {
       error = true;
       return Future.value(CallbackModel());
     });
+
+    if (result != null){
+      receivedCall = result;
+    }
 
     allPlaylists = await getSpotifyPlaylists(receivedCall.expiresAt, receivedCall.accessToken, user.spotifyId)
     .catchError((e) {
@@ -144,13 +148,11 @@ class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
                     context: context,
                     delegate: SelectPlaylistSearchDelegate(allPlaylists, selectedPlaylistsMap)
                 );
-                debugPrint('Result');
                 if(result != null){
                   receiveSelected(result);
                 }
 
                 setState(() {
-                  debugPrint('Selected $selectedPlaylistsMap');
                   //Update Selected Playlists
                 });
               }),
@@ -313,9 +315,11 @@ class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
 
     //Move tracks to Playlists
     if (option == 'move') {
-      debugPrint('Move Option');
       
-      receivedCall = await checkRefresh(receivedCall, false);
+      final result = await checkRefresh(receivedCall, false);
+      if(result != null){
+        receivedCall = result;
+      }
       await addTracksRequest(trackIds, playlistIds, receivedCall.expiresAt, receivedCall.accessToken);
       await DatabaseStorage().removeTracks(receivedCall, currentPlaylist, selectedTracksMap, allTracks, user);
 
@@ -323,9 +327,12 @@ class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
     }
     //Adds tracks to Playlists
     else {
-      debugPrint('Add Option');
 
-      receivedCall = await checkRefresh(receivedCall, false);
+      final result = await checkRefresh(receivedCall, false);
+
+      if (result != null){
+        receivedCall = result;
+      }
       await addTracksRequest(trackIds, playlistIds, receivedCall.expiresAt, receivedCall.accessToken);
       await SpotifySync().startUpdate(playlistIds, scaffoldMessengerState);
     }
@@ -333,7 +340,6 @@ class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
 
   //FUnction to exit playlists select menu
   void navigateToTracks(){
-      debugPrint('Navigate');
       Map<String, dynamic> sendPlaylist = currentPlaylist.toJson();
       //Removes the Stacked Pages until the Home page is the only one Left
       Navigator.popUntil(context, ModalRoute.withName(HomeView.routeName) );

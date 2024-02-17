@@ -60,7 +60,6 @@ class StartViewState extends State<StartViewWidget> {
                     textScaler: TextScaler.linear(1.5),
                   ),
                   onPressed: () {
-                    debugPrint('Start View Relogin value $reLogin');
                     Navigator.of(context).pushNamed(SpotLoginWidget.routeName, arguments: reLogin);
                   },
                 ),

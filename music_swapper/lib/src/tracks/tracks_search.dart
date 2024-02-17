@@ -60,7 +60,6 @@ class TracksSearchDelegate extends SearchDelegate {
                 onSelected: (value) {
                   setState(() {
                     artistFilter = !artistFilter;
-                    debugPrint('Filter Tapped');
                   });
                 },
               ),

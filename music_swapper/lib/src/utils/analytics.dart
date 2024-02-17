@@ -8,7 +8,6 @@ final FirebaseAnalyticsAndroid android = FirebaseAnalyticsAndroid();
 
 class AppAnalytics{
   Future<void> trackSpotifyLogin(UserModel user) async{
-    debugPrint('\nTrack Spotify Event');
     await analytics.logEvent(
       name: 'spotify_login',
       parameters: {
@@ -22,7 +21,6 @@ class AppAnalytics{
   }
 
   Future<void> trackSavedLogin(UserModel user) async{
-    debugPrint('\nTrack Saved Event');
     await analytics.logEvent(
       name: 'saved_login',
       parameters: {

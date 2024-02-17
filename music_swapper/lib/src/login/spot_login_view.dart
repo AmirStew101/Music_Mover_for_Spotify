@@ -29,7 +29,6 @@ class SpotLoginState extends State<SpotLoginWidget> {
   void initState(){
     super.initState();
     reLogin = widget.reLogin;
-    debugPrint('Spot Login Relogin value: $reLogin');
   }
 
   //Spotify Login view
@@ -75,7 +74,6 @@ class SpotLoginState extends State<SpotLoginWidget> {
           ..setJavaScriptMode(JavaScriptMode.unrestricted)
           ..setNavigationDelegate(NavigationDelegate(
             onPageStarted: (String url) {
-              debugPrint('Page started loading:');
             },
             onProgress: (int progress) {
               debugPrint('Spotify Login Loading (progress: $progress%)');

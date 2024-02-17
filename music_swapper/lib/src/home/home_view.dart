@@ -73,12 +73,10 @@ class HomeViewState extends State<HomeView> with SingleTickerProviderStateMixin{
   Future<void> fetchDatabasePlaylists() async{
     loaded = false;
     if (!refresh && mounted){
-      debugPrint('Fetching Database Playlists');
       playlists = await DatabaseStorage().getDatabasePlaylists(user.spotifyId);
     }
 
     if (playlists.isNotEmpty && playlists.length > 1 && !refresh){
-      debugPrint('Loaded');
       loaded = true;
     }
     else if (mounted){
@@ -89,11 +87,16 @@ class HomeViewState extends State<HomeView> with SingleTickerProviderStateMixin{
   //Gets all the Users Playlists and platform specific images
   Future<void> fetchSpotifyPlaylists() async {
     loaded = false;
-    debugPrint('\nNeeded Spotify\n');
     try{
       bool forceRefresh = false;
       //Checks to make sure Tokens are up to date before making a Spotify request
-      receivedCall = await checkRefresh(receivedCall, forceRefresh);
+      CallbackModel? result = await checkRefresh(receivedCall, forceRefresh);
+
+      if (result == null){
+        error = true;
+        return;
+      }
+      receivedCall = result;
 
       playlists = await getSpotifyPlaylists(receivedCall.expiresAt, receivedCall.accessToken, user.spotifyId);
 

@@ -21,11 +21,9 @@ class UserRepository extends GetxController {
       final DocumentSnapshot<Map<String, dynamic>> userExists = await usersRef.doc(user.spotifyId).get();
 
       if (userExists.exists) {
-        debugPrint('User exists');
         await updateUser(user);
         return true;
       }
-      debugPrint('User doesn\'t exist');
       return false;
     }
     catch (e){
@@ -53,6 +51,7 @@ class UserRepository extends GetxController {
         tier: databaseUser.data()?['Tier'],
         uri: databaseUser.data()?['Uri'],
         username: databaseUser.data()?['Username'],
+        expiration: databaseUser.data()?['Expiration']
       );
 
       return retreivedUser;
@@ -66,7 +65,7 @@ class UserRepository extends GetxController {
     final databaseUser = await userRef.get();
 
     if (databaseUser.exists){
-      await userRef.update({'Subscribed': user.subscribed, 'Tier': user.tier, 'Username': user.username})
+      await userRef.update({'Subscribed': user.subscribed, 'Tier': user.tier, 'Username': user.username, 'Expiration': DateTime.now()})
       .catchError((e) {
         final trace = StackTrace.current;
         final lineNum = trace.toString().split('\n')[1].split(':')[1];
