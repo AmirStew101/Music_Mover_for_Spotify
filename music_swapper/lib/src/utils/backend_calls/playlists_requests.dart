@@ -2,9 +2,10 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:spotify_music_helper/src/utils/global_classes/global_objects.dart';
 import 'package:spotify_music_helper/src/utils/globals.dart';
 import 'package:spotify_music_helper/src/utils/object_models.dart';
-import 'package:spotify_music_helper/src/utils/universal_widgets.dart';
+import 'package:spotify_music_helper/src/utils/global_classes/secure_storage.dart';
 
 Future<Map<String, PlaylistModel>> getSpotifyPlaylists(double expiresAt, String accessToken, String userId) async {
   try {
@@ -19,6 +20,7 @@ Future<Map<String, PlaylistModel>> getSpotifyPlaylists(double expiresAt, String 
 
         //Removes all playlists not made by the User
         playlists.removeWhere((key, value) => value['owner'] != userId && key != 'Liked_Songs');
+        debugPrint('Retreived Liked_Songs: ${playlists['Liked_Songs']}');
 
         Map<String, PlaylistModel> newPlaylists = getPlaylistImages(playlists);
         return newPlaylists;
@@ -52,19 +54,16 @@ Map<String, PlaylistModel> getPlaylistImages(Map<String, dynamic> playlists) {
 
           //Playlist has an image
           if (imagesList.isNotEmpty) {
-            imageUrl = item.value['imageUrl'][0]['url'];
-            playlists[item.key]['imageUrl'] = imageUrl;            
+            imageUrl = item.value['imageUrl'][0]['url'];         
           }
           //Playlist is missing an image so use default blank
           else {
-            imageUrl = 'assets/images/no_image.png';
-            playlists[item.key]['imageUrl'] = imageUrl;
+            imageUrl = assetNoImage;
           }
         }
         //Use the Liked_Songs image
         else{
-          imageUrl = 'assets/images/spotify_liked_songs.jpg';
-          playlists[item.key]['imageUrl'] = imageUrl;
+          imageUrl = assetLikedSongs;
         }
 
         PlaylistModel newPlaylist = PlaylistModel(
@@ -115,6 +114,10 @@ Future<CallbackModel?> spotRefreshToken(double expiresAt, String refreshToken) a
 //Checks if the Token has expired
 Future<CallbackModel?> checkRefresh(CallbackModel checkCall, bool forceRefresh) async {
   try{
+    if (checkCall.isEmpty){
+      return null;
+    }
+    
     //Get the current time in seconds to be the same as in Python
     double currentTime = DateTime.now().millisecondsSinceEpoch.toDouble() / 1000;
 
@@ -129,13 +132,14 @@ Future<CallbackModel?> checkRefresh(CallbackModel checkCall, bool forceRefresh) 
       }
       else{
         debugPrint('Failed to get Spotify Playlists:');
+        return null;
       }
     }
 
     return checkCall;
   }
   catch (e){
-    debugPrint('Caught Error in checkRefresh: $e');
+    debugPrint('playlists_requests.dart line: ${getCurrentLine()} Caught Error: $e');
     return null;
   }
 }

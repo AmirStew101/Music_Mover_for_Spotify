@@ -1,7 +1,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:spotify_music_helper/src/utils/object_models.dart';
-import 'package:spotify_music_helper/src/utils/universal_widgets.dart';
+import 'package:spotify_music_helper/src/utils/global_classes/global_objects.dart';
 
 class SelectPlaylistSearchDelegate extends SearchDelegate {
   List<MapEntry<String, dynamic>> searchResults = []; //Names of each playlist
@@ -9,30 +9,23 @@ class SelectPlaylistSearchDelegate extends SearchDelegate {
 
   //Search Constructor setting the search results to the Playlist names
   SelectPlaylistSearchDelegate(Map<String, PlaylistModel> playlists, Map<String, PlaylistModel> selectedPlaylistsMap) {
-    if (selectedPlaylistsMap.isNotEmpty){
-      playlists.forEach((key, value) {
-        searchResults.add(MapEntry(key, value.title));
-
-        bool chosen = false;
+    playlists.forEach((key, value) {
+      
         String playlistTitle = value.title;
+        bool chosen = false;
 
-        Map<String, dynamic> selectMap = {'chosen': chosen, 'title': playlistTitle};
+        searchResults.add(MapEntry(key, playlistTitle));
 
         if (selectedPlaylistsMap.containsKey(key)){
           chosen = true;
         }
 
-        selectedList.add(MapEntry(key, selectMap));
-      });
-    }
-    else{
-      playlists.forEach((key, value) {
-        searchResults.add(MapEntry(key, value.title));
+        Map<String, dynamic> selectMap = {'chosen': chosen, 'title': playlistTitle};
 
-        Map<String, dynamic> selectMap = {'chosen': false, 'title': value.title};
         selectedList.add(MapEntry(key, selectMap));
-      });
-    }
+        
+    });
+
   }
 
   //What Icons on the Left side of the Search Bar

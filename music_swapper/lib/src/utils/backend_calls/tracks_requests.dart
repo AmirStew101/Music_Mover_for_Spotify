@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:spotify_music_helper/src/utils/globals.dart';
 import 'package:spotify_music_helper/src/utils/object_models.dart';
-import 'package:spotify_music_helper/src/utils/universal_widgets.dart';
+import 'package:spotify_music_helper/src/utils/global_classes/global_objects.dart';
 
 Future<int> getSpotifyTracksTotal(String playlistId, double expiresAt, String accessToken) async{
   try{
@@ -34,28 +34,41 @@ Future<int> getSpotifyTracksTotal(String playlistId, double expiresAt, String ac
 
 Future<Map<String, TrackModel>> getSpotifyPlaylistTracks(String playlistId, double expiresAt, String accessToken, int totalTracks) async {
   try{
-    Map<String, dynamic> tracks = {};
+    Map<String, dynamic> checkTracks = {};
+    Map<String, dynamic> receivedTracks = {};
     dynamic responseDecoded;
 
     //Gets Tracks 50 at a time because of Spotify's limit
     for (var offset = 0; offset < totalTracks; offset +=50){
 
-      final getTracksUrl ='$hosted/get-all-tracks/$playlistId/$expiresAt/$accessToken/$totalTracks/$offset';
+      final getTracksUrl ='$hosted/get-all-tracks/$playlistId/$expiresAt/$accessToken/$offset';
       final response = await http.get(Uri.parse(getTracksUrl));
 
       if (response.statusCode == 200){
         responseDecoded = json.decode(response.body);
 
-        if (responseDecoded['status'] == 'Success'){
-          tracks.addAll(responseDecoded['data']);
-        }
+        //Don't check if a song is in Liked Songs if the playlist is Liked Songs
+          if (playlistId == 'Liked_Songs'){
+            receivedTracks.addAll(responseDecoded['data']);
+          }
+          //Check the 50 tracks received if they are in Liked Songs
+          else{
+            checkTracks.addAll(responseDecoded['data']);
+            final checkResponse = await checkLiked(checkTracks, expiresAt, accessToken);
+
+            //Add checked tracks to the total tracks and reset the checked tracks
+            if (checkResponse != null){
+              receivedTracks.addAll(checkResponse);
+              checkTracks.clear();
+            }
+          }
       }
       else{
-        throw Exception('Failed to get Spotify Tracks : ${responseDecoded['message']}');
+        throw Exception('tracks_requests.dart line ${getCurrentLine()}. Failed to get Spotify Tracks : ${responseDecoded['message']}');
       }
     }
 
-    Map<String, TrackModel> newTracks = getPlatformTrackImages(tracks);
+    Map<String, TrackModel> newTracks = getPlatformTrackImages(receivedTracks);
     return newTracks;
   }
   catch (e){
@@ -87,7 +100,8 @@ Map<String, TrackModel> getPlatformTrackImages(Map<String, dynamic> tracks) {
         imageUrl: imageUrl, 
         artist: item.value['artist'], 
         title: item.value['title'], 
-        duplicates: item.value['duplicates']
+        duplicates: item.value['duplicates'],
+        liked: item.value['liked']
       );
 
       newTracks[newTrack.id] = newTrack;
@@ -99,15 +113,78 @@ Map<String, TrackModel> getPlatformTrackImages(Map<String, dynamic> tracks) {
   throw Exception("Failed Platform is not supported");
 }
 
+Future<Map<String, dynamic>?> checkLiked(Map<String, dynamic> tracksMap, double expiresAt, String accessToken) async{
+  List<String> trackIds = [];
+  List<dynamic> boolList = [];
+  
+  final checkUrl = '$hosted/check-liked/$expiresAt/$accessToken';
+  var response;
+
+  try{
+    for (var i = 0; i < tracksMap.length; i++){
+      final track = tracksMap.entries.elementAt(i);
+      final trueId = getTrackId(track.key);
+      trackIds.add(trueId);
+      
+        if ( (i+1 % 50) == 0 || i == tracksMap.length-1){
+          //Check the Ids of up to 50 tracks
+          final response = await http.post(Uri.parse(checkUrl),
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: jsonEncode({'trackIds': trackIds})
+          );
+
+          //Not able to receive the checked result from Spotify
+          if (response.statusCode != 200){
+            return null;
+          }
+
+          final responseDecoded = jsonDecode(response.body);
+
+          boolList.addAll(responseDecoded['boolArray']);
+        }
+    }
+
+    Map<String, dynamic> checkedTracks = {};
+
+    for (var i = 0; i < tracksMap.length; i++){
+      final currTrack = tracksMap.entries.elementAt(i);
+
+      if (boolList[i]){
+        checkedTracks
+        .putIfAbsent(currTrack.key, () => {
+          'title': currTrack.value['title'], 
+          'imageUrl': currTrack.value['imageUrl'],
+          'artist': currTrack.value['artist'],
+          'preview_url': currTrack.value['preview_url'],
+          'duplicates': currTrack.value['duplicates'],
+          'liked': boolList[i],}
+        );
+      }
+      else{
+        checkedTracks.putIfAbsent(currTrack.key, () => currTrack.value);
+      }
+      
+    }
+    return checkedTracks;
+  }
+  catch (e){
+    debugPrint('tracks_requests.dart line: ${getCurrentLine()} Caught error $e');
+    return null;
+  }
+}
+
+
 Future<void> addTracksRequest(List<String> tracks, List<String> playlistIds, double expiresAt, String accessToken) async {
   final addTracksUrl ='$hosted/add-to-playlists/$expiresAt/$accessToken';
 
   final response = await http.post(
     Uri.parse(addTracksUrl),
-    headers: {
-    'Content-Type': 'application/json'
-    },
-    body: jsonEncode({'trackIds': tracks, 'playlistIds': playlistIds})
+      headers: {
+      'Content-Type': 'application/json'
+      },
+      body: jsonEncode({'trackIds': tracks, 'playlistIds': playlistIds})
   );
 
   if (response.statusCode != 200){
@@ -122,10 +199,10 @@ Future<void> removeTracksRequest(List<String> tracks, String originId, String sn
 
     final response = await http.post(
       Uri.parse(removeTracksUrl),
-      headers: {
-      'Content-Type': 'application/json'
-      },
-      body: jsonEncode({'trackIds': tracks})
+        headers: {
+        'Content-Type': 'application/json'
+        },
+        body: jsonEncode({'trackIds': tracks})
     );
     debugPrint('Response: ${response.statusCode} ${response.body}');
   }

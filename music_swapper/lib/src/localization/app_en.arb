@@ -1,6 +1,6 @@
 {
-  "appTitle": "music_swapper",
+  "appTitle": "Spotify Helper",
   "@appTitle": {
-    "description": "The title of the application"
+    "description": "Used to help move multiple tracks/episodes from one playlist to another or multiple others."
   }
 }

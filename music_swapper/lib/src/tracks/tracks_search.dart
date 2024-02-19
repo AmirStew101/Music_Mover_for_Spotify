@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:spotify_music_helper/src/utils/object_models.dart';
-import 'package:spotify_music_helper/src/utils/universal_widgets.dart';
+import 'package:spotify_music_helper/src/utils/global_classes/global_objects.dart';
 
 class TracksSearchDelegate extends SearchDelegate {
   //Will have a key: track name & value: Artist & ID

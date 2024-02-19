@@ -2,16 +2,19 @@
 
 import 'package:flutter/material.dart';
 import 'package:spotify_music_helper/src/login/start_screen.dart';
+import 'package:spotify_music_helper/src/utils/globals.dart';
 import 'package:spotify_music_helper/src/utils/object_models.dart';
-import 'package:spotify_music_helper/src/utils/sync_services.dart';
-import 'package:spotify_music_helper/src/utils/universal_widgets.dart';
+import 'package:spotify_music_helper/src/utils/global_classes/secure_storage.dart';
+import 'package:spotify_music_helper/src/utils/global_classes/sync_services.dart';
+import 'package:spotify_music_helper/src/utils/global_classes/global_objects.dart';
 
 import 'settings_controller.dart';
 
 /// Displays the various settings that can be customized by the user.
-///
 /// When a user changes a setting, the SettingsController is updated and
 /// Widgets that listen to the SettingsController are rebuilt.
+/// Users are provided multiple Sync options
+/// Ad removal services are placed here
 
 class SettingsViewWidget extends StatefulWidget{
   const SettingsViewWidget({
@@ -32,20 +35,18 @@ class SettingsViewState extends State<SettingsViewWidget> with TickerProviderSta
   late AnimationController playlistsController;
   late AnimationController tracksController;
   late ScaffoldMessengerState scaffoldMessenger;
-
-  UserModel user = UserModel.defaultUser();
   
   bool isPressed = false;
 
   bool error = false;
-  bool syncing = false;
+
+  bool syncingAll = false;
+  bool syncingPlaylists = false;
+  bool syncingTracks = false;
 
   String allOption = 'all';
   String tracksOption = 'tracks';
   String playlistsOption = 'playlists';
-
-  //Bypass sync restrictions and check every PLaylist & Track Document
-  bool updateDatabase = false;
 
   Color textColor = Colors.white;
 
@@ -53,42 +54,35 @@ class SettingsViewState extends State<SettingsViewWidget> with TickerProviderSta
   void initState(){
     super.initState();
 
-    if (widget.controller.themeMode == ThemeMode.light){
-      textColor = Colors.black;
+    if (!syncingAll && !syncingPlaylists && !syncingTracks){
+      if (widget.controller.themeMode == ThemeMode.light){
+        textColor = Colors.black;
+      }
+
+      //Animation controllers for different Sync Icons
+      allController = AnimationController(
+        vsync: this,
+        duration: const Duration(seconds: 3)
+      );
+
+      playlistsController = AnimationController(
+        vsync: this,
+        duration: const Duration(seconds: 3)
+      );
+
+      tracksController = AnimationController(
+        vsync: this,
+        duration: const Duration(seconds: 3)
+      );
     }
 
-    //Animation controllers for different Sync Icons
-    allController = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 3)
-    );
-
-    playlistsController = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 3)
-    );
-
-    tracksController = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 3)
-    );
   }
 
-  Future<void> getUser() async{
-    final result = await SecureStorage().getUser();
 
-    if(result != null){
-      user = result;
-    }
-    else{
-      bool reLogin = false;
-      Navigator.of(context).pushReplacementNamed(StartViewWidget.routeName, arguments: reLogin);
-    }
-  }
 
   @override
   void dispose(){
-    SpotifySync().stop();
+    //SpotifySync().stop();
     allController.dispose();
     playlistsController.dispose();
     tracksController.dispose();
@@ -169,29 +163,25 @@ class SettingsViewState extends State<SettingsViewWidget> with TickerProviderSta
 
             //Playlists & Tracks Sync Tile
             ListTile(
-              leading: SpotifySync().startIcons(allController, allOption, scaffoldMessenger),
+              selected: syncingAll,
+              selectedColor: Colors.blue,
+              leading: rotatingSync(allController, allOption),
               title: const Text(
                 'Deep Sync All Playlists & Tracks. ',
                 textScaler: TextScaler.linear(1.1),
               ),
               subtitle: const Text('Updates Images, Names, etc. from Spotify. Slow if you have a lot of Tracks but effective.'),
               onTap: () async{
-                syncing = true;
-                if (syncing){
-                  //Bypass sync restrictions and check every PLaylist & Track Document
-                  updateDatabase = true;
-
-                  if (!allController.isDismissed){
-                    //Start animation
-                    allController.repeat();
-                  }
+                if (!syncingAll && !syncingPlaylists && !syncingPlaylists){
+                  if (mounted)  allController.repeat(); //Start animation
+                  syncingAll = true;
+                  setState(() {});
 
                   await SpotifySync().startAll(allOption, scaffoldMessenger);
 
-                  if (!allController.isDismissed){
-                    //FInished Syncing
-                    allController.reset();
-                  }
+                  if (mounted) allController.reset(); //FInished Syncing
+                  syncingTracks = false;
+                  setState(() {});
 
                   scaffoldMessenger.showSnackBar(
                     const SnackBar(
@@ -209,102 +199,127 @@ class SettingsViewState extends State<SettingsViewWidget> with TickerProviderSta
 
             //Playlists Sync Tile
             ListTile(
-              leading: SpotifySync().startIcons(playlistsController, playlistsOption, scaffoldMessenger),
+              selected: syncingPlaylists,
+              selectedColor: Colors.blue,
+              leading: rotatingSync(playlistsController, playlistsOption),
               title: const Text(
                 'Deep Sync All Playlists',
                 textScaler: TextScaler.linear(1.1),
               ),
-              subtitle: const Text('Updates Images, Names, etc. of Playlists'),
+              subtitle: const Text('Updates Images and Names of Playlists'),
               onTap: () async{
-                //Fast normal sync not checking every Playlist
-                updateDatabase = false;
-
-                if (!playlistsController.isDismissed){
-                  //Start animation
-                  playlistsController.repeat();
+                debugPrint('Dismissed? ${!playlistsController.isDismissed}, !syncingPlaylists: ${!syncingPlaylists}');
+                if (!syncingAll && !syncingPlaylists && !syncingPlaylists){
+                  if (mounted) playlistsController.repeat(); //Start animation
+                  syncingPlaylists = true;
+                  setState(() {});
+                  
+                  await SpotifySync().startPlaylists(playlistsOption, scaffoldMessenger);
+                
+                  if (mounted) playlistsController.reset(); //FInished Syncing
+                  syncingPlaylists = false;
+                  setState(() {});
                 }
 
-                await SpotifySync().startPlaylists(playlistsOption, scaffoldMessenger);
-
-                if (!playlistsController.isDismissed){
-                  //FInished Syncing
-                  playlistsController.reset();
-                }
-
-                scaffoldMessenger.showSnackBar(
-                  const SnackBar(
-                    content: Text('Finished Syncing Playlists'),
-                    duration: Duration(seconds: 4),
-                    backgroundColor: Color.fromARGB(255, 1, 167, 7),
-
-                  )
-                );
               },
             ),
             const Divider(color: Colors.grey),
 
             //Tracks Sync Tile
             ListTile(
-              leading: SpotifySync().syncIcons(tracksController, tracksOption, scaffoldMessenger),
+              selected: syncingTracks,
+              selectedColor: Colors.blue,
+              leading: rotatingSync(tracksController, tracksOption),
               title: const Text(
                 'Deep Sync All Tracks',
                 textScaler: TextScaler.linear(1.1),
               ),
               subtitle: const Text('Updates all Tracks data for every Playlist. Time varies depending on how many Tracks you have.'),
               onTap: () async{
-                //Fast normal sync not checking every Track
-                updateDatabase = false;
+                if (!syncingTracks && !syncingPlaylists && !syncingAll){
+                  if (mounted) tracksController.repeat(); //Start animation
+                  syncingTracks = true;
+                  setState(() {});
 
-                if (!tracksController.isDismissed){
-                  //Start animation
-                  tracksController.repeat();
+                  await SpotifySync().startTracks(tracksOption, scaffoldMessenger);
+                  
+                  if (mounted) tracksController.reset(); //FInished Syncing
+                  syncingTracks = false;
+                  setState(() {});
+
+                  scaffoldMessenger.showSnackBar(
+                    const SnackBar(
+                      content: Text('Finished Syncing Tracks'),
+                      duration: Duration(seconds: 5),
+                      backgroundColor: Color.fromARGB(255, 1, 167, 7),
+
+                    )
+                  );
                 }
-
-                await SpotifySync().startTracks(tracksOption, scaffoldMessenger);
-
-                if (!tracksController.isDismissed){
-                  //FInished Syncing
-                  tracksController.reset();
-                }
-
-                scaffoldMessenger.showSnackBar(
-                  const SnackBar(
-                    content: Text('Finished Syncing Tracks'),
-                    duration: Duration(seconds: 5),
-                    backgroundColor: Color.fromARGB(255, 1, 167, 7),
-
-                  )
-                );
               },
             ),
             const Divider(color: Colors.grey),
-            if (user.subscribed)
-              ListTile(
-              leading: const Icon(Icons.monetization_on_rounded),
-              title: const Text(
-                'Cancel Subscription',
-                textScaler: TextScaler.linear(1.1),
-                ),
-              onTap: () {
-                debugPrint('Open purchase Menu');
-              },
-            ),
-
-            if(!user.subscribed)
-              ListTile(
-                leading: const Icon(Icons.monetization_on_rounded),
-                title: const Text(
-                  '\$1 monthly subscription to remove adds',
-                  textScaler: TextScaler.linear(1.1),
-                  ),
-                onTap: () {
-                  debugPrint('Open purchase Menu');
-                },
-              ),
+            // if (user.subscribed)
+            //   ListTile(
+            //   leading: const Icon(Icons.monetization_on_rounded),
+            //   title: const Text(
+            //     'Cancel Subscription',
+            //     textScaler: TextScaler.linear(1.1),
+            //     ),
+            //   onTap: () {
+            //     debugPrint('Open purchase Menu');
+            //   },
+            // ),
+            //
+            // if(!user.subscribed)
+            //   ListTile(
+            //     leading: const Icon(Icons.monetization_on_rounded),
+            //     title: const Text(
+            //       '\$1 monthly subscription to remove adds',
+            //       textScaler: TextScaler.linear(1.1),
+            //       ),
+            //     onTap: () {
+            //       debugPrint('Open purchase Menu');
+            //     },
+            //   ),
 
         ]),
       ),
     );
   }//Widget
+
+  AnimatedBuilder rotatingSync(AnimationController controller, String option){
+    return AnimatedBuilder(
+      animation: controller,
+      builder: (context, child) {
+        return Transform.rotate(
+          angle: controller.value * 2 * 3.14,
+          child: IconButton(
+            icon: const Icon(Icons.sync),
+            onPressed: () async {
+
+              if (!syncingPlaylists){
+                if (option == allOption && !syncingPlaylists && !syncingTracks) syncingAll = true;
+                if (option == playlistsOption && !syncingAll && !syncingTracks) syncingPlaylists = true;
+                if (option == tracksOption && !syncingPlaylists && !syncingAll) syncingTracks = true;
+                setState(() {}); //start rotating
+
+                if (mounted) controller.repeat(); //Start animation
+                
+                await SpotifySync().startPlaylists(option, scaffoldMessenger);
+              
+                if (mounted) controller.reset(); // Stop animation Finished Syncing
+
+                if (option == allOption ) syncingAll = false;
+                if (option == playlistsOption) syncingPlaylists = false;
+                if (option == tracksOption) syncingTracks = false;
+                setState(() {}); //stop rotation
+              }
+            },
+          ),
+        );
+      },
+    );
+  }
 
 }//State

@@ -8,7 +8,7 @@ or just undo there recent action.
 import requests, urllib.parse
 
 from datetime import datetime, timedelta
-from flask import Flask, redirect, request, jsonify
+from flask import Flask, redirect, request, jsonify, make_response
 from flask_cors import CORS
 
 app = Flask(__name__)
@@ -18,9 +18,7 @@ app.secret_key = '234as45-9tvb27418-as987uhld83-1239sad089'
 CLIENT_ID = '5e6623ad65b7489b879a2a332c133570'
 CLIENT_SECRET = '4cd9de386b2c4d5882e7cdd283e6a1e3'
 SITE_REDIRECT_URI = 'https://amirstew.pythonanywhere.com/callback'
-APP_REDIRECT_URI = "SpotHelper://callback"
 
-NGROK = 'https://b893-173-66-70-24.ngrok-free.app'
 HOSTED = 'https://amirstew.pythonanywhere.com'
 
 AUTH_URL = 'https://accounts.spotify.com/authorize'
@@ -31,10 +29,11 @@ REFRESH_MSG = {'status': 'Failed', 'message': 'Need refresh token'}
 LOGGIN_MSG = {'status': 'Failed', 'message': 'Not Logged In'}
 EXPIRES_MSG = {'status': 'Failed', 'message': 'No Expiration time received'}
 
-#For debugging without app use
-# @app.route('/')
-# def index():
-#     return "Spotify <a href='/get-auth-url/not'>Login</a>"
+def failed_response(message):
+    failed_body = jsonify(message)
+    failed = make_response(failed_body)
+    failed.status_code = 400
+    return failed
 
 @app.route('/get-auth-url-no-dialog', methods=['GET'])
 def login():
@@ -101,6 +100,9 @@ def callback():
 
     response = requests.post(TOKEN_URL, data=req_body)
 
+    if response.status_code != 200:
+        return failed_response(response.content)
+
     token_info = response.json()
 
     access_token = token_info['access_token'] #used to make Spotiufy API requests
@@ -132,6 +134,9 @@ def refresh_token(expires_at, refresh_token):
         }
 
         response = requests.post(TOKEN_URL, data=req_body)
+        if response.status_code != 200:
+            return failed_response(response.content)
+        
         new_token_info = response.json()
 
         access_token = new_token_info['access_token']
@@ -141,7 +146,7 @@ def refresh_token(expires_at, refresh_token):
 
         return jsonify({'status': 'Success', 'data': info})
     
-    return jsonify({'status': 'Failed', 'message': 'Token doesn\'t need to be refreshed'})
+    return failed_response({'message': 'Token doesn\'t need to be refreshed'})
 
 
 @app.route('/get-playlists/<expires_at>/<access_token>')
@@ -149,13 +154,13 @@ def get_playlists(expires_at, access_token):
     expires_at = float(expires_at)
 
     if not access_token:
-        return LOGGIN_MSG
+        return failed_response(LOGGIN_MSG)
     
     if not expires_at:
-        return EXPIRES_MSG
+        return failed_response(EXPIRES_MSG)
     
     if expires_at and datetime.now().timestamp() > expires_at:
-        return REFRESH_MSG
+        return failed_response(REFRESH_MSG)
     
     header = {
         'Authorization': f"Bearer {access_token}"
@@ -166,7 +171,7 @@ def get_playlists(expires_at, access_token):
     response = requests.get(getUrl, headers=header)
 
     if response.status_code != 200:
-        return jsonify({'status': 'Failed', 'message': f'Failed to get playlists: {response.status_code} {response.json()}'})
+        return failed_response({'message': f'Failed to get playlists: {response.status_code} {response.json()}'})
     
     playlists = response.json()
     playlist_items = playlists['items']
@@ -193,7 +198,6 @@ def get_playlists(expires_at, access_token):
             'snapshotId': snapshotId,
             'owner': owner,
         }
-        print(f'Title: {title} \n Owner: {owner}')
 
     #Manually add Liked_Songs playlist
     user_playlists['Liked_Songs'] = {
@@ -217,13 +221,13 @@ def get_tracks_total(playlist_id, expires_at, access_token):
     expires_at = float(expires_at)
 
     if not access_token:
-        return LOGGIN_MSG
+        return failed_response(LOGGIN_MSG)
     
     if expires_at and datetime.now().timestamp() > expires_at:
-        return REFRESH_MSG
+        return failed_response(REFRESH_MSG)
     
     elif not expires_at:
-        return EXPIRES_MSG
+        return failed_response(EXPIRES_MSG)
     
     if playlist_id:
         header = {
@@ -244,24 +248,24 @@ def get_tracks_total(playlist_id, expires_at, access_token):
 
             return jsonify({'status': 'Success', 'totalTracks': totalItems})
         
-        return jsonify({'status': 'Failed', 'message': f'Failed to get track total: {response.status_code} {response.json()}'})
+        return failed_response({'message': f'Failed to get track total: {response.status_code} {response.json()}'})
     
-    return jsonify({'status': 'Failed', 'message': 'Missing Playlist ID'})
+    return failed_response({'message': 'Missing Playlist ID'})
 
-@app.route('/get-all-tracks/<playlist_id>/<expires_at>/<access_token>/<total_tracks>/<offset>')
-def get_all_tracks(playlist_id, expires_at, access_token, total_tracks, offset):
+
+@app.route('/get-all-tracks/<playlist_id>/<expires_at>/<access_token>/<offset>/')
+def get_all_tracks(playlist_id, expires_at, access_token, offset):
     expires_at = float(expires_at)
-    total_tracks = int(total_tracks)
     offset = str(offset)
 
     if not access_token:
-        return LOGGIN_MSG
+        return failed_response(LOGGIN_MSG)
     
     if expires_at and datetime.now().timestamp() > expires_at:
-        return REFRESH_MSG
+        return failed_response(REFRESH_MSG)
     
     elif not expires_at:
-        return EXPIRES_MSG
+        return failed_response(EXPIRES_MSG)
     
     #Gets all the tracks for the given playlist id
     if playlist_id:
@@ -297,7 +301,6 @@ def get_all_tracks(playlist_id, expires_at, access_token, total_tracks, offset):
                         if track_artist and track_images and track_title:
                             duplicate = duplicateCheck(track_id, playlist_tracks)
                             
-
                             #Track has Zero duplicates
                             if duplicate == 0:
                                 playlist_tracks[track_id] = {
@@ -305,7 +308,8 @@ def get_all_tracks(playlist_id, expires_at, access_token, total_tracks, offset):
                                     'imageUrl': track_images, 
                                     'artist': track_artist,
                                     'preview_url': preview_url,
-                                    'duplicates': 0
+                                    'duplicates': 0,
+                                    'liked': False,
                                 }
                             #Track has a duplicate
                             else:
@@ -315,15 +319,16 @@ def get_all_tracks(playlist_id, expires_at, access_token, total_tracks, offset):
                                     'imageUrl': track_images, 
                                     'artist': track_artist,
                                     'preview_url': preview_url,
-                                    'duplicates': duplicate
+                                    'duplicates': duplicate,
+                                    'liked': False,
                                 }
 
             return jsonify({'status': 'Success', 'data': playlist_tracks})
         
         else:
-            return jsonify({'status': 'Failed', 'message': f'Failed to get all tracks: {response.status_code} {response.json()}'})
+            return failed_response({'message': f'Failed to get all tracks: {response.status_code} {response.json()}'})
            
-    return jsonify({'status': 'Failed', 'message': 'Missing Playlist ID'})
+    return failed_response({'message': 'Missing Playlist ID'})
 
 def handleGetTracks(playlist_id, offsetStr, header):
     if playlist_id != 'Liked_Songs':
@@ -342,28 +347,69 @@ def duplicateCheck(track_id, playlist_tracks):
     
     return 0
 
+#Check if tracks are in liked Songs
+@app.route('/check-liked/<expires_at>/<access_token>', methods=['POST'])
+def check_liked(expires_at, access_token):
+    expires_at = float(expires_at)
+
+    if not access_token:
+        return failed_response(LOGGIN_MSG)
+    
+    if expires_at and datetime.now().timestamp() > expires_at:
+        return failed_response(REFRESH_MSG)
+    
+    elif not expires_at:
+        return failed_response(EXPIRES_MSG)
+    
+    if 'trackIds' in request.json:
+        tracks = request.json['trackIds']
+        print(f'Tracks: {tracks}')
+    
+    if tracks is not None:
+        header = {
+            'Authorization': f"Bearer {access_token}"
+        }
+        checkUrl = f"{API_BASE_URL}me/tracks/contains?ids="
+
+        for id in tracks:
+            if id == tracks[-1]:
+                checkUrl = checkUrl + id
+            else:
+                checkUrl = checkUrl + f"{id},"
+
+        print(f'Check Url: {checkUrl}')
+
+        #Check if tracks are in Liked Songs
+        checkResponse = requests.get(checkUrl, headers=header)
+
+        if checkResponse.status_code != 200:
+            return failed_response({'message': f'Failed to get data from server: {checkResponse.status_code} {checkResponse.content}'})
+        
+        boolArray = checkResponse.json()
+        return {'status': 'Success', 'boolArray': boolArray}
+            
+
+    return failed_response({'message': 'Missing track Ids'}) 
+
 
 @app.route('/add-to-playlists/<expires_at>/<access_token>', methods=['POST'])
 def add_tracks(expires_at, access_token):
     expires_at = float(expires_at)
 
     if not access_token:
-        return LOGGIN_MSG
+        return failed_response(LOGGIN_MSG)
     
     if not expires_at:
-        return EXPIRES_MSG
+        return failed_response(EXPIRES_MSG)
     
     if expires_at and datetime.now().timestamp() > expires_at:
-        return REFRESH_MSG
+        return failed_response(REFRESH_MSG)
     
     if 'trackIds' in request.json and 'playlistIds' in request.json:
         tracks = request.json['trackIds']
         playlist_ids = request.json['playlistIds']
-        print(f'Received Tracks: {tracks}')
-        print(f'Received Playlists: {playlist_ids}')
     
     if playlist_ids and tracks:
-        print('Starting Add')
         header = {
                 'Authorization': f"Bearer {access_token}",
                 'Content-Type': 'application/json'
@@ -386,10 +432,9 @@ def add_tracks(expires_at, access_token):
 
                 for id in playlist_ids:
                     status = handleAddTracks(header, id, bodyUri, likedUris)
-                    print(f'Status: {status}')
 
                     if status['status'] == 'Failed':
-                        return jsonify(status)
+                        return failed_response(status['message'])
                     
                 #Resets the tracks when they reach the max 100 tracks
                 addUris.clear
@@ -413,7 +458,6 @@ def handleAddTracks(header, id, bodyUri, likedUris):
         response = requests.put(postUrl, headers=header, json=bodyUri)
 
     if response.status_code != 201 and response.status_code != 200:
-        print(f'Failed to add Track {response.reason}')
         return {'status': 'Failed', 'message': f'Failed to add track: {response.status_code}'}
     else:
         return {'status': 'Success'}
@@ -424,14 +468,13 @@ def remove_tracks(origin_id, snapshot_id, expires_at, access_token):
     expires_at = float(expires_at)
 
     if not access_token:
-        return LOGGIN_MSG
+        return failed_response(LOGGIN_MSG)
     
     if not expires_at:
-        return EXPIRES_MSG
+        return failed_response(EXPIRES_MSG)
     
     if expires_at and datetime.now().timestamp() > expires_at:
-        print(f'Expires at: {expires_at} \nDatetime: {datetime.now().timestamp()}')
-        return REFRESH_MSG
+        return failed_response(REFRESH_MSG)
     
     if 'trackIds' in request.json:
         tracks = request.json['trackIds']
@@ -456,7 +499,10 @@ def remove_tracks(origin_id, snapshot_id, expires_at, access_token):
             likedUris.append(track)
 
             if (items % 50) == 0 or track == tracks[-1]:
-                handleRemoveTracks(origin_id, likedUris, trackUris, snapshot_id, header)
+                response = handleRemoveTracks(origin_id, likedUris, trackUris, snapshot_id, header)
+                if response['status'] != 'Success':
+                    return failed_response(response['message'])
+                
                 trackUris.clear()
                 likedUris.clear()
 
@@ -478,6 +524,8 @@ def handleRemoveTracks(origin_id, likedUris, trackUris, snapshot_id, header):
 
     if response.status_code != 200:
         return jsonify({'status': 'Failed', 'message': f'Failed to remove track from Liked_Songs: {response.status_code} {response.json()}'})
+    
+    return jsonify({'status': 'Success'})
 
 
 @app.route('/get-user-info/<expires_at>/<access_token>')
@@ -485,13 +533,13 @@ def get_user_info(expires_at, access_token):
     expires_at = float(expires_at)
 
     if not access_token:
-        return LOGGIN_MSG
+        return failed_response(LOGGIN_MSG)
     
     if not expires_at:
-        return EXPIRES_MSG
+        return failed_response(EXPIRES_MSG)
     
     if expires_at and datetime.now().timestamp() > expires_at:
-        return REFRESH_MSG
+        return failed_response(REFRESH_MSG)
     
     header = {
             'Authorization': f"Bearer {access_token}"
@@ -501,10 +549,9 @@ def get_user_info(expires_at, access_token):
     response = requests.get(getUrl, headers=header)
 
     if response.status_code != 200:
-        return jsonify({'status': 'Failed', 'message': f'Failed to get user info: {response.status_code} {response.json()}'})
+        return failed_response({'message': f'Failed to get user info: {response.status_code} {response.json()}'})
 
     user_info = response.json()
-    print(f'User Object: {user_info}')
     user_name = user_info['display_name']
 
     if user_name == None:
@@ -515,9 +562,9 @@ def get_user_info(expires_at, access_token):
         'id': user_info['id'],
         'uri': user_info['uri']
     }
-    print(f'User {spot_helper_info}')
 
     return jsonify({'status': 'Success', 'data': spot_helper_info})
+
 
 if __name__ == "__main__":
     app.run(debug=True)

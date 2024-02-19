@@ -4,14 +4,17 @@ import 'dart:async';
 
 import 'package:another_flushbar/flushbar.dart';
 import 'package:flutter/material.dart';
-import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:spotify_music_helper/src/login/start_screen.dart';
 import 'package:spotify_music_helper/src/select_playlists/select_view.dart';
+import 'package:spotify_music_helper/src/utils/global_classes/ads.dart';
+import 'package:spotify_music_helper/src/utils/globals.dart';
 import 'package:spotify_music_helper/src/utils/object_models.dart';
-import 'package:spotify_music_helper/src/utils/playlists_requests.dart';
-import 'package:spotify_music_helper/src/utils/tracks_requests.dart';
+import 'package:spotify_music_helper/src/utils/backend_calls/playlists_requests.dart';
+import 'package:spotify_music_helper/src/utils/backend_calls/tracks_requests.dart';
 import 'package:spotify_music_helper/src/tracks/tracks_search.dart';
-import 'package:spotify_music_helper/src/utils/universal_widgets.dart';
+import 'package:spotify_music_helper/src/utils/global_classes/database_class.dart';
+import 'package:spotify_music_helper/src/utils/global_classes/secure_storage.dart';
+import 'package:spotify_music_helper/src/utils/global_classes/global_objects.dart';
 
 class TracksView extends StatefulWidget {
   static const routeName = '/tracksView';
@@ -55,7 +58,7 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
   late TabController tabController;
 
   //Users Smart Sync text
-  final List<String> smartSyncTexts = ['Smart Syncing Tracks.', 'First time Syncing a lot of Tracks may take awhile.', 'Someone has a lot of Tracks to Sync, over 1000?'];
+  final List<String> smartSyncTexts = ['Smart Syncing Tracks.', 'Syncing a lot of Tracks may take a minute.', 'Someone has a lot of Tracks to Sync, over 1000?'];
 
   //Users Deep Sync text
   final List<String> deepSyncTexts = ['Deep Syncing Tracks.', 'Deep syncing updates every track so it might take awhile.', 'Someone has a lot of Tracks to Sync, over 1000?'];
@@ -64,7 +67,7 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
   int loadingIndex = 0;
 
   bool deepSync = false;
-
+  bool checkedLogin = false;
 
 
   @override
@@ -77,6 +80,12 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
     playlistName = currentPlaylist.title;
     
     tabController = TabController(length: 3, vsync: this);
+  }
+
+  @override
+  void dispose(){
+    tabController.dispose();
+    super.dispose();
   }
 
   void selectListUpdate() {
@@ -123,7 +132,7 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
 
   void startSyncTimer(){
     if (homeTimer && mounted){
-      Timer.periodic(const Duration(seconds: 5), (timer) {
+      Timer.periodic(const Duration(seconds: 20), (timer) {
         if(mounted){
           setState(() {
             loadingIndex = (loadingIndex + 1) % smartSyncTexts.length;
@@ -146,7 +155,7 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
 
   void startLoadTimer(){
     if(homeTimer && mounted){
-      Timer.periodic(const Duration(seconds: 5), (timer) {
+      Timer.periodic(const Duration(seconds: 20), (timer) {
         if(mounted){
           setState(() {
             loadingIndex = (loadingIndex + 1) % loadTexts.length;
@@ -167,60 +176,80 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
     }
   }
 
+
   Future<void> checkLogin() async{
-    CallbackModel? secureCall = await SecureStorage().getTokens();
-    UserModel? secureUser = await SecureStorage().getUser();
+    final response = await checkRefresh(receivedCall, false);
 
-    if (secureCall == null || secureUser == null){
-      bool reLogin = false;
-      
-      Navigator.of(context).pushReplacementNamed(StartViewWidget.routeName, arguments: reLogin);
+    if (mounted && !checkedLogin || response == null){
+      checkedLogin = true;
 
-      storageCheck(context, secureCall, secureUser);
-    }
-    else if(!homeTimer && mounted && !loaded && !selectingAll){
-      if (!loaded && !refresh){
-        homeTimer = true;
-        startLoadTimer();
+      CallbackModel? secureCall = await SecureStorage().getTokens();
+      UserModel? secureUser = await SecureStorage().getUser();
+
+      if (secureCall == null || secureUser == null){
+        checkedLogin = false;
+        bool reLogin = false;
+        
+        Navigator.of(context).pushReplacementNamed(StartViewWidget.routeName, arguments: reLogin);
+
+        storageCheck(context, secureCall, secureUser);
       }
-      else if (!loaded && refresh){
-        homeTimer = true;
-        startSyncTimer();
+      else{
+        receivedCall = secureCall;
+        user = secureUser;
       }
-      receivedCall = secureCall;
-      user = secureUser;
-      await fetchDatabaseTracks().catchError((e){
-        error = true;
-        debugPrint('Error when trying to fetchDatabaseTracks ${getCurrentLine()} $e');
-      });
     }
 
-  }
+    if (mounted && !loaded && checkedLogin){
+      //Timer isn't running, still on the same page, loading the page, & not updating select List
+      //Keeps from repeating functions when setState is called
+      if(!homeTimer && mounted && !loaded && !selectingAll){
+        //Initial load of the page Starts the timer for Loading message change
+        if (!refresh){
+          homeTimer = true;
+          startLoadTimer();
+
+          await fetchDatabaseTracks().catchError((e){
+          error = true;
+          debugPrint('Error when trying to fetchDatabaseTracks ${getCurrentLine()} $e');
+        });
+        }
+        //Sync load of the page Starts the timer for Sync message change
+        else{
+          homeTimer = true;
+          startSyncTimer();
+
+          await fetchSpotifyTracks().catchError((e){
+            error = true;
+            debugPrint('Error when trying to fetchSpotifyTracks ${getCurrentLine()} $e');
+          });
+        }
+      }
+    }
+  }//checkLogin
 
   Future<void> fetchDatabaseTracks() async{
-
-    //Gets Tracks from database when not refreshing
-    if (!refresh){
-
+    if (mounted){
       //Fills Users tracks from the Database
       allTracks = await DatabaseStorage().getDatabaseTracks(user.spotifyId, playlistId, context);
-    }
-    
-    //If not refreshing page and Database has tracks Page is loaded
-    if (allTracks.isNotEmpty && !refresh){
-      totalTracks = allTracks.length;
+      
+      //If not refreshing page and Database has tracks Page is loaded
+      //Database has found tracks so page is done loading
+      if (allTracks.isNotEmpty && !refresh){
+        totalTracks = allTracks.length;
 
-      selectListUpdate();
+        selectListUpdate();
+        loaded = true;
+      }
+      //Database has no tracks so check Spotify
+      else if (mounted){
+        await fetchSpotifyTracks().catchError((e){
+          error = true;
+          debugPrint('Error when trying to fetchSpotifyTracks in tracks_view.dart: $e');
+        });
+      }
+    }
 
-      loaded = true;
-    }
-    //Page is refreshing or Database has no tracks
-    else{
-      await fetchSpotifyTracks().catchError((e){
-        error = true;
-        debugPrint('Error when trying to fetchSpotifyTracks $e');
-      });
-    }
   }
 
   //Gets the users tracks for the selected Playlist
@@ -234,7 +263,7 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
 
     totalTracks = await getSpotifyTracksTotal(playlistId, receivedCall.expiresAt, receivedCall.accessToken);
 
-    if (totalTracks > 0) {
+    if (totalTracks > 0 && mounted) {
       allTracks = await getSpotifyPlaylistTracks(
           playlistId,
           receivedCall.expiresAt,
@@ -242,17 +271,23 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
           totalTracks,
       ); //gets user tracks for playlist
 
-
       selectListUpdate();
-       ScaffoldMessengerState().showSnackBar(
-          const SnackBar(
-            content: Text('Tracks received from Spotify'),
-            duration: Duration(seconds: 8),
-            backgroundColor: Color.fromARGB(255, 1, 167, 7),
-          )
-      );
       //Adds tracks to database for faster retreival later
-      await DatabaseStorage().syncPlaylistTracksData(user.spotifyId, allTracks, playlistId, deepSync);
+      if (deepSync){
+        await DatabaseStorage().deepSyncTracks(user.spotifyId, allTracks, playlistId)
+        .catchError((e) {
+        error = true;
+        debugPrint('tracks_view.dart error trying to syncPlaylistTracksData line: ${getCurrentLine(offset: 2)} Caught Error: $e');
+      });
+      }
+      else{
+        await DatabaseStorage().smartSyncTracks(user.spotifyId, allTracks, playlistId)
+        .catchError((e) {
+        error = true;
+        debugPrint('tracks_view.dart error trying to syncPlaylistTracksData line: ${getCurrentLine(offset: 2)} Caught Error: $e');
+      });
+      }
+      
     }
 
     loaded = true; //Tracks if the tracks are loaded to be shown
@@ -263,6 +298,8 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
   Future<void> deleteRefresh() async{
     loaded = false;
     selectAll = false;
+    loadingIndex = 0;
+    error = false;
 
     selectedTracksMap.clear();
 
@@ -272,11 +309,14 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
   }
 
 
-  Future<void> refreshTracks(bool syncOption) async{
+  Future<void> refreshTracks({bool syncOption = false}) async{
     deepSync = syncOption;
     selectAll = false;
     refresh = true;
     loaded = false;
+    loadingIndex = 0;
+    error = false;
+
     setState(() {
       //Refreshes the page
     });
@@ -323,73 +363,87 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
   AppBar tracksAppBar(){
      return AppBar(
             bottom: TabBar(
+              isScrollable: true,
+              tabAlignment: TabAlignment.start,
+              indicatorColor:const Color.fromARGB(255, 7, 151, 12),
               controller: tabController,
+              indicatorSize: TabBarIndicatorSize.tab,
               tabs: [
 
                 //Smart Sync tracks for PLaylist
                 Tab(
                   child: InkWell(
                     onTap: () async{
-                      if (!selectingAll){
-                        await refreshTracks(false);
+                      if (!selectingAll && loaded || error){
+                        await refreshTracks();
                       }
                     },
-                    child: Row(children: [ 
-                    IconButton(
-                      icon: const Icon(Icons.refresh),
-                      onPressed: () async{
-                        if (!selectingAll){
-                          await refreshTracks(false);
-                        }
-                      },
+                    child: Row(
+                      children: [ 
+                        IconButton(
+                          icon: const Icon(Icons.sync_sharp),
+                          onPressed: () async{
+                            if (!selectingAll && loaded || error){
+                              await refreshTracks();
+                            }
+                          },
+                        ),
+                        const Text('Smart Sync'),
+                      ],
                     ),
-                    const Text('Smart'),
-                  ],),
-                )
+                  )
                 ),
 
-                //Deep SYnc Tracks for Playlist
+                //Select All checkbox
                 Tab(
                   child: InkWell(
-                    onTap: () async{
-                      if (!selectingAll){
-                        await refreshTracks(true);
-                      }
-                    },
-                    child: Row(children: [ 
-                    IconButton(
-                      icon: const Icon(Icons.refresh),
-                      onPressed: () async{
-                        if (!selectingAll){
-                          await refreshTracks(true);
-                        }
-                      },
-                    ),
-                    const Text('Deep'),
-                  ],),
-                )
-                ),
-                
-                //Select All checkbox
-                Tab(child: InkWell(
-                  onTap: () {
-                    if (!selectingAll){
-                      handleSelectAll();
-                    }
-                  },
-                  child: Row(children: [
-                  Checkbox(
-                    value: selectAll,
-                    onChanged: (value) {
-                      if (!selectingAll){
+                    onTap: () {
+                      if (!selectingAll && loaded){
                         handleSelectAll();
                       }
                     },
-                  ),
-                  const Text('All'),
-                ],),
-                )
-                )
+                    child: Row(
+                      children: [
+                        Checkbox(
+                          materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
+                          value: selectAll,
+                          onChanged: (value) {
+                            if (!selectingAll&& loaded){
+                              handleSelectAll();
+                            }
+                          },
+                        ),
+                        const Text('Select All'),
+                      ],
+                    ),
+                  )
+                ),
+              
+                //Deep Sync Tracks for Playlist
+                Tab(
+                  child: InkWell(
+                    onTap: () async{
+                      if (!selectingAll && loaded || error){
+                        await refreshTracks(syncOption: true);
+                      }
+                    },
+                    child: Row(
+                      children: [ 
+                        IconButton(
+                          icon: const Icon(Icons.cloud_sync_sharp),
+                          onPressed: () async{
+                            if (!selectingAll && loaded || error){
+                              await refreshTracks(syncOption: true);
+                            }
+                          },
+                        ),
+                        const Text('Deep Sync'),
+                      ],
+                    ),
+                  )
+                ),
+
               ]),
             
             leading: Builder(
@@ -413,21 +467,23 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
                   icon: const Icon(Icons.search),
 
                   onPressed: () async {
-                    final queryResult = await showSearch(
-                        context: context,
-                        delegate: TracksSearchDelegate(allTracks, selectedTracksMap));
+                    if (loaded){
+                      final queryResult = await showSearch(
+                          context: context,
+                          delegate: TracksSearchDelegate(allTracks, selectedTracksMap));
 
-                    if (queryResult != null){
-                      for (var result in queryResult){
-                        if (result.value['chosen']){
-                          String trackId = result.key;
-                          selectedTracksMap[trackId] = allTracks[trackId]!;
+                      if (queryResult != null){
+                        for (var result in queryResult){
+                          if (result.value['chosen']){
+                            String trackId = result.key;
+                            selectedTracksMap[trackId] = allTracks[trackId]!;
+                          }
                         }
                       }
-                    }
-                    setState(() {
+                      setState(() {
 
-                    });
+                      });
+                    }
                   }),
             ],
       );
@@ -524,6 +580,7 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
             final trackImage = trackMap.value.imageUrl;
             //final trackPrevUrl = trackMap.value.previewUrl ?? '';
             final trackArtist = trackMap.value.artist;
+            final liked = trackMap.value.liked;
 
             //Used to update Selected Tracks
             bool chosen = selectedTracksList[index].value['chosen'];
@@ -531,39 +588,52 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
             final selectMap = {'chosen': !chosen, 'title': trackTitle};
 
             //Alligns the songs as a Column
-            return Column(children: [
-              //Lets the entire left section with checkbox and Title be selected
-              InkWell(
-                  onTap: () {
-                    
-                    selectedTracksList[index] = MapEntry(trackId, selectMap);
+            return Column(
+              children: [
+                //Lets the entire left section with checkbox and Title be selected
+                InkWell(
+                    onTap: () {
+                      
+                      selectedTracksList[index] = MapEntry(trackId, selectMap);
 
-                    if (!chosen){
-                      selectedTracksMap[trackId] = allTracks[trackId]!;
-                    }
-                    else{
-                      selectedTracksMap.remove(trackId);
-                    }
-                    
-                    setState(() {
-                      //updateds selected Tracks List & Map
-                    });
-                  },
-                  //Container puts the Tracks image in the background
-                  child: Container(
-                    clipBehavior: Clip.hardEdge,
-                      decoration: BoxDecoration(
-                          image: DecorationImage(
-                            alignment: Alignment.topRight,
-                            image: NetworkImage(trackImage),
-                            fit: BoxFit.contain,
+                      if (!chosen){
+                        selectedTracksMap[trackId] = allTracks[trackId]!;
+                      }
+                      else{
+                        selectedTracksMap.remove(trackId);
+                      }
+                      
+                      setState(() {
+                        //updateds selected Tracks List & Map
+                      });
+                    },
+                    //Container puts the Tracks image in the background
+                    child: Container(
+                      clipBehavior: Clip.hardEdge,
+                        decoration: BoxDecoration(
+                            image: DecorationImage(
+                              alignment: Alignment.centerRight,
+                              image: NetworkImage(trackImage),
+                              fit: BoxFit.contain,
+                            ),
+                            shape: BoxShape.rectangle
                           ),
-                          shape: BoxShape.rectangle),
 
-                      //Aligns the Track Name, Checkbox, Artist Name, Preview Button as a Row
-                      child: trackRows(index, trackTitle, trackArtist),
-                  )
-              ),
+                        //Aligns the Track Name, Checkbox, Artist Name, Preview Button as a Row
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          mainAxisSize: MainAxisSize.max,
+                          children: [
+                            trackRows(index, trackTitle, trackArtist),
+                            if(liked)
+                              Padding(
+                                padding: const EdgeInsets.only(right: 60),
+                                child:spotifyHeart(),
+                              )
+                          ],
+                        )
+                    )
+                ),
               
               //The grey divider line between each Row to look nice
               const Divider(
@@ -580,7 +650,7 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
           }),
           
         //Shows an ad if user isn't subscribed
-        adRow(context, user)
+        playlistsAdRow(context, user)
       ],
     );
   }
@@ -593,6 +663,7 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
       children: [
         //Design & Functinoality for the checkbox button when selected and not
         Checkbox(
+          shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
           value: selectedTracksList[index].value['chosen'],
           onChanged: (value) {
             
@@ -619,24 +690,26 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
 
         //Track Names & Artist Names design and Functionality
         Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              //Name of the Track shown to user
-              children: [
-                Text(
-                  trackTitle.length > 25
-                  ? '${trackTitle.substring(0, 25)}...'
-                  : trackTitle,
-                  textScaler: const TextScaler.linear(1.2),
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(color: Color.fromARGB(255, 6, 163, 11)),
-                ),
-                //Name of track Artist show to user
-                Text(
-                  'By: $trackArtist',
-                  textScaler: const TextScaler.linear(0.8),
-                ),
-              ])
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          //Name of the Track shown to user
+          children: [
+            Text(
+              trackTitle.length > 22
+              ? '${trackTitle.substring(0, 22)}...'
+              : trackTitle,
+              textScaler: const TextScaler.linear(1.2),
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(color: Color.fromARGB(255, 6, 163, 11)),
+            ),
+            //Name of track Artist show to user
+            Text(
+              'By: $trackArtist',
+              textScaler: const TextScaler.linear(0.8),
+            ),
+          ]
+        ),
+
       ]
     );
   }
@@ -664,13 +737,13 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
         ],
         onTap: (value) async {
           //Move to playlist(s) Index
-          if (value == 0 && selectedTracksMap.isNotEmpty) {
+          if (value == 0 && selectedTracksMap.isNotEmpty && !selectingAll && loaded) {
             TrackArguments trackArgs = TrackArguments(selectedTracks: selectedTracksMap, currentPlaylist: currentPlaylist, option: 'move', allTracks: allTracks);
 
             Navigator.restorablePushNamed(context, SelectPlaylistsViewWidget.routeName, arguments: trackArgs.toJson());
           }
           //Add to playlist(s) index
-          else if (value == 1 && selectedTracksMap.isNotEmpty) {
+          else if (value == 1 && selectedTracksMap.isNotEmpty && !selectingAll && loaded) {
 
             try{
             TrackArguments trackArgs = TrackArguments(selectedTracks: selectedTracksMap, currentPlaylist: currentPlaylist, option: 'add', allTracks: allTracks);
@@ -681,26 +754,58 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
             }
           } 
           //Removes track(s) from current playlist
-          else if (value == 2 && selectedTracksMap.isNotEmpty){
-            int tracksDeleted = selectedTracksMap.length;
-            String playlistTitle = currentPlaylist.title;
+          else if (value == 2 && selectedTracksMap.isNotEmpty && !selectingAll && loaded){
+            bool confirmed = false;
 
-            await DatabaseStorage().removeTracks(receivedCall, currentPlaylist, selectedTracksMap, allTracks, user);
-            await deleteRefresh();
+            await showDialog(
+              context: context, 
+              builder: (context) {
+                return AlertDialog.adaptive(
+                  title: const Text('Sure you want to delete these Tracks?'),
+                  actionsAlignment: MainAxisAlignment.center,
+                  actions: [
+                    TextButton(
+                      onPressed: () {
+                        confirmed = true;
+                        //Close Popup
+                        Navigator.of(context).pop();
+                      },
+                      child: const Text('Confirm'),
+                    ),
+                    TextButton(
+                      onPressed: () {
+                        //Close Popup
+                        Navigator.of(context).pop();
+                      }, 
+                      child: const Text('Cancel'))
+                  ],
+                );
+              },
+            );
 
-            Flushbar(
-              backgroundColor: const Color.fromARGB(255, 2, 155, 7),
-              title: 'Success Message',
-              duration: const Duration(seconds: 3),
-              flushbarPosition: FlushbarPosition.TOP,
-              message: 'Deleted $tracksDeleted tracks from $playlistTitle',
-            ).show(context);
+            if (confirmed){
+              debugPrint('\nConfirmed!\n');
+              int tracksDeleted = selectedTracksMap.length;
+              String playlistTitle = currentPlaylist.title;
+
+              await DatabaseStorage().removeTracks(receivedCall, currentPlaylist, selectedTracksMap, allTracks, user);
+              await deleteRefresh();
+
+              Flushbar(
+                backgroundColor: spotHelperGreen,
+                title: 'Success Message',
+                duration: const Duration(seconds: 3),
+                flushbarPosition: FlushbarPosition.TOP,
+                message: 'Deleted $tracksDeleted tracks from $playlistTitle',
+              ).show(context);
+            }
           }
 
           else {
             Flushbar(
+              backgroundColor:const Color.fromARGB(255, 56, 50, 50),
               title: 'Failed Message',
-              duration: const Duration(seconds: 2),
+              duration: const Duration(seconds: 3),
               flushbarPosition: FlushbarPosition.TOP,
               message: 'No tracks selected',
             ).show(context);

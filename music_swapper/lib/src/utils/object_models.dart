@@ -1,27 +1,29 @@
 
+import 'package:cloud_firestore/cloud_firestore.dart';
+
 class UserModel{
   String? username;
   final String spotifyId;
   final String uri;
   final bool subscribed;
   final int tier;
-  final DateTime expiration;
+  final Timestamp expiration;
   
   UserModel({
     this.username,
-    required this.spotifyId,
-    required this.uri,
-    required this.subscribed,
-    required this.tier,
+    this.spotifyId = '',
+    this.uri = '',
+    this.subscribed = false,
+    this.tier = 0,
     required this.expiration,
   });
 
   UserModel.defaultUser() : 
-  spotifyId = '', 
-  uri = '',
-  subscribed = false,
-  tier = 0,
-  expiration = DateTime.now();
+    spotifyId = '', 
+    uri = '',
+    subscribed = false,
+    tier = 0,
+    expiration = Timestamp.now();
 
   toJson(){
     return {
@@ -32,6 +34,29 @@ class UserModel{
         'expiration': expiration,
       };
   }
+
+  //Returns the day for the Models expiration
+  int get getDay{
+    final day = expiration.toDate().day;
+    return day;
+  }
+
+  Timestamp getTimestamp(String timeStampeStr){
+    //Receives: Timestamp(seconds=1708192429, nanoseconds=179000000)
+    final flush = timeStampeStr.split('seconds=');
+
+    final seconds = int.parse(flush[1].split(',')[0]);
+    final nanoSeconds = int.parse(flush[2].split(')')[0]);
+
+    final Timestamp timeStamp = Timestamp(seconds, nanoSeconds);
+
+    return timeStamp;
+  }
+
+  @override
+  String toString(){
+    return 'TrackModel(spotifyId: $spotifyId, username: $username, uri: $uri, subscribed: $subscribed, tier: $tier, expiration: $expiration)';
+  }
 }
 
 class TrackModel{
@@ -41,6 +66,7 @@ class TrackModel{
   final String artist;
   final String title;
   final int duplicates;
+  final bool liked;
 
   const TrackModel({
     this.id = '',
@@ -49,7 +75,17 @@ class TrackModel{
     this.artist = '',
     this.title = '',
     this.duplicates = 0,
+    this.liked = false,
   });
+
+  TrackModel.defaultTracks() : 
+    id = '', 
+    imageUrl = '',
+    previewUrl = '',
+    artist = '',
+    title = '',
+    duplicates = 0,
+    liked = false;
 
   toJson(){
     return {
@@ -57,7 +93,8 @@ class TrackModel{
       'previewUrl': previewUrl,
       'artist': artist,
       'title': title,
-      'duplicates': duplicates
+      'duplicates': duplicates,
+      'liked': liked,
     };
   }
 
@@ -74,7 +111,8 @@ class TrackModel{
         artist: track.value['artist'],
         imageUrl: imageUrl ?? '', 
         previewUrl: track.value['previewUrl'],
-        duplicates: track.value['duplicates']
+        duplicates: track.value['duplicates'],
+        liked: track.value['liked']
         )
       );
     }
@@ -91,8 +129,9 @@ class TrackModel{
     String imageUrl = track.value.imageUrl;
     String previewUrl = track.value.previewUrl ?? '';
     int duplicates = track.value.duplicates;
+    bool liked = track.value.liked;
 
-    return MapEntry(id, {'title': title, 'artist': artist, 'duplicates': duplicates, 'imageUrl': imageUrl, 'previewUrl': previewUrl});
+    return MapEntry(id, {'title': title, 'artist': artist, 'duplicates': duplicates, 'imageUrl': imageUrl, 'previewUrl': previewUrl, 'liked': liked});
   }
 
   Map<String, dynamic> toMap(Map<String, TrackModel> tracks){
@@ -105,13 +144,16 @@ class TrackModel{
       String imageUrl = track.value.imageUrl;
       String previewUrl = track.value.previewUrl ?? '';
       int duplicates = track.value.duplicates;
+      bool liked = track.value.liked;
 
       newTracks.putIfAbsent(id, () => {
         'title': title, 
         'artist': artist, 
         'duplicates': duplicates, 
         'imageUrl': imageUrl, 
-        'previewUrl': previewUrl}
+        'previewUrl': previewUrl,
+        'liked': liked,
+        }
       );
     }
 
@@ -121,7 +163,7 @@ class TrackModel{
 
   @override
   String toString(){
-    return 'TrackModel(id: $id, title: $title, artist: $artist, duplicates: $duplicates, imageUrl: $imageUrl)';
+    return 'TrackModel(id: $id, title: $title, artist: $artist, duplicates: $duplicates, imageUrl: $imageUrl, liked: $liked)';
   }
 }
 
@@ -139,6 +181,13 @@ class PlaylistModel {
     this.imageUrl = '',
     this.snapshotId = '',
   });
+
+  PlaylistModel.defaultPlaylist() : 
+    id = '',
+    title = '',
+    link = '',
+    imageUrl = '',
+    snapshotId = '';
 
   toJsonFirestore(){
     return {
@@ -245,6 +294,29 @@ class CallbackModel{
     this.accessToken = '',
     this.refreshToken = '',
   });
+
+  CallbackModel.defaultCall() : 
+    expiresAt = 0,
+    accessToken = '',
+    refreshToken = '';
+
+  bool get isEmpty{
+    if (expiresAt > 0 || accessToken != '' || refreshToken != ''){
+      return false;
+    }
+    else{
+      return true;
+    }
+  }
+
+  bool get isNotEmpty{
+    if (expiresAt == 0 || accessToken == '' || refreshToken == ''){
+      return false;
+    }
+    else{
+      return true;
+    }
+  }
 }
 
 class TrackArguments{
@@ -259,6 +331,12 @@ class TrackArguments{
     this.option = '',
     this.allTracks = const {},
   });
+
+  TrackArguments.defaultTrack() : 
+    selectedTracks = {},
+    currentPlaylist = PlaylistModel.defaultPlaylist(),
+    option = '',
+    allTracks = {};
 
   Map<String, dynamic> toJson(){
     Map<String, dynamic> newSelected = const TrackModel().toMap(selectedTracks);

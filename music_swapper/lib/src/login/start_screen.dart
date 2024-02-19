@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:spotify_music_helper/src/login/spot_login_view.dart';
+import 'package:spotify_music_helper/src/utils/globals.dart';
 
 class StartViewWidget extends StatefulWidget{
   const StartViewWidget({
@@ -31,7 +32,7 @@ class StartViewState extends State<StartViewWidget> {
     return Scaffold(
       appBar: AppBar(
         centerTitle: true,
-        backgroundColor: const Color.fromARGB(255, 6, 163, 11),
+        backgroundColor: spotHelperGreen,
         title: const Text(
           'About Spotify Helper',
           textAlign: TextAlign.center,
@@ -39,25 +40,27 @@ class StartViewState extends State<StartViewWidget> {
       ),
       body: Column(
           crossAxisAlignment: CrossAxisAlignment.center,
-          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
           children: [
+            Image.asset(SpotifyLogos().greenRGB),
             const Text(
-              '''Login to Spotify to start modifing your playlists faster.
-              ''',
-              textScaler: TextScaler.linear(2),
+              'Login to start modifing your playlists faster. Move, Add, Remove multiple Tracks to multiple Playlists at once.',
+              textScaler: TextScaler.linear(1.6),
               textAlign: TextAlign.center,
             ),
-            const Padding(padding: EdgeInsets.all(20)),
 
             ButtonBar(
               alignment: MainAxisAlignment.center,
               children: [
-                //Login to Spotify
                 TextButton.icon(
-                  icon: const Icon(Icons.login),
-                  label: const Text(
+                  icon: Icon(
+                    color: spotHelperGreen,
+                    Icons.login,
+                  ),
+                  label: Text(
+                    style: TextStyle(color: spotHelperGreen),
                     'Spotify Login',
-                    textScaler: TextScaler.linear(1.5),
+                    textScaler: const TextScaler.linear(1.5),
                   ),
                   onPressed: () {
                     Navigator.of(context).pushNamed(SpotLoginWidget.routeName, arguments: reLogin);
@@ -65,10 +68,14 @@ class StartViewState extends State<StartViewWidget> {
                 ),
                 //Close the App
                 TextButton.icon(
-                  icon: const Icon(Icons.close), 
-                  label: const Text(
+                  icon: Icon(
+                    Icons.close,
+                    color: spotHelperGreen,
+                  ), 
+                  label: Text(
+                    style: TextStyle(color: spotHelperGreen),
                     'Close App',
-                    textScaler: TextScaler.linear(1.5),
+                    textScaler: const TextScaler.linear(1.5),
                   ),
                   onPressed: () {
                     exit(0);

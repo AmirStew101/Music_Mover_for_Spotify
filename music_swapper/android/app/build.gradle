@@ -84,6 +84,8 @@ dependencies {
 
     //Admob implementation
     implementation("com.google.android.gms:play-services-ads:")
+
     implementation("com.google.firebase:firebase-crashlytics")
+    implementation("com.google.firebase:firebase-auth")
 
 }

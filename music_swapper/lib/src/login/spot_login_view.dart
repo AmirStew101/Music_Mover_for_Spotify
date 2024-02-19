@@ -2,13 +2,15 @@
 
 import 'dart:convert';
 
+import 'package:another_flushbar/flushbar.dart';
 import 'package:flutter/material.dart';
 import 'package:spotify_music_helper/src/home/home_view.dart';
 import 'package:spotify_music_helper/src/login/start_screen.dart';
 import 'package:spotify_music_helper/src/utils/analytics.dart';
 import 'package:spotify_music_helper/src/utils/object_models.dart';
 import 'package:spotify_music_helper/src/utils/globals.dart';
-import 'package:spotify_music_helper/src/utils/universal_widgets.dart';
+import 'package:spotify_music_helper/src/utils/global_classes/database_class.dart';
+import 'package:spotify_music_helper/src/utils/global_classes/secure_storage.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:http/http.dart' as http;
 
@@ -46,6 +48,9 @@ class SpotLoginState extends State<SpotLoginWidget> {
 
     try{
       final response = await http.get(Uri.parse(loginURL));
+      if (response.statusCode != 200){
+        loginIssue();
+      }
       responseDecode = json.decode(response.body);
     }
     catch (e){
@@ -90,19 +95,19 @@ class SpotLoginState extends State<SpotLoginWidget> {
                   if (syncedUser != null){
                     final CallbackModel callbackModel = CallbackModel(expiresAt: callback['expiresAt'], accessToken: callback['accessToken'], refreshToken: callback['refreshToken']);
 
-                    SecureStorage().saveTokens(callbackModel);
-                    SecureStorage().saveUser(syncedUser);
+                    await SecureStorage().saveTokens(callbackModel);
+                    await SecureStorage().saveUser(syncedUser);
 
                     await AppAnalytics().trackSpotifyLogin(syncedUser);
                     Navigator.pushNamedAndRemoveUntil(context, HomeView.routeName, (route) => false);
                   }
                   else{
-                    loginIssue();
+                    await loginIssue();
                   }
                 }
                 //Spotify was unable to send the callback
                 else{
-                  loginIssue();
+                  await loginIssue();
                 }
 
                 return NavigationDecision.prevent;
@@ -122,29 +127,39 @@ class SpotLoginState extends State<SpotLoginWidget> {
   }
 
 //Function to decide what to do when /callback is called
-Future<Map> getCallback(callRequest) async {
+Future<Map> getCallback(String callRequest) async {
+
   final response = await http.get(Uri.parse(callRequest));
-  final responseDecode = jsonDecode(response.body);
 
-  if (responseDecode['status'] == 'Success'){
-    final Map<String, dynamic> info = responseDecode['data']; //This is a Map
+  if (response.statusCode == 200){
+    final Map<String, dynamic> responseDecode = jsonDecode(response.body);
+  
+    if (responseDecode.containsKey('status') && responseDecode['status'] == 'Success'){
+      final Map<String, dynamic> info = responseDecode['data']; //This is a Map
 
-    return info;
+      return info;
+    }
+
+  }
+  else {
+    debugPrint('Response: ${response.body.toString()}');
   }
 
   return {};
 }
 
-void loginIssue({bool loginReset = true, bool hasUser = false}){
-  const Center(
-    child: Text(
-      'Problem with connecting to Spotify redirecting back to Start page',
-      textScaler: TextScaler.linear(1.5),),
-    );
-  Future.delayed(const Duration(seconds: 3));
+Future<void> loginIssue({bool loginReset = true, bool hasUser = false}) async{
+  Flushbar(
+    title: 'Error',
+    message: 'Problem with connecting to Spotify redirecting back to Start page',
+    backgroundColor: Colors.red,
+    duration: const Duration(seconds: 3),
+  ).show(context);
 
+  await Future.delayed(const Duration(seconds: 3));
   bool reLogin = loginReset;
   Navigator.pushNamedAndRemoveUntil(context, StartViewWidget.routeName, (route) => false, arguments: reLogin);
+
 }
 
   @override

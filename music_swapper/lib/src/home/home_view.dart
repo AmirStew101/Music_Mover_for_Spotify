@@ -1,14 +1,19 @@
 // ignore_for_file: use_build_context_synchronously
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:spotify_music_helper/src/home/home_appbar.dart';
 import 'package:spotify_music_helper/src/login/start_screen.dart';
 import 'package:spotify_music_helper/src/utils/analytics.dart';
+import 'package:spotify_music_helper/src/utils/global_classes/ads.dart';
 import 'package:spotify_music_helper/src/utils/object_models.dart';
-import 'package:spotify_music_helper/src/utils/playlists_requests.dart';
+import 'package:spotify_music_helper/src/utils/backend_calls/playlists_requests.dart';
 import 'package:spotify_music_helper/src/home/home_body.dart';
 import 'package:spotify_music_helper/src/tracks/tracks_view.dart';
-import 'package:spotify_music_helper/src/utils/universal_widgets.dart';
+import 'package:spotify_music_helper/src/utils/global_classes/database_class.dart';
+import 'package:spotify_music_helper/src/utils/global_classes/secure_storage.dart';
+import 'package:spotify_music_helper/src/utils/global_classes/global_objects.dart';
 
 //Creates the state for the home screen to view/edit playlists
 class HomeView extends StatefulWidget {
@@ -32,6 +37,7 @@ class HomeViewState extends State<HomeView> with SingleTickerProviderStateMixin{
   bool error = false;
   bool refresh = false;
   bool deepSync = false;
+  bool checkedLogin = false;
 
   late TabController tabController;
 
@@ -42,51 +48,67 @@ class HomeViewState extends State<HomeView> with SingleTickerProviderStateMixin{
   }
 
   Future<void> checkLogin() async {
-    CallbackModel? secureCall = await SecureStorage().getTokens();
-    UserModel? secureUser = await SecureStorage().getUser();
-    bool initial = widget.initial;
+    final response = await checkRefresh(receivedCall, false);
 
-    if (secureCall == null || secureUser == null){
-      bool reLogin = false;
+    if (!checkedLogin || response == null){
+      checkedLogin = true;
+      
+      //Make a function that returns a bool to check
+      CallbackModel? secureCall = await SecureStorage().getTokens();
+      UserModel? secureUser = await SecureStorage().getUser();
+      bool initial = widget.initial;
 
-      Navigator.of(context).pushReplacementNamed(StartViewWidget.routeName, arguments: reLogin);
+      if (secureCall == null || secureUser == null){
+        checkedLogin = false;
+        bool reLogin = false;
 
-      if (!initial){
-        storageCheck(context, secureCall, secureUser);
+        Navigator.of(context).pushReplacementNamed(StartViewWidget.routeName, arguments: reLogin);
+
+        if (!initial){
+          storageCheck(context, secureCall, secureUser);
+        }
       }
-    }
-    //Fetches Playlists if page is not loaded and on this Page
-    else if (mounted && !loaded){
-      receivedCall = secureCall;
-      user = secureUser;
+      else{
+        receivedCall = secureCall;
+        user = secureUser;
+      }
 
       // Successful Login if User & Callback is in Storage
       if (initial){
         await AppAnalytics().trackSavedLogin(user);
         initial = !initial;
       }
-
-      await fetchDatabasePlaylists();
     }
-  }
+    //Fetches Playlists if page is not loaded and on this Page
+    if (mounted && !loaded && checkedLogin){
+      if (!refresh){
+        await fetchDatabasePlaylists();
+      }
+      else{
+        await fetchSpotifyPlaylists();
+      }
+    }
+  }//checkLogin
 
   Future<void> fetchDatabasePlaylists() async{
-    loaded = false;
-    if (!refresh && mounted){
-      playlists = await DatabaseStorage().getDatabasePlaylists(user.spotifyId);
-    }
+    playlists = await DatabaseStorage().getDatabasePlaylists(user.spotifyId)
+    .catchError((e) {
+      debugPrint('Caught Error in home_view.dart line: ${getCurrentLine(offset: 3)} error: $e');
+      return {} as FutureOr<Map<String, PlaylistModel>>;
+    });
 
-    if (playlists.isNotEmpty && playlists.length > 1 && !refresh){
+    //More than just the Liked Songs playlist & not Refreshing the page
+    if (playlists.length > 1 && !refresh){
       loaded = true;
     }
     else if (mounted){
       await fetchSpotifyPlaylists();
     }
-  }
+
+  }//fetchDatabasePlaylists
 
   //Gets all the Users Playlists and platform specific images
   Future<void> fetchSpotifyPlaylists() async {
-    loaded = false;
     try{
       bool forceRefresh = false;
       //Checks to make sure Tokens are up to date before making a Spotify request
@@ -101,19 +123,22 @@ class HomeViewState extends State<HomeView> with SingleTickerProviderStateMixin{
       playlists = await getSpotifyPlaylists(receivedCall.expiresAt, receivedCall.accessToken, user.spotifyId);
 
       //Checks all playlists if they are in database
-      await DatabaseStorage().syncPlaylists(playlists, user.spotifyId, deepSync);
       if (deepSync){
         deepSync = !deepSync;
+        await DatabaseStorage().deepSynvPlaylists(playlists, user.spotifyId);
       }
+      else{
+        await DatabaseStorage().smartSyncPlaylists(playlists, user.spotifyId);
+      }
+      
     }
     catch (e){
       debugPrint('Caught an Error in Home fetchSpotifyPlaylists: $e');
       error = true;
     }
-
     refresh = false;
     loaded = true; //Future methods have complete
-  }
+  }//fetchSpotifyPlaylists
 
 
    //Navigate to Tracks page for chosen Playlist
@@ -127,7 +152,7 @@ class HomeViewState extends State<HomeView> with SingleTickerProviderStateMixin{
     catch (e){
       debugPrint('Home_view line ${getCurrentLine()} caught error: $e');
     }
-  }
+  }//navigateToTracks
 
 
   Future<void> refreshPage({bool syncDeep = false}) async{
@@ -138,7 +163,7 @@ class HomeViewState extends State<HomeView> with SingleTickerProviderStateMixin{
     setState(() {
       //update refresh variables
     });
-  }
+  }//refreshPage
 
   //The main Widget for the page
   @override
@@ -155,51 +180,66 @@ class HomeViewState extends State<HomeView> with SingleTickerProviderStateMixin{
             return ImageGridWidget(playlists: playlists, receivedCall: receivedCall, user: user);
           }
           else if(refresh) {
-              return const Center(
-                  child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        CircularProgressIndicator(strokeWidth: 6),
-                        Text(
-                          'Syncing Playlists',
-                          textScaler: TextScaler.linear(2)
-                        ),
-                      ]
-                  )
-              );
+              return Stack(
+                children: [
+                  const Center(
+                    child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          CircularProgressIndicator(strokeWidth: 6),
+                          Text(
+                            'Syncing Playlists',
+                            textScaler: TextScaler.linear(2)
+                          ),
+                        ]
+                    )
+                  ),
+                  homeAdRow(context, user),
+                ],
+              ) ;
             }
           else if(error && loaded){
-            return const Center(child: Text(
-              'Error retreiving Playlists from Spotify. Check connection and Refresh page.',
-              textAlign: TextAlign.center,
-              textScaler: TextScaler.linear(2),
-              ),
+            return Stack(
+              children: [
+                const Center(
+                  child: Text(
+                    'Error retreiving Playlists from Spotify. Check connection and Refresh page.',
+                    textAlign: TextAlign.center,
+                    textScaler: TextScaler.linear(2),
+                  ),
+                ),
+                homeAdRow(context, user),
+              ],
             );
           }
           else{
-              return const Center(
-                  child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        CircularProgressIndicator(strokeWidth: 6,),
-                        Text(
-                          'Loading Playlists',
-                          textScaler: TextScaler.linear(2)
-                        ),
-                      ]
-                  )
+              return Stack(
+                children: [
+                  const Center(
+                    child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          CircularProgressIndicator(strokeWidth: 6,),
+                          Text(
+                            'Loading Playlists',
+                            textScaler: TextScaler.linear(2)
+                          ),
+                        ]
+                    )
+                  ),
+                  homeAdRow(context, user),
+                ],
               );
             }
         },
       ),
     );
-  }
+  }//build
 
   AppBar homeAppbar(){
     return AppBar(
-
         //Refresh Icon under Appbar
         bottom: TabBar(
           controller: tabController,
@@ -211,17 +251,23 @@ class HomeViewState extends State<HomeView> with SingleTickerProviderStateMixin{
                     color: Colors.black,
                     icon: const Icon(Icons.refresh),
                     onPressed: () async {
-                      await refreshPage();
+                      if (loaded){
+                        await refreshPage();
+                      }
                     },
                   ),
                   InkWell(
                     onTap: () async{
-                      await refreshPage();
+                      if (loaded){
+                        await refreshPage();
+                      }
                     },
                     child: const Text('Smart Sync'),
                   ),
-              ],)
+                ],
+              )
             ),
+            
             Tab(
               child: Row(
                 children: [
@@ -229,12 +275,16 @@ class HomeViewState extends State<HomeView> with SingleTickerProviderStateMixin{
                     color: Colors.black,
                     icon: const Icon(Icons.refresh),
                     onPressed: () async {
-                      await refreshPage(syncDeep: true);
+                      if (loaded){
+                        await refreshPage(syncDeep: true);
+                      }
                     },
                   ),
                   InkWell(
                     onTap: () async{
-                      await refreshPage(syncDeep: true);
+                      if (loaded){
+                        await refreshPage(syncDeep: true);
+                      }
                     },
                     child: const Text('Deep Sync'),
                   ),
@@ -268,18 +318,21 @@ class HomeViewState extends State<HomeView> with SingleTickerProviderStateMixin{
           IconButton(
               icon: const Icon(Icons.search),
               onPressed: () async {
-                //Gets search result to user selected playlist
-                final result = await showSearch(
-                    context: context,
-                    delegate: PlaylistSearchDelegate(playlists));
+                if (loaded){
+                  //Gets search result to user selected playlist
+                  final result = await showSearch(
+                      context: context,
+                      delegate: PlaylistSearchDelegate(playlists));
 
-                //Checks if user selected a playlist before search closed
-                if (result != null) {
-                  navigateToTracks(result);
+                  //Checks if user selected a playlist before search closed
+                  if (result != null) {
+                    navigateToTracks(result);
+                  }
                 }
               }
           ),
         ],
       );
-  }
-}
+  }//homeAppbar
+
+}//HomeViewState

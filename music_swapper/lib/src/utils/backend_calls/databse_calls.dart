@@ -4,12 +4,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:get/get.dart';
 import 'package:spotify_music_helper/src/utils/object_models.dart';
-import 'package:spotify_music_helper/src/utils/universal_widgets.dart';
+import 'package:spotify_music_helper/src/utils/global_classes/global_objects.dart';
 
 
 final db = FirebaseFirestore.instance;
+
 class UserRepository extends GetxController {
   static UserRepository get instance => Get.find();
+  
   final usersRef = db.collection('Users');
   final playlistColl  = 'Playlists';//Collection name for Users Playlists
   final tracksColl = 'PlaylistTracks'; //Collection name for Users Tracks
@@ -31,7 +33,7 @@ class UserRepository extends GetxController {
     }
     throw Exception('Escaped return in hasUser');
   }
-
+  
   Future<void> createUser(UserModel user) async{
     await usersRef.doc(user.spotifyId).set(user.toJson())
     .catchError((e) {
@@ -67,9 +69,7 @@ class UserRepository extends GetxController {
     if (databaseUser.exists){
       await userRef.update({'Subscribed': user.subscribed, 'Tier': user.tier, 'Username': user.username, 'Expiration': DateTime.now()})
       .catchError((e) {
-        final trace = StackTrace.current;
-        final lineNum = trace.toString().split('\n')[1].split(':')[1];
-        debugPrint('Error trying to update user in databse_calls.dart line $lineNum: $e');
+        debugPrint('Caught error in database_calls.dart line: line ${getCurrentLine(offset: 2)} error: $e');
       });
     }
   }
@@ -92,8 +92,6 @@ class UserRepository extends GetxController {
 
       //Adds playlists that Database is missing or Updates existing
       List<PlaylistModel> playlists = [];
-      List updateIdRefs = [];
-      List updateModels = [];
 
       final updateBatch = db.batch();
 
@@ -106,14 +104,11 @@ class UserRepository extends GetxController {
         if (!dataPlaylist.exists){
           playlists.add(newPlaylist);
         }
-        else{
-          updateIdRefs.add(playlistRef.doc(playlistId));
-          updateModels.add(newPlaylist.toJsonFirestore());
+        else if(updateDatabase){
+          final idUpdate = playlistRef.doc(playlistId);
+          final modelUpdate = newPlaylist.toJsonFirestore();
+          updateBatch.update(idUpdate, modelUpdate);
         }
-      }
-
-      for (var i=0; i < updateIdRefs.length; i++){
-        updateBatch.update(updateIdRefs[i], updateModels[i]);
       }
 
       await updateBatch.commit();
@@ -126,7 +121,7 @@ class UserRepository extends GetxController {
     catch (e){
       debugPrint('Caught Error in database_calls.dart Function syncUserPlaylists $e');
     }
-  }
+  }//syncUserPlaylists
 
   Future<Map<String, PlaylistModel>> getPlaylists(String userId) async{
     try {
@@ -157,7 +152,7 @@ class UserRepository extends GetxController {
       debugPrint('Caught Error in database_calls.dart Function getPlaylists: $e');
     }
     throw Exception('Escaped return in getPlaylists');
-  }
+  }//getPlaylists
 
   //Add all Playlists as collections to database
   Future<void> createPlaylists(String userId, List<PlaylistModel> playlists) async{
@@ -174,8 +169,7 @@ class UserRepository extends GetxController {
     catch (e){
       debugPrint('Caught Error in database_calls.dart Function createPlaylist $e');
     }
-
-  }
+  }//createPlaylists
 
   Future<void> removePlaylist(String userId, String playlistId) async{
     try{    
@@ -186,7 +180,7 @@ class UserRepository extends GetxController {
       debugPrint('Caught Error in database_calls.dart function removePlaylist: $e');
     }
 
-  }
+  }//removePlaylist
 
   //Check if Track is in Users Playlist in database
   Future<void> syncPlaylistTracks(String userId, Map<String, TrackModel> spotifyTracks, String playlistId, bool updateDatabase) async{
@@ -215,41 +209,48 @@ class UserRepository extends GetxController {
       //If Spotify & Database do not have matching tracks it adds
       int i = 0;
       List<TrackModel> createTracks = []; //List of databse missing tracks
-      List<TrackModel> updateTracks = [];
+      MapEntry<String, TrackModel> spotifyTrack;
+      String trackId;
+      TrackModel newTrack;
+      DocumentSnapshot<Map<String, dynamic>> databaseTrack;
+      DocumentReference<Map<String, dynamic>> idUpdate ;
+      // ignore: prefer_typing_uninitialized_variables
+      var modelUpdate;
+      final updateBatch = db.batch();
+
 
       while( (databaseTracks != spotTracks || updateDatabase) && i < spotTracks){
-        final spotifyTrack = spotifyTracks.entries.elementAt(i);
-        String trackId = spotifyTrack.key;
+        spotifyTrack = spotifyTracks.entries.elementAt(i);
+        trackId = spotifyTrack.key;
 
-        final databaseTrack = await tracksRef.doc(trackId).get();
-        TrackModel newTrack = spotifyTrack.value;
+        databaseTrack = await tracksRef.doc(trackId).get();
+        newTrack = spotifyTrack.value;
 
         //Track document is not in Database
         if (!databaseTrack.exists){
           databaseTracks++;
-
           createTracks.add(newTrack);
         }
-        else{
-          updateTracks.add(newTrack);
+        else if(updateDatabase){
+          idUpdate = tracksRef.doc(trackId);
+          modelUpdate = newTrack.toJson();
+          updateBatch.update(idUpdate, modelUpdate);
         }
 
         i++;
       }
 
+      await updateBatch.commit();
+
       if (createTracks.isNotEmpty){
         await createTrackDocs(userId, createTracks, playlistId);
-      }
-
-      if (updateTracks.isNotEmpty){
-        await updateDuplicates(userId, updateTracks, playlistId);
       }
 
     }
     catch (e){
       debugPrint('Caught Error in database_calls.dart Function syncPlaylistTracks: $e');
     }
-  }
+  }//syncPlaylistTracks
 
   //Get track names for a given playlist
   Future<Map<String, TrackModel>> getTracks(String userId, String playlistId) async{
@@ -261,12 +262,13 @@ class UserRepository extends GetxController {
       Map<String, TrackModel> newTracks = {};
 
       for (var track in playlistTracks.docs){
+        String id = track.id;
         String artist = track.data()['artist'];
         String imageUrl = track.data()['imageUrl'];
         String previewUrl = track.data()['previewUrl'] ?? '';
         String title = track.data()['title'];
         int duplicates = track.data()['duplicates'];
-        String id = track.id;
+        bool liked = track.data()['liked'];
         
         newTracks[id] = TrackModel(
           id: id, 
@@ -274,7 +276,8 @@ class UserRepository extends GetxController {
           artist: artist, 
           title: title,
           previewUrl: previewUrl,
-          duplicates: duplicates
+          duplicates: duplicates,
+          liked: liked,
         );
       }
 
@@ -284,7 +287,7 @@ class UserRepository extends GetxController {
       debugPrint('Caught Error in database_calls line ${getCurrentLine()} function getTracks: $e');
     }
     throw Exception('Escaped return in getTracks');
-  }
+  }//getTracks
 
   //Add Track to Tracks Collection
   Future<void> createTrackDocs(String userId, List<TrackModel> trackModels, String playlistId) async{
@@ -303,7 +306,7 @@ class UserRepository extends GetxController {
     catch (e){
       debugPrint('Caught Error in database_calls.dart Function creatTrackDoc: $e');
     }
-  }
+  }//createTrackDocs
 
   //Removes the playlist connection in the database
   Future<void> removePlaylistTracks(String userId, List<String> trackIds, String playlistId) async{
@@ -330,22 +333,6 @@ class UserRepository extends GetxController {
       debugPrint('Caught an Error in database_calls.dart function removePlaylistTracks: $e');
     }
 
-  }
+  }//removePlaylistTracks
 
-  Future<void> updateDuplicates(String userId, List<TrackModel> updateTracks, String playlistId) async{
-    final playlistRef = usersRef.doc(userId).collection(playlistColl);
-    final tracksRef = playlistRef.doc(playlistId).collection(tracksColl);
-
-    final batch = db.batch();
-
-    for (var track in updateTracks){
-      final databaseTrack = await tracksRef.doc(track.id).get();
-
-      if (databaseTrack.exists){
-          batch.update(tracksRef.doc(track.id), {'duplicates': track.duplicates});
-      }
-    }
-
-    batch.commit();
-  }
 }
