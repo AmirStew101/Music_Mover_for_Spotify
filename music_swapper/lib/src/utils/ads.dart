@@ -87,10 +87,10 @@ Widget settingsAdRow(BuildContext context, UserModel user){
   bannerAd.load();
   
   return Positioned(
-    bottom: 5,
+    bottom: 2,
     child: SizedBox(
       width: width,
-      height: 70,
+      height: 60,
       //Creates the ad banner
       child: AdWidget(
         ad: bannerAd,

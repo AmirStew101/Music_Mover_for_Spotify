@@ -118,7 +118,6 @@ Future<Map<String, dynamic>?> checkLiked(Map<String, dynamic> tracksMap, double 
   List<dynamic> boolList = [];
   
   final checkUrl = '$hosted/check-liked/$expiresAt/$accessToken';
-  var response;
 
   try{
     for (var i = 0; i < tracksMap.length; i++){

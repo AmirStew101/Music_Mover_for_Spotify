@@ -3,10 +3,9 @@ import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:flutter/material.dart';
 import 'package:spotify_music_helper/src/tracks/tracks_view.dart';
 import 'package:spotify_music_helper/src/utils/analytics.dart';
-import 'package:spotify_music_helper/src/utils/global_classes/ads.dart';
+import 'package:spotify_music_helper/src/utils/ads.dart';
 import 'package:spotify_music_helper/src/utils/globals.dart';
 import 'package:spotify_music_helper/src/utils/object_models.dart';
-import 'package:spotify_music_helper/src/utils/global_classes/global_objects.dart';
 
 class ImageGridWidget extends StatefulWidget{
   const ImageGridWidget({required this.receivedCall, required this.playlists, required this.user, super.key});
@@ -123,10 +122,11 @@ class ImageGridState extends State<ImageGridWidget> {
                   }
               ),
             ),
-            //Space for Ad
-            const SizedBox(
-              height: 70,
-            )
+            if (!user.subscribed)
+              //Space for Ad
+              const SizedBox(
+                height: 70,
+              )
           ],
         ),
 
