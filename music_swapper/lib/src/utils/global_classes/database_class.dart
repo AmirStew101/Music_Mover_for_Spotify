@@ -108,110 +108,13 @@ class DatabaseStorage {
   /*
   Spotify removes all versions of a track from a playlist when an id is sent to be deleted
   */
-  Future<void> removeTracks(CallbackModel callback, PlaylistModel currentPlaylist, Map<String, TrackModel> selectedTracksMap, Map<String, TrackModel> allTracks, UserModel user) async {
+  Future<void> removeTracks(PlaylistModel currentPlaylist, List<String> selectedIds, UserModel user) async {
 
     String playlistId = currentPlaylist.id;
 
-    if (playlistId != 'Liked_Songs'){
-      //Tracks & how many times to remove it
-      Map<String, int> removeTracks = {};
-      String id; //unedited Spotify Id of the track
-
-      for (var track in selectedTracksMap.entries) {
-        id = getTrackId(track.key);
-        //Updates how many duplicates of a track are being deleted
-        removeTracks.update(id, (value) => value += 1, ifAbsent: () => 0);
-      }
-
-      List<String> spotifyAddIds = []; //Track ids to be re-added after deletion
-      //Tracks to be removed from the database starting from the last element
-      List<String> databaseRemoveIds = [];
-
-      List<String> removeTrackIds = []; 
-
-      //Check to see if tracks should be replaced after deletion
-      for (var track in removeTracks.entries){
-        //The stored track duplicates for current track
-        int tracksTotal = allTracks[track.key]!.duplicates;
-        int removeTracks = track.value;
-        String id = track.key;
-
-        removeTrackIds.add(id);
-
-        //Remove database tracks starting from the last added track duplicate
-        for (int i = tracksTotal; i >= 0; i--){
-
-          //Removes all of database tracks
-          if (removeTracks == tracksTotal){
-            String remove = '${id}_$i';
-            databaseRemoveIds.add(remove);
-          }
-
-          //Removes duplicate tracks until user selected amount of tracks are deleted
-          if (i <= removeTracks){
-            if (i == 0){
-              databaseRemoveIds.add(id);
-            }
-            else{
-              String remove = '${id}_$i';
-              databaseRemoveIds.add(remove);
-            }
-            
-          }
-          //If not all tracks are deleted add back the amount user didn't delete
-          //Spotify API deletes all tracks whith one delete call
-          else{
-            spotifyAddIds.add(id);
-          }
-        }
-      }
-
-      try{
-        final result = await PlaylistsRequests().checkRefresh(callback, false); 
-
-        if (result != null){
-          callback = result;
-        }
-
-      }
-      catch (e){
-        debugPrint('Tracks_view.dart line: ${getCurrentLine(offset: 3)} in function removeTracks $e');
-      }
-
-        await DatabaseStorage().removeDatabaseTracks(user.spotifyId, databaseRemoveIds, playlistId)
-        .catchError((e) => debugPrint('Tracks_view.dart line: ${getCurrentLine()} caught error: $e'));
-
-        //Replaces tracks that user wanted to keep
-        if (spotifyAddIds.isNotEmpty){
-          List<String> playlistIds = [playlistId];
-          await TracksRequests().addTracks(spotifyAddIds, playlistIds, [], callback.expiresAt, callback.accessToken);
-        }
-      
-    }
-    //Liked Songs has no duplicates to worry about
-    else{
-
-      List<String> trackIds = [];
-
-      for(var track in selectedTracksMap.entries){
-        String id = getTrackId(track.key);
-        trackIds.add(id);
-      }
-
-      try{
-        final result = await PlaylistsRequests().checkRefresh(callback, false); 
-
-        if (result != null){
-          callback = result;
-        }
-      }
-      catch (e){
-        debugPrint('Tracks_view.dart line ${getCurrentLine(offset: 3)} in function removeTracks $e');
-      }
-
-        await DatabaseStorage().removeDatabaseTracks(user.spotifyId, trackIds, playlistId)
-        .catchError((e) => debugPrint('Tracks_view.dart line: ${getCurrentLine()} caught error: $e'));
-    }
+    await userRepo.removePlaylistTracks(user.spotifyId, selectedIds, playlistId)
+    .catchError((e) => throw Exception('database_class.dart line: ${getCurrentLine(offset: 1)} Caught Error: $e'));
+    
  }
 
 }//DatabaseStorage

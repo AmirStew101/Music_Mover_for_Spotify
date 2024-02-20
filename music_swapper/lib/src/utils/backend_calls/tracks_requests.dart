@@ -63,8 +63,8 @@ class TracksRequests{
             id = track.key;
             if (checkTracks.containsKey(id)){
               checkTracks.update(id, (value)  {
-                debugPrint('\nTrack val: ${track.value}, \nValue: $value');
-                return value['duplicates'] += 1;
+                value['duplicates']++;
+                return value;
                 });
             }
             else{
@@ -77,13 +77,10 @@ class TracksRequests{
     
       }
 
-      for (var track in checkTracks.entries){
-        if (track.value['title'] == 'Imposters Among Us') debugPrint('Track ${track.value['title']} Dupes: ${track.value['duplicates']}');
-      }
-      //final checkResponse = await checkLiked(checkTracks, expiresAt, accessToken);
+      final checkResponse = await checkLiked(checkTracks, expiresAt, accessToken);
 
-      //Map<String, TrackModel> newTracks = getPlatformTrackImages(receivedTracks);
-      return {};
+      Map<String, TrackModel> newTracks = getPlatformTrackImages(checkResponse);
+      return newTracks;
     }
     catch (e){
       throw Exception('Line: ${getCurrentLine()} : $e');
@@ -131,16 +128,14 @@ class TracksRequests{
   Future<Map<String, dynamic>> checkLiked(Map<String, dynamic> tracksMap, double expiresAt, String accessToken) async{
     List<String> trackIds = [];
     List<dynamic> boolList = [];
-    dynamic track;
-    String trueId;
+    MapEntry<String, dynamic> track;
     
     final checkUrl = '$hosted/check-liked/$expiresAt/$accessToken';
 
     try{
       for (var i = 0; i < tracksMap.length; i++){
         track = tracksMap.entries.elementAt(i);
-        trueId = getTrackId(track.key);
-        trackIds.add(trueId);
+        trackIds.add(track.key);
         
           if ( (i+1 % 50) == 0 || i == tracksMap.length-1){
             //Check the Ids of up to 50 tracks
@@ -162,28 +157,19 @@ class TracksRequests{
           }
       }
 
-      Map<String, dynamic> checkedTracks = {};
-
+      MapEntry<String, dynamic> currTrack;
       for (var i = 0; i < tracksMap.length; i++){
-        final currTrack = tracksMap.entries.elementAt(i);
+        currTrack = tracksMap.entries.elementAt(i);
 
         if (boolList[i]){
-          checkedTracks
-          .putIfAbsent(currTrack.key, () => {
-            'title': currTrack.value['title'], 
-            'imageUrl': currTrack.value['imageUrl'],
-            'artist': currTrack.value['artist'],
-            'preview_url': currTrack.value['preview_url'],
-            'duplicates': currTrack.value['duplicates'],
-            'liked': boolList[i],}
-          );
-        }
-        else{
-          checkedTracks.putIfAbsent(currTrack.key, () => currTrack.value);
+          tracksMap.update(currTrack.key, (value) {
+            value['liked'] = true; 
+            return value;
+          });
         }
         
       }
-      return checkedTracks;
+      return tracksMap;
     }
     catch (e){
       throw Exception('line: ${getCurrentLine()}; $e');
@@ -191,7 +177,7 @@ class TracksRequests{
   }
 
 
-  Future<void> addTracks(List<String> tracks, List<String> notLikedTracks, List<String> playlistIds, double expiresAt, String accessToken) async {
+  Future<void> addTracks(List<String> tracks, List<String> playlistIds, double expiresAt, String accessToken) async {
     final addTracksUrl ='$hosted/add-to-playlists/$expiresAt/$accessToken';
     try{
       final response = await http.post(
@@ -199,7 +185,7 @@ class TracksRequests{
           headers: {
           'Content-Type': 'application/json'
           },
-          body: jsonEncode({'trackIds': tracks, 'playlistIds': playlistIds, 'notLiked': notLikedTracks})
+          body: jsonEncode({'trackIds': tracks, 'playlistIds': playlistIds})
       );
 
       if (response.statusCode != 200){
@@ -212,17 +198,15 @@ class TracksRequests{
   }
 
 
-  Future<void> removeTracks(Map<String, TrackModel> selectedTracks, String originId, String snapshotId, double expiresAt, String accessToken) async{
+  Future<void> removeTracks(List<String> selectedIds, String originId, String snapshotId, double expiresAt, String accessToken) async{
     final removeTracksUrl ='$hosted/remove-tracks/$originId/$snapshotId/$expiresAt/$accessToken';
-
-    List<String> addBack = handleDuplicates(selectedTracks);
 
     final response = await http.post(
       Uri.parse(removeTracksUrl),
         headers: {
         'Content-Type': 'application/json'
         },
-        body: jsonEncode({'trackIds': selectedTracks})
+        body: jsonEncode({'trackIds': selectedIds})
     );
 
     if (response.statusCode != 200){
@@ -231,8 +215,95 @@ class TracksRequests{
     
   }//removeTracks
 
-  List<String> handleDuplicates(Map<String, TrackModel> selectedTracks){
-    throw Exception('Not Implemented');
+  Map<String, TrackModel> makeDuplicates(Map<String, TrackModel> allTracks){
+
+    Map<String, TrackModel> newAllTracks = {};
+    int trackDupes;
+    String dupeId;
+    String trueId;
+
+    for (var track in allTracks.entries){
+      trackDupes = track.value.duplicates;
+      trueId = track.key;
+
+      if (trackDupes > 0){
+        for (var i = 0; 1 < trackDupes; i++){
+          dupeId = i == 0
+          ? trueId
+          : '${trueId}_$i';
+
+          newAllTracks.putIfAbsent(dupeId, () => track.value);
+        }
+      }
+      else{
+        newAllTracks.putIfAbsent(trueId, () => track.value);
+      }
+    }
+
+    return newAllTracks;
+  }
+
+  List<String> getRemoveIds(Map<String, TrackModel> selectedTracks){
+
+    List<String> removeIds = [];
+
+    for (var track in selectedTracks.entries){
+      String trueId = getTrackId(track.key);
+      removeIds.add(trueId);
+    }
+
+    return removeIds;
+  }
+
+  List<String> getAddIds(Map<String, TrackModel> selectedTracks){
+    List<String> addIds = [];
+
+    for (var track in selectedTracks.entries){
+      String trueId = getTrackId(track.key);
+      addIds.add(trueId);
+    }
+
+    return addIds;
+  }
+
+  List<String> getAddBackIds(Map<String, TrackModel> selectedTracks){
+    Map<String, TrackModel> selectedNoDupes = {};
+    List<String> removeIds = getRemoveIds(selectedTracks);
+    List<String> addBackIds = [];
+
+    for(var track in selectedTracks.entries){
+      String trueId = getTrackId(track.key);
+
+      selectedNoDupes.putIfAbsent(trueId, () => track.value);
+    }
+
+    //Dupes is 0 if its only one track
+    //First item in a list is at location 0
+    //Check if 
+
+    removeIds.sort();
+    for (var track in selectedNoDupes.entries){
+      int dupes = track.value.duplicates;
+      int removeTotal = 0;
+
+      //Gets location of element in sorted list
+      removeTotal = removeIds.lastIndexOf(track.key);
+
+      //Gets the difference between the deleted tracks and its duplicates
+      int diff = dupes - removeTotal;
+
+      //There is no difference and you are deleting them all
+      if (diff > 0){
+        for (var i = 0; i < diff; i++){
+          addBackIds.add(track.key);
+        }
+      }
+
+      //Removes the tracks that have been checked
+      removeIds.removeRange(0, removeTotal);
+    }
+
+    return addBackIds;
   }
 
 }

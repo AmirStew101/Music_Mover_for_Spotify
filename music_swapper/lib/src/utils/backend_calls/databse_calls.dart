@@ -321,7 +321,15 @@ class UserRepository extends GetxController {
 
       //Adds all tracks to be deleted to the batch
       for (var id in trackIds){
-        batch.delete(tracksRef.doc(id));
+        final databaseTrack = await tracksRef.doc(id).get();
+        int dupe = databaseTrack.data()!['duplicates'] - 1;
+
+        if (dupe >= 0){
+          batch.update(tracksRef.doc(id), {'duplicates': dupe});
+        }
+        else{
+          batch.delete(tracksRef.doc(id));
+        }
       }
 
       //Deletes all batched tracks

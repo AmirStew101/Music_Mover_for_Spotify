@@ -769,7 +769,14 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
               int tracksDeleted = selectedTracksMap.length;
               String playlistTitle = currentPlaylist.title;
 
-              await TracksRequests().removeTracks(selectedTracksMap, currentPlaylist.id, currentPlaylist.snapshotId, receivedCall.expiresAt, receivedCall.accessToken);
+              List<String> removeIds = TracksRequests().getRemoveIds(selectedTracksMap);
+
+              List<String> addBackIds = TracksRequests().getAddBackIds(selectedTracksMap);
+
+              await TracksRequests().removeTracks(removeIds, currentPlaylist.id, currentPlaylist.snapshotId, receivedCall.expiresAt, receivedCall.accessToken);
+              //Add the tracks back to the playlist
+              await TracksRequests().addTracks(addBackIds, [currentPlaylist.id], receivedCall.expiresAt, receivedCall.accessToken);
+              
               await DatabaseStorage().removeTracks(receivedCall, currentPlaylist, selectedTracksMap, allTracks, user);
               await deleteRefresh();
 
