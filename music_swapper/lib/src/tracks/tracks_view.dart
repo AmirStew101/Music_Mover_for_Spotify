@@ -2,11 +2,12 @@
 
 import 'dart:async';
 
-import 'package:another_flushbar/flushbar.dart';
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 import 'package:spotify_music_helper/src/login/start_screen.dart';
 import 'package:spotify_music_helper/src/select_playlists/select_view.dart';
 import 'package:spotify_music_helper/src/utils/ads.dart';
+import 'package:spotify_music_helper/src/tracks/tracks_popups.dart';
 import 'package:spotify_music_helper/src/utils/globals.dart';
 import 'package:spotify_music_helper/src/utils/object_models.dart';
 import 'package:spotify_music_helper/src/utils/backend_calls/playlists_requests.dart';
@@ -66,8 +67,9 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
   final List<String> loadTexts = ['Loading Tracks.', 'First time Loading a lot of Tracks may take awhile.', 'Someone has a lot of Tracks to Load, over 1000?'];
   int loadingIndex = 0;
 
-  bool deepSync = false;
   bool checkedLogin = false;
+
+  bool showing = false;
 
 
   @override
@@ -79,7 +81,7 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
     playlistId = currentPlaylist.id;
     playlistName = currentPlaylist.title;
     
-    tabController = TabController(length: 3, vsync: this);
+    tabController = TabController(length: devMode ? 3 : 2, vsync: this);
   }
 
   @override
@@ -111,24 +113,8 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
       return MapEntry(trackId, selectMap);
     });
 
-    //Initializes the playing list
-    // playingList = List.generate(allTracks.length, (index) {
-    //   String trackTitle = allTracks.entries.elementAt(index).value.title;
-    //   String trackId = allTracks.entries.elementAt(index).key;
-    //   String? playUrl = allTracks.entries.elementAt(index).value.previewUrl;
-    //
-    //   Map<String, dynamic> playMap = {
-    //     'playing': false,
-    //     'title': trackTitle,
-    //     'playUrl': playUrl ?? ''
-    //   };
-    //
-    //   return MapEntry(trackId, playMap);
-    // });
-
     selectingAll = false;
   }
-
 
   void startSyncTimer(){
     if (homeTimer && mounted){
@@ -178,7 +164,7 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
 
 
   Future<void> checkLogin() async{
-    final response = await checkRefresh(receivedCall, false);
+    final response = await PlaylistsRequests().checkRefresh(receivedCall, false);
 
     if (mounted && !checkedLogin || response == null){
       checkedLogin = true;
@@ -210,9 +196,10 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
           startLoadTimer();
 
           await fetchDatabaseTracks().catchError((e){
-          error = true;
-          debugPrint('Error when trying to fetchDatabaseTracks ${getCurrentLine()} $e');
-        });
+            homeTimer = false;
+            error = true;
+            debugPrint('Error when trying to fetchDatabaseTracks ${getCurrentLine()} $e');
+          });
         }
         //Sync load of the page Starts the timer for Sync message change
         else{
@@ -220,8 +207,9 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
           startSyncTimer();
 
           await fetchSpotifyTracks().catchError((e){
+            homeTimer = false;
             error = true;
-            debugPrint('Error when trying to fetchSpotifyTracks ${getCurrentLine()} $e');
+            debugPrint('Error when trying to fetchSpotifyTracks line: ${getCurrentLine()} $e');
           });
         }
       }
@@ -240,10 +228,12 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
 
         selectListUpdate();
         loaded = true;
+        homeTimer = false;
       }
       //Database has no tracks so check Spotify
       else if (mounted){
         await fetchSpotifyTracks().catchError((e){
+          homeTimer = false;
           error = true;
           debugPrint('Error when trying to fetchSpotifyTracks in tracks_view.dart: $e');
         });
@@ -255,16 +245,16 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
   //Gets the users tracks for the selected Playlist
   Future<void> fetchSpotifyTracks() async {
     //Checks if Token needs to be refreshed
-    final result = await checkRefresh(receivedCall, false); 
+    final result = await PlaylistsRequests().checkRefresh(receivedCall, false); 
 
     if (result != null){
       receivedCall = result;
     }
 
-    totalTracks = await getSpotifyTracksTotal(playlistId, receivedCall.expiresAt, receivedCall.accessToken);
+    totalTracks = await TracksRequests().getTracksTotal(playlistId, receivedCall.expiresAt, receivedCall.accessToken);
 
     if (totalTracks > 0 && mounted) {
-      allTracks = await getSpotifyPlaylistTracks(
+      allTracks = await TracksRequests().getPlaylistTracks(
           playlistId,
           receivedCall.expiresAt,
           receivedCall.accessToken,
@@ -273,31 +263,23 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
 
       selectListUpdate();
       //Adds tracks to database for faster retreival later
-      if (deepSync){
-        await DatabaseStorage().deepSyncTracks(user.spotifyId, allTracks, playlistId)
-        .catchError((e) {
-        error = true;
-        debugPrint('tracks_view.dart error trying to syncPlaylistTracksData line: ${getCurrentLine(offset: 2)} Caught Error: $e');
+      await DatabaseStorage().syncTracks(user.spotifyId, allTracks, playlistId)
+      .catchError((e) {
+        throw Exception('tracks_view.dart error trying to syncPlaylistTracksData line: ${getCurrentLine(offset: 2)} Caught Error: $e');
       });
-      }
-      else{
-        await DatabaseStorage().smartSyncTracks(user.spotifyId, allTracks, playlistId)
-        .catchError((e) {
-        error = true;
-        debugPrint('tracks_view.dart error trying to syncPlaylistTracksData line: ${getCurrentLine(offset: 2)} Caught Error: $e');
-      });
-      }
       
     }
+    
 
     loaded = true; //Tracks if the tracks are loaded to be shown
+    homeTimer = false;
     refresh = false;
   }
 
 
   Future<void> deleteRefresh() async{
     loaded = false;
-    selectAll = false;
+    selectingAll = false;
     loadingIndex = 0;
     error = false;
 
@@ -309,9 +291,8 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
   }
 
 
-  Future<void> refreshTracks({bool syncOption = false}) async{
-    deepSync = syncOption;
-    selectAll = false;
+  Future<void> refreshTracks() async{
+    selectingAll = false;
     refresh = true;
     loaded = false;
     loadingIndex = 0;
@@ -363,13 +344,13 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
   AppBar tracksAppBar(){
      return AppBar(
             bottom: TabBar(
-              isScrollable: true,
-              tabAlignment: TabAlignment.start,
-              indicatorColor:const Color.fromARGB(255, 7, 151, 12),
+              isScrollable: devMode,
+              tabAlignment: devMode ? TabAlignment.start :TabAlignment.center,
+              indicatorColor:spotHelperGreen,
               controller: tabController,
               indicatorSize: TabBarIndicatorSize.tab,
+              dividerColor: Colors.grey,
               tabs: [
-
                 //Smart Sync tracks for PLaylist
                 Tab(
                   child: InkWell(
@@ -388,12 +369,12 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
                             }
                           },
                         ),
-                        const Text('Smart Sync'),
+                        const Text('Sync Tracks'),
                       ],
                     ),
                   )
                 ),
-
+                
                 //Select All checkbox
                 Tab(
                   child: InkWell(
@@ -421,28 +402,29 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
                 ),
               
                 //Deep Sync Tracks for Playlist
-                Tab(
-                  child: InkWell(
-                    onTap: () async{
-                      if (!selectingAll && loaded || error){
-                        await refreshTracks(syncOption: true);
-                      }
-                    },
-                    child: Row(
-                      children: [ 
-                        IconButton(
-                          icon: const Icon(Icons.cloud_sync_sharp),
-                          onPressed: () async{
-                            if (!selectingAll && loaded || error){
-                              await refreshTracks(syncOption: true);
-                            }
-                          },
-                        ),
-                        const Text('Deep Sync'),
-                      ],
-                    ),
-                  )
-                ),
+                if (devMode)
+                  Tab(
+                    child: InkWell(
+                      onTap: () async{
+                        if (!selectingAll && loaded || error){
+                          await refreshTracks();
+                        }
+                      },
+                      child: Row(
+                        children: [ 
+                          IconButton(
+                            icon: const Icon(Icons.cloud_sync_sharp),
+                            onPressed: () async{
+                              if (!selectingAll && loaded || error){
+                                await refreshTracks();
+                              }
+                            },
+                          ),
+                          const Text('Deep Sync'),
+                        ],
+                      ),
+                    )
+                  ),
 
               ]),
             
@@ -455,7 +437,7 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
               )
             ),
 
-            backgroundColor: const Color.fromARGB(255, 6, 163, 11),
+            backgroundColor: spotHelperGreen,
             title: Text(
               playlistName, //Playlist Name
               textAlign: TextAlign.center,
@@ -495,8 +477,8 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
           builder: (context, snapshot) {
 
             if (selectingAll){
-              return const Center(
-                  child: CircularProgressIndicator(color: Color.fromARGB(255, 22, 199, 28),)
+              return Center(
+                  child: CircularProgressIndicator(color: spotHelperGreen,)
               );
             }
             //Playlist doesn't have Tracks
@@ -511,7 +493,6 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
             }
             //Playlist has tracks and Tracks finished loading
             else if (loaded && totalTracks > 0) {
-              homeTimer = false;
               return tracksViewBody();
             } 
             else if(error){
@@ -532,7 +513,7 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
                       const CircularProgressIndicator(strokeWidth: 6,),
 
                       //Smart Sync was pressed
-                      if(refresh && !deepSync) 
+                      if(refresh) 
                         Center(child: 
                           Text(
                             smartSyncTexts[loadingIndex],
@@ -542,7 +523,7 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
                         )
 
                       //Deep Sync was pressed
-                      else if(refresh && deepSync)
+                      else if(refresh)
                         Center(child: 
                           Text(
                             deepSyncTexts[loadingIndex],
@@ -700,7 +681,7 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
               : trackTitle,
               textScaler: const TextScaler.linear(1.2),
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(color: Color.fromARGB(255, 6, 163, 11)),
+              style: TextStyle(color: spotHelperGreen),
             ),
             //Name of track Artist show to user
             Text(
@@ -716,7 +697,7 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
 
   Widget tracksBottomBar(){
       return BottomNavigationBar(
-        backgroundColor: const Color.fromARGB(255, 6, 163, 11),
+        backgroundColor: spotHelperGreen,
         items: const [
           //Oth item in List
           BottomNavigationBarItem(
@@ -788,27 +769,22 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
               int tracksDeleted = selectedTracksMap.length;
               String playlistTitle = currentPlaylist.title;
 
+              await TracksRequests().removeTracks(selectedTracksMap, currentPlaylist.id, currentPlaylist.snapshotId, receivedCall.expiresAt, receivedCall.accessToken);
               await DatabaseStorage().removeTracks(receivedCall, currentPlaylist, selectedTracksMap, allTracks, user);
               await deleteRefresh();
 
-              Flushbar(
-                backgroundColor: spotHelperGreen,
-                title: 'Success Message',
-                duration: const Duration(seconds: 3),
-                flushbarPosition: FlushbarPosition.TOP,
-                message: 'Deleted $tracksDeleted tracks from $playlistTitle',
-              ).show(context);
+              if (!showing){
+                showing = true;
+                showing = await TracksViewPopups().deletedTracks(context, tracksDeleted, playlistTitle);
+              }
             }
           }
 
           else {
-            Flushbar(
-              backgroundColor:const Color.fromARGB(255, 56, 50, 50),
-              title: 'Failed Message',
-              duration: const Duration(seconds: 3),
-              flushbarPosition: FlushbarPosition.TOP,
-              message: 'No tracks selected',
-            ).show(context);
+            if (!showing){
+              showing = true;
+              showing = await TracksViewPopups().noTracks(context);
+            }
           }
         },
       );

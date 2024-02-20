@@ -25,9 +25,14 @@ AUTH_URL = 'https://accounts.spotify.com/authorize'
 TOKEN_URL = 'https://accounts.spotify.com/api/token'
 API_BASE_URL = 'https://api.spotify.com/v1/'
 
-REFRESH_MSG = {'status': 'Failed', 'message': 'Need refresh token'}
-LOGGIN_MSG = {'status': 'Failed', 'message': 'Not Logged In'}
-EXPIRES_MSG = {'status': 'Failed', 'message': 'No Expiration time received'}
+STATUS = 'status'
+SUCCESS = 'Success'
+FAILED = 'Failed'
+MESSAGE = 'message'
+
+REFRESH_MSG = {STATUS: FAILED, MESSAGE: 'Need refresh token'}
+LOGGIN_MSG = {STATUS: FAILED, MESSAGE: 'Not Logged In'}
+EXPIRES_MSG = {STATUS: FAILED, MESSAGE: 'No Expiration time received'}
 
 def failed_response(message):
     failed_body = jsonify(message)
@@ -57,7 +62,7 @@ def login():
 
     auth_url = f"{AUTH_URL}?{urllib.parse.urlencode(params)}"
 
-    return jsonify({'status': 'Success', 'data': auth_url})
+    return jsonify({STATUS: SUCCESS, 'data': auth_url})
 
 @app.route('/get-auth-url-dialog', methods=['GET'])
 def re_login():
@@ -81,7 +86,7 @@ def re_login():
 
     auth_url = f"{AUTH_URL}?{urllib.parse.urlencode(params)}"
 
-    return jsonify({'status': 'Success', 'data': auth_url})
+    return jsonify({STATUS: SUCCESS, 'data': auth_url})
 
 
 @app.route('/callback')
@@ -101,7 +106,7 @@ def callback():
     response = requests.post(TOKEN_URL, data=req_body)
 
     if response.status_code != 200:
-        return failed_response(response.content)
+        return failed_response(f'Token Url & Body failed: {response.content}')
 
     token_info = response.json()
 
@@ -111,7 +116,7 @@ def callback():
 
     info = {'accessToken': access_token, 'refreshToken': refresh_token, 'expiresAt': expires_at}
 
-    return jsonify({'status': 'Success', 'data': info})
+    return jsonify({STATUS: SUCCESS, 'data': info})
 
 #Refreshes the token when called
 @app.route('/refresh-token/<expires_at>/<refresh_token>')
@@ -134,8 +139,9 @@ def refresh_token(expires_at, refresh_token):
         }
 
         response = requests.post(TOKEN_URL, data=req_body)
+
         if response.status_code != 200:
-            return failed_response(response.content)
+            return failed_response(f'Token Url & Body failed: {response.status_code}, {response.content}')
         
         new_token_info = response.json()
 
@@ -144,9 +150,9 @@ def refresh_token(expires_at, refresh_token):
 
         info = {'accessToken': access_token, 'expiresAt': expires_at, 'refreshToken': refresh_token}
 
-        return jsonify({'status': 'Success', 'data': info})
+        return jsonify({STATUS: SUCCESS, 'data': info})
     
-    return failed_response({'message': 'Token doesn\'t need to be refreshed'})
+    return failed_response({MESSAGE: 'Token doesn\'t need to be refreshed'})
 
 
 @app.route('/get-playlists/<expires_at>/<access_token>')
@@ -171,7 +177,7 @@ def get_playlists(expires_at, access_token):
     response = requests.get(getUrl, headers=header)
 
     if response.status_code != 200:
-        return failed_response({'message': f'Failed to get playlists: {response.status_code} {response.json()}'})
+        return failed_response({MESSAGE: f'Failed to get playlists: {response.status_code} {response.json()}'})
     
     playlists = response.json()
     playlist_items = playlists['items']
@@ -213,7 +219,7 @@ def get_playlists(expires_at, access_token):
     Name & Img shown to user
     ID for backend search
     """
-    return jsonify({'status': 'Success', 'data': user_playlists})
+    return jsonify({STATUS: SUCCESS, 'data': user_playlists})
 
 
 @app.route('/get-tracks-total/<playlist_id>/<expires_at>/<access_token>')
@@ -242,21 +248,22 @@ def get_tracks_total(playlist_id, expires_at, access_token):
 
         response = requests.get(getUrl, headers= header)
 
-        if response.status_code == 200:
-            tracks = response.json()
-            totalItems = tracks['total']
+        if response.status_code != 200:
+            return failed_response({MESSAGE: f'Failed to get track total: {response.status_code} {response.content}'})
 
-            return jsonify({'status': 'Success', 'totalTracks': totalItems})
-        
-        return failed_response({'message': f'Failed to get track total: {response.status_code} {response.json()}'})
+        tracks = response.json()
+        totalItems = tracks['total']
+
+        return jsonify({STATUS: SUCCESS, 'totalTracks': totalItems})
     
-    return failed_response({'message': 'Missing Playlist ID'})
+    return failed_response({MESSAGE: 'Missing Playlist ID'})
 
 
 @app.route('/get-all-tracks/<playlist_id>/<expires_at>/<access_token>/<offset>/')
 def get_all_tracks(playlist_id, expires_at, access_token, offset):
     expires_at = float(expires_at)
     offset = str(offset)
+    print(f'Offset {offset}')
 
     if not access_token:
         return failed_response(LOGGIN_MSG)
@@ -277,58 +284,45 @@ def get_all_tracks(playlist_id, expires_at, access_token, offset):
     
         response = handleGetTracks(playlist_id, offset, header)
 
-        if response.status_code == 200:
-            tracks = response.json()
-            tracks_items = tracks['items']
-            
-            """
-            Puts all of a Users tracks in a dictionary 
-            with its associated images, preview_url, and artist
-            """
-            for item in tracks_items:
+        if response.status_code != 200:
+            return failed_response({MESSAGE: f'Failed to get all tracks: {response.status_code} {response.content}'})
 
-                #Checks if the item is a complete item
-                if 'track' in item and item['track'] is not None:
-                    track_id = item['track']['id']
-
-                    if track_id is not None:
-                        track_title = item['track']['name']
-                        track_images = item['track']['album']['images']
-                        preview_url = item['track']['preview_url'] or ''
-                        
-                        track_artist = item['track']['artists'][0]['name']
-
-                        if track_artist and track_images and track_title:
-                            duplicate = duplicateCheck(track_id, playlist_tracks)
-                            
-                            #Track has Zero duplicates
-                            if duplicate == 0:
-                                playlist_tracks[track_id] = {
-                                    'title': track_title,
-                                    'imageUrl': track_images, 
-                                    'artist': track_artist,
-                                    'preview_url': preview_url,
-                                    'duplicates': 0,
-                                    'liked': False,
-                                }
-                            #Track has a duplicate
-                            else:
-                                track_id = f'{track_id}_{duplicate}'
-                                playlist_tracks[track_id] = {
-                                    'title': track_title,
-                                    'imageUrl': track_images, 
-                                    'artist': track_artist,
-                                    'preview_url': preview_url,
-                                    'duplicates': duplicate,
-                                    'liked': False,
-                                }
-
-            return jsonify({'status': 'Success', 'data': playlist_tracks})
+        tracks = response.json()
+        tracks_items = tracks['items']
         
-        else:
-            return failed_response({'message': f'Failed to get all tracks: {response.status_code} {response.json()}'})
-           
-    return failed_response({'message': 'Missing Playlist ID'})
+        """
+        Puts all of a Users tracks in a dictionary 
+        with its associated images, preview_url, and artist
+        """
+        for item in tracks_items:
+
+            #Checks if the item is a complete item
+            if 'track' in item and item['track'] is not None:
+                track_id = item['track']['id']
+
+                if track_id is not None:
+                    track_title = item['track']['name']
+                    track_images = item['track']['album']['images']
+                    preview_url = item['track']['preview_url'] or ''
+                    
+                    track_artist = item['track']['artists'][0]['name']
+
+                    if track_artist and track_images and track_title:
+                        duplicate = duplicateCheck(track_id, playlist_tracks)
+                        
+                        
+                        playlist_tracks[track_id] = {
+                            'title': track_title,
+                            'imageUrl': track_images, 
+                            'artist': track_artist,
+                            'preview_url': preview_url,
+                            'duplicates': duplicate,
+                            'liked': playlist_id == 'Liked_Songs',
+                        }
+                        
+        return jsonify({STATUS: SUCCESS, 'data': playlist_tracks})
+        
+    return failed_response({MESSAGE: 'Missing Playlist ID'})
 
 def handleGetTracks(playlist_id, offsetStr, header):
     if playlist_id != 'Liked_Songs':
@@ -342,8 +336,8 @@ def handleGetTracks(playlist_id, offsetStr, header):
 #Checks if a track is in a playlist multiple times
 def duplicateCheck(track_id, playlist_tracks):
     if playlist_tracks.get(track_id):
-        playlist_tracks[track_id]['duplicates'] += 1
-        return playlist_tracks[track_id]['duplicates']
+        dupe = playlist_tracks[track_id]['duplicates'] + 1
+        return dupe
     
     return 0
 
@@ -363,33 +357,31 @@ def check_liked(expires_at, access_token):
     
     if 'trackIds' in request.json:
         tracks = request.json['trackIds']
-        print(f'Tracks: {tracks}')
     
     if tracks is not None:
         header = {
             'Authorization': f"Bearer {access_token}"
         }
+
         checkUrl = f"{API_BASE_URL}me/tracks/contains?ids="
 
-        for id in tracks:
-            if id == tracks[-1]:
-                checkUrl = checkUrl + id
+        for i in range(len(tracks)):
+            if i == len(tracks)-1:
+                checkUrl = checkUrl + tracks[i]
             else:
-                checkUrl = checkUrl + f"{id},"
-
-        print(f'Check Url: {checkUrl}')
+                checkUrl = checkUrl + f"{tracks[i]},"
 
         #Check if tracks are in Liked Songs
         checkResponse = requests.get(checkUrl, headers=header)
 
         if checkResponse.status_code != 200:
-            return failed_response({'message': f'Failed to get data from server: {checkResponse.status_code} {checkResponse.content}'})
+            return failed_response({MESSAGE: f'Failed to get data from server: {checkResponse.status_code} {checkResponse.content}'})
         
         boolArray = checkResponse.json()
-        return {'status': 'Success', 'boolArray': boolArray}
+        return {STATUS: SUCCESS, 'boolArray': boolArray}
             
 
-    return failed_response({'message': 'Missing track Ids'}) 
+    return failed_response({MESSAGE: 'Missing track Ids'}) 
 
 
 @app.route('/add-to-playlists/<expires_at>/<access_token>', methods=['POST'])
@@ -433,14 +425,14 @@ def add_tracks(expires_at, access_token):
                 for id in playlist_ids:
                     status = handleAddTracks(header, id, bodyUri, likedUris)
 
-                    if status['status'] == 'Failed':
-                        return failed_response(status['message'])
+                    if status[STATUS] == FAILED:
+                        return failed_response(status[MESSAGE])
                     
                 #Resets the tracks when they reach the max 100 tracks
                 addUris.clear
                 likedUris.clear
 
-    return jsonify('Success')
+    return jsonify(SUCCESS)
 
 def handleAddTracks(header, id, bodyUri, likedUris):
 
@@ -458,9 +450,9 @@ def handleAddTracks(header, id, bodyUri, likedUris):
         response = requests.put(postUrl, headers=header, json=bodyUri)
 
     if response.status_code != 201 and response.status_code != 200:
-        return {'status': 'Failed', 'message': f'Failed to add track: {response.status_code}'}
+        return {STATUS: FAILED, MESSAGE: f'Failed to add tracks: {response.status_code} {response.content}'}
     else:
-        return {'status': 'Success'}
+        return {STATUS: SUCCESS}
 
 
 @app.route('/remove-tracks/<origin_id>/<snapshot_id>/<expires_at>/<access_token>', methods=['POST'])
@@ -499,14 +491,14 @@ def remove_tracks(origin_id, snapshot_id, expires_at, access_token):
             likedUris.append(track)
 
             if (items % 50) == 0 or track == tracks[-1]:
-                response = handleRemoveTracks(origin_id, likedUris, trackUris, snapshot_id, header)
-                if response['status'] != 'Success':
-                    return failed_response(response['message'])
+                handleResponse = handleRemoveTracks(origin_id, likedUris, trackUris, snapshot_id, header)
+                if handleResponse[STATUS] != SUCCESS:
+                    return failed_response(handleResponse[MESSAGE])
                 
                 trackUris.clear()
                 likedUris.clear()
 
-    return jsonify('Success')
+    return jsonify(SUCCESS)
 
 def handleRemoveTracks(origin_id, likedUris, trackUris, snapshot_id, header):
     #Handles the Liked Songs track removal
@@ -516,6 +508,7 @@ def handleRemoveTracks(origin_id, likedUris, trackUris, snapshot_id, header):
 
     #Handles Playlist track removal 
     else:
+        print('Not Liked Songs Playlist')
         #Delete tracks from playlist
         deleteUrl = f"{API_BASE_URL}playlists/{origin_id}/tracks"
         deleteBodyUri = {"tracks": trackUris, "snapshotId": snapshot_id}
@@ -523,9 +516,10 @@ def handleRemoveTracks(origin_id, likedUris, trackUris, snapshot_id, header):
     response = requests.delete(deleteUrl, headers=header, json=deleteBodyUri)
 
     if response.status_code != 200:
-        return jsonify({'status': 'Failed', 'message': f'Failed to remove track from Liked_Songs: {response.status_code} {response.json()}'})
+        print('Failed in handleRemoveTracks')
+        return {STATUS: FAILED, MESSAGE: f'Failed to remove track from Liked_Songs: {response.status_code} {response.content}'}
     
-    return jsonify({'status': 'Success'})
+    return {STATUS: SUCCESS}
 
 
 @app.route('/get-user-info/<expires_at>/<access_token>')
@@ -549,7 +543,7 @@ def get_user_info(expires_at, access_token):
     response = requests.get(getUrl, headers=header)
 
     if response.status_code != 200:
-        return failed_response({'message': f'Failed to get user info: {response.status_code} {response.json()}'})
+        return failed_response({MESSAGE: f'Failed to get user info: {response.status_code} {response.content}'})
 
     user_info = response.json()
     user_name = user_info['display_name']
@@ -563,7 +557,7 @@ def get_user_info(expires_at, access_token):
         'uri': user_info['uri']
     }
 
-    return jsonify({'status': 'Success', 'data': spot_helper_info})
+    return jsonify({STATUS: SUCCESS, 'data': spot_helper_info})
 
 
 if __name__ == "__main__":

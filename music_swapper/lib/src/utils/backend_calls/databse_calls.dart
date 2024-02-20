@@ -76,7 +76,7 @@ class UserRepository extends GetxController {
 
 
   //Check if Playlist is in collections
-  Future<void> syncUserPlaylists(String userId, Map<String, PlaylistModel> spotifyPlaylists, bool updateDatabase) async{
+  Future<void> syncUserPlaylists(String userId, Map<String, PlaylistModel> spotifyPlaylists) async{
     try{
       final playlistRef = usersRef.doc(userId).collection(playlistColl);
       final playlistDocs = await playlistRef.get();
@@ -91,20 +91,20 @@ class UserRepository extends GetxController {
       }
 
       //Adds playlists that Database is missing or Updates existing
-      List<PlaylistModel> playlists = [];
+      List<PlaylistModel> newPlaylists = [];
 
       final updateBatch = db.batch();
 
       for (var playlist in spotifyPlaylists.entries){
         String playlistId = playlist.key;
-        final dataPlaylist = await playlistRef.doc(playlistId).get();
+        final databasePlaylist = await playlistRef.doc(playlistId).get();
 
         PlaylistModel newPlaylist = playlist.value;
 
-        if (!dataPlaylist.exists){
-          playlists.add(newPlaylist);
+        if (!databasePlaylist.exists){
+          newPlaylists.add(newPlaylist);
         }
-        else if(updateDatabase){
+        else{
           final idUpdate = playlistRef.doc(playlistId);
           final modelUpdate = newPlaylist.toJsonFirestore();
           updateBatch.update(idUpdate, modelUpdate);
@@ -113,13 +113,13 @@ class UserRepository extends GetxController {
 
       await updateBatch.commit();
 
-      if (playlists.isNotEmpty){
-        await createPlaylists(userId, playlists);
+      if (newPlaylists.isNotEmpty){
+        await createPlaylists(userId, newPlaylists);
       }
 
     }
     catch (e){
-      debugPrint('Caught Error in database_calls.dart Function syncUserPlaylists $e');
+      throw Exception('In database_calls.dart line ${getCurrentLine()} $e');
     }
   }//syncUserPlaylists
 
@@ -149,9 +149,8 @@ class UserRepository extends GetxController {
       return allPlaylists;
     }
     catch (e){
-      debugPrint('Caught Error in database_calls.dart Function getPlaylists: $e');
+      throw Exception('In database_calls.dart line: ${getCurrentLine()} : $e');
     }
-    throw Exception('Escaped return in getPlaylists');
   }//getPlaylists
 
   //Add all Playlists as collections to database
@@ -167,7 +166,7 @@ class UserRepository extends GetxController {
       await addBatch.commit();
     }
     catch (e){
-      debugPrint('Caught Error in database_calls.dart Function createPlaylist $e');
+      throw Exception('In database_calls.dart line: ${getCurrentLine()} : $e');
     }
   }//createPlaylists
 
@@ -177,7 +176,7 @@ class UserRepository extends GetxController {
       await playlistRef.doc(playlistId).delete(); //Removes PLaylist from collection
     }
     catch (e){
-      debugPrint('Caught Error in database_calls.dart function removePlaylist: $e');
+      throw Exception('In database_calls.dart line: ${getCurrentLine()} : $e');
     }
 
   }//removePlaylist
@@ -258,7 +257,7 @@ class UserRepository extends GetxController {
       final playlistRef = usersRef.doc(userId).collection(playlistColl);
       final tracksRef = playlistRef.doc(playlistId).collection(tracksColl);
       final playlistTracks = await tracksRef.get();
-
+      
       Map<String, TrackModel> newTracks = {};
 
       for (var track in playlistTracks.docs){
@@ -284,9 +283,8 @@ class UserRepository extends GetxController {
       return newTracks;
     }
     catch (e){
-      debugPrint('Caught Error in database_calls line ${getCurrentLine()} function getTracks: $e');
+      throw Exception('In database_calls.dart line ${getCurrentLine()} : $e');
     }
-    throw Exception('Escaped return in getTracks');
   }//getTracks
 
   //Add Track to Tracks Collection

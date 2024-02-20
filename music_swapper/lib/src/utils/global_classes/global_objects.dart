@@ -11,12 +11,12 @@ import 'package:spotify_music_helper/src/info/info_page.dart';
 import 'package:spotify_music_helper/src/home/home_view.dart';
 import 'package:spotify_music_helper/src/login/start_screen.dart';
 import 'package:spotify_music_helper/src/settings/settings_view.dart';
+import 'package:spotify_music_helper/src/utils/backend_calls/playlists_requests.dart';
+import 'package:spotify_music_helper/src/utils/backend_calls/tracks_requests.dart';
 import 'package:spotify_music_helper/src/utils/globals.dart';
 import 'package:spotify_music_helper/src/utils/object_models.dart';
 import 'package:spotify_music_helper/src/utils/backend_calls/databse_calls.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import 'package:spotify_music_helper/src/utils/backend_calls/playlists_requests.dart';
-import 'package:spotify_music_helper/src/utils/backend_calls/tracks_requests.dart';
 import 'package:spotify_music_helper/src/utils/global_classes/secure_storage.dart';
 
 final userRepo = Get.put(UserRepository());
@@ -99,11 +99,11 @@ class LikedSongs{
 
       //Get tracks from spotify
       if (callback != null){
-        callback = await checkRefresh(callback, false);
+        callback = await PlaylistsRequests().checkRefresh(callback, false);
         
         if (callback != null){
-          int totalTracks = await getSpotifyTracksTotal(likedId, callback.expiresAt, callback.accessToken);
-          likedSongs = await getSpotifyPlaylistTracks(likedId, callback.expiresAt, callback.accessToken, totalTracks);
+          int totalTracks = await TracksRequests().getTracksTotal(likedId, callback.expiresAt, callback.accessToken);
+          likedSongs = await TracksRequests().getPlaylistTracks(likedId, callback.expiresAt, callback.accessToken, totalTracks);
         }
       }
       //User needs a new callback
@@ -138,9 +138,9 @@ Drawer optionsMenu(BuildContext context){
       alignment: Alignment.bottomLeft,
       child: ListView(
         children: [
-          const DrawerHeader(
-            decoration: BoxDecoration(color: Color.fromARGB(255, 6, 163, 11)),
-            child: Text(
+          DrawerHeader(
+            decoration: BoxDecoration(color: spotHelperGreen),
+            child: const Text(
               'Sidebar Options',
               style: TextStyle(fontSize: 18),
             )
@@ -196,7 +196,7 @@ void storageCheck(BuildContext context, CallbackModel? secureCall, UserModel? se
 
   if (secureUser == null && secureCall == null){
     Flushbar(
-      backgroundColor: const Color.fromARGB(255, 212, 27, 27),
+      backgroundColor: failedRed,
       title: 'Error in connection',
       duration: const Duration(seconds: 5),
       flushbarPosition: FlushbarPosition.TOP,
@@ -205,7 +205,7 @@ void storageCheck(BuildContext context, CallbackModel? secureCall, UserModel? se
   }
   else if (secureUser == null){
     Flushbar(
-      backgroundColor: const Color.fromARGB(255, 212, 27, 27),
+      backgroundColor: failedRed,
       title: 'Error in connection',
       duration: const Duration(seconds: 5),
       flushbarPosition: FlushbarPosition.TOP,
@@ -214,7 +214,7 @@ void storageCheck(BuildContext context, CallbackModel? secureCall, UserModel? se
   }
   else if (secureCall == null){
     Flushbar(
-      backgroundColor: const Color.fromARGB(255, 212, 27, 27),
+      backgroundColor: failedRed,
       title: 'Error in connection',
       duration: const Duration(seconds: 5),
       flushbarPosition: FlushbarPosition.TOP,

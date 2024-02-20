@@ -19,19 +19,9 @@ final userRepo = Get.put(UserRepository());
 class DatabaseStorage { 
 
   //Syncs the Users Spotify tracks with the tracks in database
-  Future<void> smartSyncTracks(String userId, Map<String, TrackModel> tracks, String playlistId) async{
+  Future<void> syncTracks(String userId, Map<String, TrackModel> tracks, String playlistId) async{
     try{
-      await userRepo.syncPlaylistTracks(userId, tracks, playlistId, false);
-    }
-    catch (e){
-      debugPrint('Error trying to Sync Playlist Tracks: $e');
-    }
-  }
-
-  //Syncs the Users Spotify tracks with the tracks in database
-  Future<void> deepSyncTracks(String userId, Map<String, TrackModel> tracks, String playlistId) async{
-    try{
-      await userRepo.syncPlaylistTracks(userId, tracks, playlistId, true);
+      await userRepo.syncPlaylistTracks(userId, tracks, playlistId, devMode);
     }
     catch (e){
       debugPrint('Error trying to Sync Playlist Tracks: $e');
@@ -45,11 +35,11 @@ class DatabaseStorage {
     .onError((error, stackTrace) {
       Flushbar(
         duration: const Duration(seconds: 3),
-        titleColor: const Color.fromARGB(255, 179, 28, 17),
+        titleColor: failedRed,
         title: 'Failed to get Tracks From Database',
         message: 'Trying Spotify',
       ).show(context);
-      return {};
+      throw Exception('In database_class.dart line: ${getCurrentLine()} : $error');
     });
     return tracks;
   }
@@ -63,20 +53,9 @@ class DatabaseStorage {
       }
   }
 
-
-  //Syncs the Users Spotify Playlists with the playlists in database
-  Future<void> smartSyncPlaylists(Map<String, PlaylistModel> playlists, String userId) async{
+  Future<void> syncPlaylists(Map<String, PlaylistModel> playlists, String userId) async{
     try{
-      await userRepo.syncUserPlaylists(userId, playlists, false);
-    }
-    catch (e){
-      debugPrint('Error trying to Sync Playlists: $e');
-    }
-  }
-
-  Future<void> deepSynvPlaylists(Map<String, PlaylistModel> playlists, String userId) async{
-    try{
-      await userRepo.syncUserPlaylists(userId, playlists, true);
+      await userRepo.syncUserPlaylists(userId, playlists);
     }
     catch (e){
       debugPrint('Error trying to Sync Playlists: $e');
@@ -126,26 +105,29 @@ class DatabaseStorage {
   }
 
 
+  /*
+  Spotify removes all versions of a track from a playlist when an id is sent to be deleted
+  */
   Future<void> removeTracks(CallbackModel callback, PlaylistModel currentPlaylist, Map<String, TrackModel> selectedTracksMap, Map<String, TrackModel> allTracks, UserModel user) async {
 
     String playlistId = currentPlaylist.id;
-    String snapId = currentPlaylist.snapshotId;
 
     if (playlistId != 'Liked_Songs'){
       //Tracks & how many times to remove it
       Map<String, int> removeTracks = {};
+      String id; //unedited Spotify Id of the track
 
       for (var track in selectedTracksMap.entries) {
-        String id = getTrackId(track.key);
-        //Updates how many tracks are being deleted
+        id = getTrackId(track.key);
+        //Updates how many duplicates of a track are being deleted
         removeTracks.update(id, (value) => value += 1, ifAbsent: () => 0);
       }
 
-      List<String> spotifyAddIds = [];
+      List<String> spotifyAddIds = []; //Track ids to be re-added after deletion
       //Tracks to be removed from the database starting from the last element
       List<String> databaseRemoveIds = [];
 
-      List<String> removeTrackIds = [];
+      List<String> removeTrackIds = []; 
 
       //Check to see if tracks should be replaced after deletion
       for (var track in removeTracks.entries){
@@ -185,7 +167,7 @@ class DatabaseStorage {
       }
 
       try{
-        final result = await checkRefresh(callback, false); 
+        final result = await PlaylistsRequests().checkRefresh(callback, false); 
 
         if (result != null){
           callback = result;
@@ -195,9 +177,6 @@ class DatabaseStorage {
       catch (e){
         debugPrint('Tracks_view.dart line: ${getCurrentLine(offset: 3)} in function removeTracks $e');
       }
-        
-        await removeTracksRequest(removeTrackIds, playlistId, snapId, callback.expiresAt, callback.accessToken)
-        .catchError((e) => debugPrint('Tracks_view.dart line: ${getCurrentLine()} caught error: $e'));
 
         await DatabaseStorage().removeDatabaseTracks(user.spotifyId, databaseRemoveIds, playlistId)
         .catchError((e) => debugPrint('Tracks_view.dart line: ${getCurrentLine()} caught error: $e'));
@@ -205,7 +184,7 @@ class DatabaseStorage {
         //Replaces tracks that user wanted to keep
         if (spotifyAddIds.isNotEmpty){
           List<String> playlistIds = [playlistId];
-          await addTracksRequest(spotifyAddIds, playlistIds, callback.expiresAt, callback.accessToken);
+          await TracksRequests().addTracks(spotifyAddIds, playlistIds, [], callback.expiresAt, callback.accessToken);
         }
       
     }
@@ -220,7 +199,7 @@ class DatabaseStorage {
       }
 
       try{
-        final result = await checkRefresh(callback, false); 
+        final result = await PlaylistsRequests().checkRefresh(callback, false); 
 
         if (result != null){
           callback = result;
@@ -229,8 +208,6 @@ class DatabaseStorage {
       catch (e){
         debugPrint('Tracks_view.dart line ${getCurrentLine(offset: 3)} in function removeTracks $e');
       }
-        await removeTracksRequest(trackIds, playlistId, snapId, callback.expiresAt, callback.accessToken)
-        .catchError((e) => debugPrint('Tracks_view.dart line: ${getCurrentLine()} caught error: $e'));
 
         await DatabaseStorage().removeDatabaseTracks(user.spotifyId, trackIds, playlistId)
         .catchError((e) => debugPrint('Tracks_view.dart line: ${getCurrentLine()} caught error: $e'));

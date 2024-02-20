@@ -1,6 +1,7 @@
 // ignore_for_file: use_build_context_synchronously
 
 import 'package:flutter/material.dart';
+import 'package:spotify_music_helper/src/utils/globals.dart';
 import 'package:spotify_music_helper/src/utils/object_models.dart';
 import 'package:spotify_music_helper/src/utils/backend_calls/playlists_requests.dart';
 import 'package:spotify_music_helper/src/utils/backend_calls/tracks_requests.dart';
@@ -10,6 +11,8 @@ import 'package:spotify_music_helper/src/utils/global_classes/secure_storage.dar
 String allOption = 'all';
 String tracksOption = 'tracks';
 String playlistsOption = 'playlists';
+
+Color errorMessageRed = const Color.fromARGB(255, 143, 12, 2);
 
 class SpotifySync{
   bool isSyncing = false;
@@ -62,16 +65,16 @@ class SpotifySync{
         CallbackModel receivedCall = callback;
 
         try{
-          final result = await checkRefresh(receivedCall, false); 
+          final result = await PlaylistsRequests().checkRefresh(receivedCall, false); 
 
           if (result != null){
             receivedCall = result;
           }
 
-          int tracksTotal = await getSpotifyTracksTotal(playlistId, receivedCall.expiresAt, receivedCall.accessToken);
-          Map<String, TrackModel> tracks = await getSpotifyPlaylistTracks(playlistId, receivedCall.expiresAt, receivedCall.accessToken, tracksTotal);
+          int tracksTotal = await TracksRequests().getTracksTotal(playlistId, receivedCall.expiresAt, receivedCall.accessToken);
+          Map<String, TrackModel> tracks = await TracksRequests().getPlaylistTracks(playlistId, receivedCall.expiresAt, receivedCall.accessToken, tracksTotal);
           
-          await DatabaseStorage().smartSyncTracks(user.spotifyId, tracks, playlistId);
+          await DatabaseStorage().syncTracks(user.spotifyId, tracks, playlistId);
         }
         catch (e){
           errorMessage(scaffoldMessengerState);
@@ -128,19 +131,14 @@ class SpotifySync{
         CallbackModel receivedCall = callback;
 
         try{
-          final result = await checkRefresh(receivedCall, false); 
+          final result = await PlaylistsRequests().checkRefresh(receivedCall, false); 
 
           if (result != null){
             receivedCall = result;
           }
-          final playlists = await getSpotifyPlaylists(receivedCall.expiresAt, receivedCall.accessToken, user.spotifyId);
+          final playlists = await PlaylistsRequests().getPlaylists(receivedCall.expiresAt, receivedCall.accessToken, user.spotifyId);
 
-          if (updateDatabase){
-            await DatabaseStorage().deepSynvPlaylists(playlists, user.spotifyId);
-          }
-          else{
-            await DatabaseStorage().smartSyncPlaylists(playlists, user.spotifyId);
-          }
+          await DatabaseStorage().syncPlaylists(playlists, user.spotifyId);
 
           //Update User on What playlists have been Synced
           if (option != allOption){
@@ -159,7 +157,7 @@ class SpotifySync{
               SnackBar(
                 content: Text('Synced: $mesg'),
                 duration: const Duration(seconds: 6),
-                backgroundColor: const Color.fromARGB(255, 1, 167, 7),
+                backgroundColor: spotHelperGreen,
 
               )
             );
@@ -190,33 +188,31 @@ class SpotifySync{
 
         CallbackModel receivedCall = callback;
 
-        final result = await checkRefresh(receivedCall, false); 
+        final result = await PlaylistsRequests().checkRefresh(receivedCall, false); 
 
         if (result != null){
           receivedCall = result;
         }
-        Map<String, PlaylistModel> playlists = await getSpotifyPlaylists(receivedCall.expiresAt, receivedCall.accessToken, user.spotifyId);
+        Map<String, PlaylistModel> playlists = await PlaylistsRequests().getPlaylists(receivedCall.expiresAt, receivedCall.accessToken, user.spotifyId);
         
         //Gets every Playlist's Tracks and syncs Tracks to database
         for (var playlist in playlists.entries){
+          String total = '';
           try{
             debugPrint('Getting tracks for ${playlist.value.title} ${playlist.key}');
             
-            final result = await checkRefresh(receivedCall, false); 
+            final result = await PlaylistsRequests().checkRefresh(receivedCall, false); 
 
             if (result != null){
               receivedCall = result;
             }
 
-            int tracksTotal = await getSpotifyTracksTotal(playlist.value.id, receivedCall.expiresAt, receivedCall.accessToken);
-            Map<String, TrackModel> tracks = await getSpotifyPlaylistTracks(playlist.value.id, receivedCall.expiresAt, receivedCall.accessToken, tracksTotal);
+            int tracksTotal = await TracksRequests().getTracksTotal(playlist.value.id, receivedCall.expiresAt, receivedCall.accessToken);
+            total = '$tracksTotal';
 
-            if (updateDatabase){
-              await DatabaseStorage().deepSyncTracks(user.spotifyId, tracks, playlist.value.id);
-            }
-            else{
-              await DatabaseStorage().smartSyncTracks(user.spotifyId, tracks, playlist.value.id);
-            }
+            Map<String, TrackModel> tracks = await TracksRequests().getPlaylistTracks(playlist.value.id, receivedCall.expiresAt, receivedCall.accessToken, tracksTotal);
+
+            await DatabaseStorage().syncTracks(user.spotifyId, tracks, playlist.value.id);
 
           }
           catch (e){
@@ -228,13 +224,12 @@ class SpotifySync{
 
           //Update user on Progress
           String mesg = playlist.value.title;
-          
+
           scaffoldMessengerState.showSnackBar(
             SnackBar(
-              content: Text('Synced: $mesg tracks'),
+              content: Text('Synced: $total tracks for $mesg'),
               duration: const Duration(seconds: 8),
-              backgroundColor: const Color.fromARGB(255, 1, 167, 7),
-
+              backgroundColor: spotHelperGreen,
             )
           );
         }
@@ -252,7 +247,7 @@ class SpotifySync{
               ],
             ),
             duration: const Duration(seconds: 4),
-            backgroundColor: const Color.fromARGB(255, 1, 167, 7),
+            backgroundColor: spotHelperGreen,
 
           )
         );
@@ -262,21 +257,21 @@ class SpotifySync{
     scaffoldMessengerState.hideCurrentSnackBar();
 
     scaffoldMessengerState.showSnackBar(
-      const SnackBar(
+      SnackBar(
         content: Column(
           children: [
             Text(
               'Failed to connect with Spotify',
-              style: TextStyle(color: Color.fromARGB(255, 209, 28, 15)),
+              style: TextStyle(color: failedRed),
             ),
             Text(
                 'Sync Error',
-                style: TextStyle(color: Color.fromARGB(255, 209, 28, 15)),
+                style: TextStyle(color: failedRed),
             )
           ],
         ),
         duration: Duration(seconds: 8),
-        backgroundColor: Color.fromARGB(255, 143, 12, 2),
+        backgroundColor: errorMessageRed,
       ));
   }
 

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:spotify_music_helper/src/utils/globals.dart';
 import 'package:spotify_music_helper/src/utils/object_models.dart';
 import 'package:spotify_music_helper/src/utils/global_classes/global_objects.dart';
 
@@ -54,7 +55,7 @@ class TracksSearchDelegate extends SearchDelegate {
             children: [
               FilterChip(
                 backgroundColor: artistFilter
-                    ? const Color.fromARGB(255, 6, 163, 11)
+                    ? spotHelperGreen
                     : Colors.grey,
                 label: const Text('Artist Filter'),
                 onSelected: (value) {

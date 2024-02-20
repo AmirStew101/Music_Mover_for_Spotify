@@ -122,7 +122,7 @@ class ImageGridState extends State<ImageGridWidget> {
                   }
               ),
             ),
-            if (!user.subscribed)
+            if (!user.subscribed || !devMode)
               //Space for Ad
               const SizedBox(
                 height: 70,

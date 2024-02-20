@@ -44,6 +44,7 @@ class SelectPlaylistSearchDelegate extends SearchDelegate {
             icon: const Icon(Icons.cancel),
             onPressed: () {
               if (query.isEmpty) {
+                debugPrint('Sending: $selectedList');
                 close(context, selectedList);
               } else {
                 query = '';

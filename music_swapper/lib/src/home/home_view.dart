@@ -7,6 +7,7 @@ import 'package:spotify_music_helper/src/home/home_appbar.dart';
 import 'package:spotify_music_helper/src/login/start_screen.dart';
 import 'package:spotify_music_helper/src/utils/analytics.dart';
 import 'package:spotify_music_helper/src/utils/ads.dart';
+import 'package:spotify_music_helper/src/utils/globals.dart';
 import 'package:spotify_music_helper/src/utils/object_models.dart';
 import 'package:spotify_music_helper/src/utils/backend_calls/playlists_requests.dart';
 import 'package:spotify_music_helper/src/home/home_body.dart';
@@ -36,7 +37,6 @@ class HomeViewState extends State<HomeView> with SingleTickerProviderStateMixin{
   bool loaded = false;
   bool error = false;
   bool refresh = false;
-  bool deepSync = false;
   bool checkedLogin = false;
 
   late TabController tabController;
@@ -48,7 +48,7 @@ class HomeViewState extends State<HomeView> with SingleTickerProviderStateMixin{
   }
 
   Future<void> checkLogin() async {
-    final response = await checkRefresh(receivedCall, false);
+    final response = await PlaylistsRequests().checkRefresh(receivedCall, false);
 
     if (!checkedLogin || response == null){
       checkedLogin = true;
@@ -82,27 +82,35 @@ class HomeViewState extends State<HomeView> with SingleTickerProviderStateMixin{
     //Fetches Playlists if page is not loaded and on this Page
     if (mounted && !loaded && checkedLogin){
       if (!refresh){
-        await fetchDatabasePlaylists();
+        await fetchDatabasePlaylists()
+        .catchError((e) {
+          error = true;
+          debugPrint('home_view.dart line: ${getCurrentLine(offset: 3)} Caught Error $e');
+        });
       }
       else{
-        await fetchSpotifyPlaylists();
+        await fetchSpotifyPlaylists()
+        .catchError((e) {
+          error = true;
+          debugPrint('home_view.dart line: ${getCurrentLine(offset: 3)} Caught Error $e');
+        });
       }
     }
   }//checkLogin
 
   Future<void> fetchDatabasePlaylists() async{
-    playlists = await DatabaseStorage().getDatabasePlaylists(user.spotifyId)
-    .catchError((e) {
-      debugPrint('Caught Error in home_view.dart line: ${getCurrentLine(offset: 3)} error: $e');
-      return {} as FutureOr<Map<String, PlaylistModel>>;
-    });
+    playlists = await DatabaseStorage().getDatabasePlaylists(user.spotifyId);
 
     //More than just the Liked Songs playlist & not Refreshing the page
     if (playlists.length > 1 && !refresh){
       loaded = true;
     }
     else if (mounted){
-      await fetchSpotifyPlaylists();
+      await fetchSpotifyPlaylists()
+      .catchError((e) {
+          error = true;
+          debugPrint('home_view.dart line: ${getCurrentLine(offset: 3)} Caught Error $e');
+      });
     }
 
   }//fetchDatabasePlaylists
@@ -112,29 +120,24 @@ class HomeViewState extends State<HomeView> with SingleTickerProviderStateMixin{
     try{
       bool forceRefresh = false;
       //Checks to make sure Tokens are up to date before making a Spotify request
-      CallbackModel? result = await checkRefresh(receivedCall, forceRefresh);
+      CallbackModel? result = await PlaylistsRequests().checkRefresh(receivedCall, forceRefresh);
 
       if (result == null){
+        checkedLogin = false;
         error = true;
-        return;
+        throw Exception('home_view.dart line: ${getCurrentLine(offset: 5)} Failed to get Refresh Tokens');
       }
       receivedCall = result;
 
-      playlists = await getSpotifyPlaylists(receivedCall.expiresAt, receivedCall.accessToken, user.spotifyId);
+      playlists = await  PlaylistsRequests().getPlaylists(receivedCall.expiresAt, receivedCall.accessToken, user.spotifyId);
 
       //Checks all playlists if they are in database
-      if (deepSync){
-        deepSync = !deepSync;
-        await DatabaseStorage().deepSynvPlaylists(playlists, user.spotifyId);
-      }
-      else{
-        await DatabaseStorage().smartSyncPlaylists(playlists, user.spotifyId);
-      }
+      await DatabaseStorage().syncPlaylists(playlists, user.spotifyId);
       
     }
     catch (e){
-      debugPrint('Caught an Error in Home fetchSpotifyPlaylists: $e');
       error = true;
+      debugPrint('home_view.dart Caught Error in fetchSpotifyPLaylists: $e');
     }
     refresh = false;
     loaded = true; //Future methods have complete
@@ -155,8 +158,7 @@ class HomeViewState extends State<HomeView> with SingleTickerProviderStateMixin{
   }//navigateToTracks
 
 
-  Future<void> refreshPage({bool syncDeep = false}) async{
-    deepSync = syncDeep;
+  Future<void> refreshPage() async{
     loaded = false;
     error = false;
     refresh = true;
@@ -241,11 +243,9 @@ class HomeViewState extends State<HomeView> with SingleTickerProviderStateMixin{
   AppBar homeAppbar(){
     return AppBar(
         //Refresh Icon under Appbar
-        bottom: TabBar(
-          controller: tabController,
-          tabs: [
-            Tab(
+        bottom: Tab( 
               child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   IconButton(
                     color: Colors.black,
@@ -262,37 +262,11 @@ class HomeViewState extends State<HomeView> with SingleTickerProviderStateMixin{
                         await refreshPage();
                       }
                     },
-                    child: const Text('Smart Sync'),
+                    child: const Text('Sync Playlists'),
                   ),
                 ],
               )
             ),
-            
-            Tab(
-              child: Row(
-                children: [
-                  IconButton(
-                    color: Colors.black,
-                    icon: const Icon(Icons.refresh),
-                    onPressed: () async {
-                      if (loaded){
-                        await refreshPage(syncDeep: true);
-                      }
-                    },
-                  ),
-                  InkWell(
-                    onTap: () async{
-                      if (loaded){
-                        await refreshPage(syncDeep: true);
-                      }
-                    },
-                    child: const Text('Deep Sync'),
-                  ),
-                ],
-              ),
-            )
-          ]
-        ),
 
         //The Options Menu containing other navigation options
         leading: Builder(
@@ -306,7 +280,7 @@ class HomeViewState extends State<HomeView> with SingleTickerProviderStateMixin{
 
         centerTitle: true,
         automaticallyImplyLeading: false, //Prevents back arrow
-        backgroundColor: const Color.fromARGB(255, 6, 163, 11),
+        backgroundColor: spotHelperGreen,
 
         title: const Text(
           'Spotify Helper',
