@@ -20,7 +20,7 @@ const assetNoImage = 'assets/images/no_image.png';
 const unlikeHeart = 'assets/images/unlike_heart-64.png';
 
 Color spotHelperGrey = const Color.fromRGBO(25, 20, 20, 1);
-Color spotHelperGreen = const Color.fromARGB(255, 6, 163, 11);
+Color spotHelperGreen = const Color.fromARGB(255, 2, 141, 7);
 Color failedRed = const Color.fromARGB(255, 179, 28, 17);
 
 bool updateDatabase = true;

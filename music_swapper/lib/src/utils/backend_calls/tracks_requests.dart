@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:spotify_music_helper/src/utils/globals.dart';
 import 'package:spotify_music_helper/src/utils/object_models.dart';
@@ -283,11 +284,14 @@ class TracksRequests{
     // Dupes is 0 if its only one track
     // First item in a list is at location 0
     removeIds.sort();
+    debugPrint('selectedNoDupes $selectedNoDupes');
     for (var track in selectedNoDupes.entries){
       int dupes = track.value.duplicates;
 
+      debugPrint('Searching for ${track.key}');
       //Gets location of element in sorted list
       final removeTotal = removeIds.lastIndexOf(track.key);
+      final removeStart = removeIds.indexOf(track.key);
 
       //Gets the difference between the deleted tracks and its duplicates
       int diff = dupes - removeTotal;
@@ -299,8 +303,11 @@ class TracksRequests{
         }
       }
 
+      debugPrint('Remove range 0 to ${removeTotal+1}');
+      debugPrint('Remove Ids before $removeIds');
       //Removes the tracks that have been checked
-      removeIds.removeRange(0, removeTotal);
+      removeIds.removeRange(removeStart, removeTotal+1);
+      debugPrint('Remove Ids after $removeIds');
     }
 
     return addBackIds;

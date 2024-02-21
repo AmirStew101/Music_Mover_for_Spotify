@@ -159,7 +159,7 @@ class TrackModel{
 
     String id = track.key;
     String title = track.value.title;
-    String artist = track.value.imageUrl;
+    String artist = track.value.artist;
     String imageUrl = track.value.imageUrl;
     String previewUrl = track.value.previewUrl ?? '';
     int duplicates = track.value.duplicates;
@@ -174,7 +174,7 @@ class TrackModel{
     for (var track in tracks.entries){
       String id = track.key;
       String title = track.value.title;
-      String artist = track.value.imageUrl;
+      String artist = track.value.artist;
       String imageUrl = track.value.imageUrl;
       String previewUrl = track.value.previewUrl ?? '';
       int duplicates = track.value.duplicates;
@@ -238,7 +238,7 @@ class PlaylistModel {
     };
   }
 
-  PlaylistModel mapToModel(Map<String, dynamic> playlist){
+  PlaylistModel toPlaylistModel(Map<String, dynamic> playlist){
     return PlaylistModel(
       id: playlist.entries.single.key,
       title: playlist.entries.single.value['title'],
@@ -248,7 +248,7 @@ class PlaylistModel {
     );
   }
 
-  Map<String, PlaylistModel> toMapModel(Map<String, dynamic> playlists){
+  Map<String, PlaylistModel> toPlaylistMap(Map<String, dynamic> playlists){
     Map<String, PlaylistModel> newPlaylists = {};
 
     for (var playlist in playlists.entries){
@@ -385,7 +385,7 @@ class TrackArguments{
 
     return TrackArguments(
       selectedTracks: selectedTracks, 
-      currentPlaylist: const PlaylistModel().mapToModel(trackArgs['currentPlaylist']), 
+      currentPlaylist: const PlaylistModel().toPlaylistModel(trackArgs['currentPlaylist']), 
       option: trackArgs['option'], 
       allTracks: allTracks
     );
