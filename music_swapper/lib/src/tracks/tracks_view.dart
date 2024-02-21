@@ -157,7 +157,7 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
     final response = await PlaylistsRequests().checkRefresh(receivedCall, false);
 
     if (mounted && !checkedLogin || response == null){
-      currentPlaylist = const PlaylistModel().mapToModel(widget.currentPLaylist);
+      currentPlaylist = const PlaylistModel().toPlaylistModel(widget.currentPLaylist);
 
       CallbackModel? secureCall = await SecureStorage().getTokens();
       UserModel? secureUser = await SecureStorage().getUser();
@@ -273,24 +273,19 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
       if (allTemp.isNotEmpty){
         allTracks = TracksRequests().makeDuplicates(allTemp);
         loaded = true;
-        debugPrint('Spotify Tracks Loaded');
       }
       else{
         allTracks = allTemp;
         loaded = true;
-        debugPrint('Spotify Tracks Loaded');
       }
 
       selectListUpdate();
-      debugPrint('Select list updated');
 
-      debugPrint('Start Database sync');
       //Adds tracks to database for faster retreival later
       await DatabaseStorage().syncTracks(user.spotifyId, allTracks, currentPlaylist.id)
       .catchError((e) {
         throw Exception('tracks_view.dart error trying to syncPlaylistTracksData line: ${getCurrentLine(offset: 2)} Caught Error: $e');
       });
-      debugPrint('Finished Database sync');
     }
 
     loaded = true; //Tracks if the tracks are loaded to be shown
@@ -752,14 +747,9 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
           }
           //Add to playlist(s) index
           else if (value == 1 && selectedTracksMap.isNotEmpty && !selectingAll && loaded) {
-
-            try{
             TrackArguments trackArgs = TrackArguments(selectedTracks: selectedTracksMap, currentPlaylist: currentPlaylist, option: 'add', allTracks: allTracks);
+
             Navigator.restorablePushNamed(context, SelectPlaylistsViewWidget.routeName, arguments: trackArgs.toJson());
-            }
-            catch (e){
-              throw Exception('Tracks_view line ${getCurrentLine()} caught error $e');
-            }
           } 
           //Removes track(s) from current playlist
           else if (value == 2 && selectedTracksMap.isNotEmpty && !selectingAll && loaded){

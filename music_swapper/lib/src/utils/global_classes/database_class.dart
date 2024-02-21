@@ -80,6 +80,7 @@ class DatabaseStorage {
       }
 
       for (var playId in playlistIds){
+        debugPrint('Sending to Add Playlist: $playId, Updates: $tracksUpdate');
         await userRepo.addTrackDocs(userId, tracksUpdate, playId);
       }
     }

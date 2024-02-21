@@ -79,6 +79,7 @@ class HomeViewState extends State<HomeView> with SingleTickerProviderStateMixin{
         initial = !initial;
       }
     }
+
     //Fetches Playlists if page is not loaded and on this Page
     if (mounted && !loaded && checkedLogin){
       if (!refresh){
@@ -88,7 +89,8 @@ class HomeViewState extends State<HomeView> with SingleTickerProviderStateMixin{
           throw Exception('home_view.dart line: ${getCurrentLine(offset: 3)} Caught Error $e');
         });
       }
-      else{
+      
+      if (mounted){
         await fetchSpotifyPlaylists()
         .catchError((e) {
           error = true;

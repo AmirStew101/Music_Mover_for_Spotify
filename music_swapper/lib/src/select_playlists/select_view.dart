@@ -59,6 +59,7 @@ class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
     super.initState();
     final trackArgs = const TrackArguments().toTrackArgs(widget.trackArgs);
     selectedTracksMap = trackArgs.selectedTracks;
+    debugPrint('Received Selected = $selectedTracksMap');
     currentPlaylist = trackArgs.currentPlaylist;
     option = trackArgs.option;
     allTracks = trackArgs.allTracks;
@@ -108,7 +109,6 @@ class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
   }
 
   Future<void> checkLogin() async{
-    error = true;
     if (mounted && !loaded && !refresh){
       CallbackModel? secureCall = await SecureStorage().getTokens();
       UserModel? secureUser = await SecureStorage().getUser();
@@ -124,7 +124,8 @@ class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
         await fetchDatabasePlaylists();
       }
     }
-    else if (mounted && refresh && !loaded){
+    
+    if (mounted && refresh && !loaded){
       await fetchSpotifyPlaylists()
       .catchError((e) {
         error = true;
@@ -192,7 +193,6 @@ class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
     //Get Ids for selected tracks
     List<String> addIds = TracksRequests().getUnmodifiedIds(selectedTracksMap);
 
-
     //Get Ids for selected Ids
     for (var playlist in selectedPlaylistsMap.entries) {
       playlistIds.add(playlist.key);
@@ -228,11 +228,14 @@ class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
         error = true;
         throw Exception('select_view.dart line: ${getCurrentLine()} TracksRequests Caught Error: $e');
       }
-
+      
       await DatabaseStorage().removeTracks(currentPlaylist, removeIds, user)
       .catchError((e) {
         throw Exception('select_view.dart line: ${getCurrentLine(offset:  3)} DatabaseStorage Caught Error $e');
       });
+
+      //Finished moving tracks for the playlist
+      adding = false;
 
       await DatabaseStorage().addTracks(user.spotifyId, selectedTracksMap, playlistIds)
       .catchError((e) {
@@ -242,7 +245,6 @@ class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
     }
     //Adds tracks to Playlists
     else {
-
       final result = await PlaylistsRequests().checkRefresh(receivedCall, false);
 
       if (result != null){
@@ -256,12 +258,16 @@ class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
         throw Exception('select_view.dart line: ${getCurrentLine(offset:  3)} Caught Error $e');
       });
 
+      //Finished adding tracks to 
+      adding = false;
+
+      debugPrint('Adding $selectedTracksMap to $playlistIds');
       //Update the database to add the tracks
       await DatabaseStorage().addTracks(user.spotifyId, selectedTracksMap, playlistIds)
       .catchError((e) {
         throw Exception('select_view.dart line: ${getCurrentLine(offset:  3)} DatabaseStorage Caught Error $e');
       });
-      
+
     }
   }
   
@@ -344,39 +350,28 @@ class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
               }),
         ],
       ),
-      body: selectBody(),
-
-      bottomNavigationBar: selectBottomBar()
-      );
-  }
-
-  FutureBuilder selectBody(){
-    return FutureBuilder<void>(
-        future: checkLogin(),
+      body: FutureBuilder(
+        future: checkLogin(), 
         builder: (context, snapshot) {
           if (error){
             return const Center(
-              child: Column(
-                children: [
-                  Center(
-                    child: CircularProgressIndicator.adaptive(),
-                  ),
-                  Center(
-                    child: Text(
-                      'Connection Error',
-                      textScaler: TextScaler.linear(1.3),
-                    )
-                  ),
-                ]),
+              child: Text(
+                'Error retreiving Playlists from Spotify. Check connection and Refresh page.',
+                textScaler: TextScaler.linear(2),
+                textAlign: TextAlign.center,
+              )
             );
           }
-          else if (loaded) {
+          else if (loaded && !adding) {
             return selectBodyView();
           } 
           else {
-            return const Center(child: CircularProgressIndicator());
+            return const Center(child: CircularProgressIndicator.adaptive());
           }
         },
+      ),
+
+      bottomNavigationBar: selectBottomBar()
       );
   }
 
