@@ -3,6 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:spotify_music_helper/src/login/start_screen.dart';
 import 'package:spotify_music_helper/src/utils/ads.dart';
+import 'package:spotify_music_helper/src/utils/globals.dart';
 import 'package:spotify_music_helper/src/utils/object_models.dart';
 import 'package:spotify_music_helper/src/utils/global_classes/secure_storage.dart';
 import 'package:spotify_music_helper/src/utils/global_classes/sync_services.dart';
@@ -139,7 +140,7 @@ class SettingsViewState extends State<SettingsViewWidget> with TickerProviderSta
                 DropdownButton<ThemeMode>(
                     style: Theme.of(context).textTheme.titleMedium,
                     iconSize: 35,
-                    iconEnabledColor: const Color.fromARGB(255, 35, 177, 40),
+                    iconEnabledColor: spotHelperGreen,
                     isExpanded: true,
                     alignment: Alignment.center,
                     // Read the selected themeMode from the controller
@@ -178,10 +179,10 @@ class SettingsViewState extends State<SettingsViewWidget> with TickerProviderSta
                   selectedColor: Colors.blue,
                   leading: rotatingSync(allController, allOption),
                   title: const Text(
-                    'Deep Sync All Playlists & Tracks. ',
+                    'Sync All Playlists & Tracks. ',
                     textScaler: TextScaler.linear(1.1),
                   ),
-                  subtitle: const Text('Updates Images, Names, etc. from Spotify. Slow if you have a lot of Tracks but effective.'),
+                  subtitle: const Text('Updates Paylist Images, Names, & gets missing Tracks and Playlists from Spotify.'),
                   onTap: () async{
                     if (!syncingAll && !syncingPlaylists && !syncingPlaylists){
                       if (mounted)  allController.repeat(); //Start animation
@@ -195,10 +196,10 @@ class SettingsViewState extends State<SettingsViewWidget> with TickerProviderSta
                       setState(() {});
 
                       scaffoldMessenger.showSnackBar(
-                        const SnackBar(
-                          content: Text('Finished Syncing Playlists & Tracks'),
-                          duration: Duration(seconds: 4),
-                          backgroundColor: Color.fromARGB(255, 1, 167, 7),
+                       SnackBar(
+                          content: const Text('Finished Syncing Playlists & Tracks'),
+                          duration: const Duration(seconds: 4),
+                          backgroundColor: spotHelperGreen,
 
                         )
                       );
@@ -214,12 +215,11 @@ class SettingsViewState extends State<SettingsViewWidget> with TickerProviderSta
                   selectedColor: Colors.blue,
                   leading: rotatingSync(playlistsController, playlistsOption),
                   title: const Text(
-                    'Deep Sync All Playlists',
+                    'Sync All Playlists',
                     textScaler: TextScaler.linear(1.1),
                   ),
                   subtitle: const Text('Updates Images and Names of Playlists'),
                   onTap: () async{
-                    debugPrint('Dismissed? ${!playlistsController.isDismissed}, !syncingPlaylists: ${!syncingPlaylists}');
                     if (!syncingAll && !syncingPlaylists && !syncingPlaylists){
                       if (mounted) playlistsController.repeat(); //Start animation
                       syncingPlaylists = true;
@@ -242,10 +242,10 @@ class SettingsViewState extends State<SettingsViewWidget> with TickerProviderSta
                   selectedColor: Colors.blue,
                   leading: rotatingSync(tracksController, tracksOption),
                   title: const Text(
-                    'Deep Sync All Tracks',
+                    'Sync All Tracks',
                     textScaler: TextScaler.linear(1.1),
                   ),
-                  subtitle: const Text('Updates all Tracks data for every Playlist. Time varies depending on how many Tracks you have.'),
+                  subtitle: const Text('Retreives any missing tracks for all your playlists.'),
                   onTap: () async{
                     if (!syncingTracks && !syncingPlaylists && !syncingAll){
                       if (mounted) tracksController.repeat(); //Start animation
@@ -259,10 +259,10 @@ class SettingsViewState extends State<SettingsViewWidget> with TickerProviderSta
                       setState(() {});
 
                       scaffoldMessenger.showSnackBar(
-                        const SnackBar(
-                          content: Text('Finished Syncing Tracks'),
-                          duration: Duration(seconds: 5),
-                          backgroundColor: Color.fromARGB(255, 1, 167, 7),
+                         SnackBar(
+                          content: const Text('Finished Syncing Tracks'),
+                          duration: const Duration(seconds: 5),
+                          backgroundColor: spotHelperGreen,
 
                         )
                       );

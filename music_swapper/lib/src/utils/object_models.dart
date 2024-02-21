@@ -98,6 +98,40 @@ class TrackModel{
     };
   }
 
+  @override
+  String toString(){
+    return 'TrackModel(id: $id, title: $title, artist: $artist, duplicates: $duplicates, imageUrl: $imageUrl, liked: $liked)';
+  }
+
+  bool get isEmpty{
+    if (id == '' && imageUrl == '' && artist == '' && title == ''){
+      return true;
+    }
+    return false;
+  }
+
+  bool get isNotEmpty{
+    if (id == '' && imageUrl == '' && artist == '' && title == ''){
+      return false;
+    }
+    return true;
+  }
+
+  TrackModel get incrementDuplicates{
+    TrackModel newTrack = TrackModel(
+      id: id,
+      artist: artist,
+      duplicates: duplicates + 1,
+      imageUrl: imageUrl,
+      liked: liked,
+      previewUrl: previewUrl,
+      title: title
+    );
+
+    return newTrack;
+
+  }
+
   Map<String, TrackModel> toModel(Map<String, dynamic> tracks){
  
     Map<String, TrackModel> newTracks = {};
@@ -159,12 +193,7 @@ class TrackModel{
 
     return newTracks;
   }
-
-
-  @override
-  String toString(){
-    return 'TrackModel(id: $id, title: $title, artist: $artist, duplicates: $duplicates, imageUrl: $imageUrl, liked: $liked)';
-  }
+  
 }
 
 class PlaylistModel {

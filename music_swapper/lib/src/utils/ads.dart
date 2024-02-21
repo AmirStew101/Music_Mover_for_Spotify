@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
+import 'package:spotify_music_helper/src/utils/globals.dart';
 import 'package:spotify_music_helper/src/utils/object_models.dart';
 
 
 //Banner Ad setup fr Playlist
 Widget playlistsAdRow(BuildContext context, UserModel user){
-  if (user.subscribed){
+  if (user.subscribed || devMode){
     return Container();
   }
 
@@ -13,7 +14,7 @@ Widget playlistsAdRow(BuildContext context, UserModel user){
 
   final BannerAd bannerAd = BannerAd(
     size: AdSize.fluid, 
-    adUnitId: 'ca-app-pub-3940256099942544/6300978111', 
+    adUnitId: testBannerAd, 
     listener: BannerAdListener(
       onAdLoaded: (ad) => debugPrint('Ad Loaded\n'),
       onAdClicked: (ad) => debugPrint('Ad Clicked\n'),), 
@@ -37,7 +38,7 @@ Widget playlistsAdRow(BuildContext context, UserModel user){
 
 //Banner Ad setup
 Widget homeAdRow(BuildContext context, UserModel user){
-  if (user.subscribed){
+  if (user.subscribed || devMode){
     return Container();
   }
 
@@ -45,7 +46,7 @@ Widget homeAdRow(BuildContext context, UserModel user){
 
   final BannerAd bannerAd = BannerAd(
     size: AdSize.fluid, 
-    adUnitId: 'ca-app-pub-3940256099942544/6300978111', 
+    adUnitId: testBannerAd, 
     listener: BannerAdListener(
       onAdLoaded: (ad) => debugPrint('Ad Loaded\n'),
       onAdClicked: (ad) => debugPrint('Ad Clicked\n'),), 
@@ -69,7 +70,7 @@ Widget homeAdRow(BuildContext context, UserModel user){
 
 //Banner Ad setup
 Widget settingsAdRow(BuildContext context, UserModel user){
-  if (user.subscribed){
+  if (user.subscribed || devMode){
     return Container();
   }
 
@@ -77,7 +78,7 @@ Widget settingsAdRow(BuildContext context, UserModel user){
 
   final BannerAd bannerAd = BannerAd(
     size: AdSize.fluid, 
-    adUnitId: 'ca-app-pub-3940256099942544/6300978111', 
+    adUnitId: testBannerAd, 
     listener: BannerAdListener(
       onAdLoaded: (ad) => debugPrint('Ad Loaded\n'),
       onAdClicked: (ad) => debugPrint('Ad Clicked\n'),), 

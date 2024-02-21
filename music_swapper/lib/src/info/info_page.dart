@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:spotify_music_helper/src/utils/global_classes/global_objects.dart';
+import 'package:spotify_music_helper/src/utils/globals.dart';
 
 class InfoView extends StatelessWidget {
   const InfoView({super.key});
@@ -19,7 +20,7 @@ class InfoView extends StatelessWidget {
           )
         ),
         centerTitle: true,
-        backgroundColor: const Color.fromARGB(255, 6, 163, 11),
+        backgroundColor: spotHelperGreen,
         title: const Text(
           'Info Page',
           textAlign: TextAlign.center,
@@ -28,26 +29,26 @@ class InfoView extends StatelessWidget {
       drawer: optionsMenu(context),
 
       body: ListView(
-        children: const [ 
+        children: [ 
           ListTile(
             title: Text(
               'This app is to help organize your Spotify playlists faster. \nIt allows you to select multiple songs by Title or Artist, and move them to another playlist or playlists of your choice. \nYou can also delete multiple songs from a playlist of your choice.',
-              style: TextStyle(fontSize: 16, color: Color.fromARGB(255, 18, 202, 24)),
+              style: TextStyle(fontSize: 16, color: spotHelperGreen,),
               textAlign: TextAlign.center,
             ),
           ),
-          Divider(color: Colors.grey),
+          const Divider(color: Colors.grey),
 
           ListTile(
             title: Text(
                 'If you have over 500 tracks first time syncing and Deep Syncs from Spotify might take a minute.',
-                style: TextStyle(fontSize: 16, color: Color.fromARGB(255, 219, 19, 5)),
+                style: TextStyle(fontSize: 16, color: failedRed),
                 textAlign: TextAlign.start,
               ),
           ),
-          Divider(color: Colors.grey),
+          const Divider(color: Colors.grey),
 
-          ListTile(
+          const ListTile(
             title: Text(
               'If a playlist is not showing in the app follow these steps:',
               style: TextStyle(fontSize: 16, color: Colors.yellow),

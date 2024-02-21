@@ -2,11 +2,12 @@
 
 import 'dart:async';
 
-import 'package:another_flushbar/flushbar.dart';
 import 'package:flutter/material.dart';
 import 'package:spotify_music_helper/src/home/home_view.dart';
 import 'package:spotify_music_helper/src/login/start_screen.dart';
+import 'package:spotify_music_helper/src/select_playlists/select_popups.dart';
 import 'package:spotify_music_helper/src/tracks/tracks_view.dart';
+import 'package:spotify_music_helper/src/utils/globals.dart';
 import 'package:spotify_music_helper/src/utils/object_models.dart';
 import 'package:spotify_music_helper/src/utils/backend_calls/playlists_requests.dart';
 import 'package:spotify_music_helper/src/select_playlists/select_search.dart';
@@ -51,6 +52,7 @@ class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
   bool error = false;
   bool refresh = false;
   bool selectUpdating = false;
+  bool popup = false;
 
   @override
   void initState() {
@@ -69,7 +71,6 @@ class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
   }
 
   void selectListUpdate(){
-    debugPrint('Updating select');
     selectedPlaylistsList = List.generate(allPlaylists.length, (index) {
         MapEntry<String, PlaylistModel> currPlaylist = allPlaylists.entries.elementAt(index);
 
@@ -107,8 +108,8 @@ class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
   }
 
   Future<void> checkLogin() async{
+    error = true;
     if (mounted && !loaded && !refresh){
-      debugPrint('Checking Login');
       CallbackModel? secureCall = await SecureStorage().getTokens();
       UserModel? secureUser = await SecureStorage().getUser();
       
@@ -127,7 +128,7 @@ class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
       await fetchSpotifyPlaylists()
       .catchError((e) {
         error = true;
-        debugPrint('Caught error in select_view.dart line: ${getCurrentLine(offset: 3)} error: $e');
+        throw Exception('Caught error in select_view.dart line: ${getCurrentLine(offset: 3)} error: $e');
       });
     }
 
@@ -136,7 +137,6 @@ class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
   Future<void> fetchDatabasePlaylists() async{
     try{
       if (mounted && !loaded){
-        debugPrint('Fetching Database');
         allPlaylists = await DatabaseStorage().getDatabasePlaylists(user.spotifyId)
         .catchError((e) {
           selectViewError(e, getCurrentLine(offset: 2));
@@ -163,21 +163,20 @@ class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
   Future<void> fetchSpotifyPlaylists() async {
     try{
       if (!loaded && !selectUpdating){
-        debugPrint('Fetching Spotify');
         bool forceRefresh = false;
-        final result = await checkRefresh(receivedCall, forceRefresh);
+        final result = await PlaylistsRequests().checkRefresh(receivedCall, forceRefresh);
 
         if (result != null){
           receivedCall = result;
         }
 
-        allPlaylists = await getSpotifyPlaylists(receivedCall.expiresAt, receivedCall.accessToken, user.spotifyId);
+        allPlaylists = await PlaylistsRequests().getPlaylists(receivedCall.expiresAt, receivedCall.accessToken, user.spotifyId);
 
         selectUpdating = true;
         selectListUpdate();
 
         //Checks all playlists if they are in database
-        await DatabaseStorage().smartSyncPlaylists(allPlaylists, user.spotifyId);
+        await DatabaseStorage().syncPlaylists(allPlaylists, user.spotifyId);
 
         loaded = true;
       }
@@ -188,27 +187,11 @@ class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
 
   }
 
-  //Updates the list of Playlists the user selected from Search
-  // void receiveSelected(List<MapEntry<String, dynamic>> playlistsSelected) {
-  //   selectedPlaylistsMap.clear();
-  //
-  //   for (var playlist in playlistsSelected){
-  //     String playlistId = playlist.key;
-  //
-  //     if (playlist.value['chosen']){
-  //       selectedPlaylistsMap[playlistId] = allPlaylists[playlistId]!;
-  //     }
-  //   }
-  // }
-
-
   //Handles what to do when the user selects the Move/Add Tracks button
   Future<void> handleOptionSelect() async {
     //Get Ids for selected tracks
-    List<String> trackIds = [];
-    for (var track in selectedTracksMap.entries) {
-      trackIds.add(track.key);
-    }
+    List<String> addIds = TracksRequests().getUnmodifiedIds(selectedTracksMap);
+
 
     //Get Ids for selected Ids
     for (var playlist in selectedPlaylistsMap.entries) {
@@ -217,41 +200,79 @@ class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
 
     //Move tracks to Playlists
     if (option == 'move') {
+      List<String> removeIds = addIds;
+      List<String> addBackIds = TracksRequests().getAddBackIds(selectedTracksMap);
       
-      final result = await checkRefresh(receivedCall, false);
+      final result = await PlaylistsRequests().checkRefresh(receivedCall, false);
       if(result != null){
         receivedCall = result;
       }
-      await addTracksRequest(trackIds, playlistIds, receivedCall.expiresAt, receivedCall.accessToken);
-      await DatabaseStorage().removeTracks(receivedCall, currentPlaylist, selectedTracksMap, allTracks, user);
+
+      try{
+        //Add tracks to selected playlists
+        await TracksRequests().addTracks(addIds, playlistIds, receivedCall.expiresAt, receivedCall.accessToken)
+        .catchError((e) {
+          error = true;
+          throw Exception('select_view.dart line: ${getCurrentLine(offset:  3)} Caught Error $e');
+        });
+
+        //Remove tracks from current playlist
+        await TracksRequests().removeTracks(removeIds, currentPlaylist.id, currentPlaylist.snapshotId, receivedCall.expiresAt, receivedCall.accessToken);
+
+        if (addBackIds.isNotEmpty){
+          //Add back the Duplicate tracks
+          await TracksRequests().addTracks(addBackIds, [currentPlaylist.id], receivedCall.expiresAt, receivedCall.accessToken);
+        }
+      }
+      catch (e){
+        error = true;
+        throw Exception('select_view.dart line: ${getCurrentLine()} TracksRequests Caught Error: $e');
+      }
+
+      await DatabaseStorage().removeTracks(currentPlaylist, removeIds, user)
+      .catchError((e) {
+        throw Exception('select_view.dart line: ${getCurrentLine(offset:  3)} DatabaseStorage Caught Error $e');
+      });
+
+      await DatabaseStorage().addTracks(user.spotifyId, selectedTracksMap, playlistIds)
+      .catchError((e) {
+        throw Exception('select_view.dart line: ${getCurrentLine(offset:  3)} DatabaseStorage Caught Error $e');
+      });
 
     }
     //Adds tracks to Playlists
     else {
 
-      final result = await checkRefresh(receivedCall, false);
+      final result = await PlaylistsRequests().checkRefresh(receivedCall, false);
 
       if (result != null){
         receivedCall = result;
       }
-      await addTracksRequest(trackIds, playlistIds, receivedCall.expiresAt, receivedCall.accessToken);
+
+      //Update Spotify with the added tracks
+      await TracksRequests().addTracks(addIds, playlistIds, receivedCall.expiresAt, receivedCall.accessToken)
+      .catchError((e) {
+        error = true;
+        throw Exception('select_view.dart line: ${getCurrentLine(offset:  3)} Caught Error $e');
+      });
+
+      //Update the database to add the tracks
+      await DatabaseStorage().addTracks(user.spotifyId, selectedTracksMap, playlistIds)
+      .catchError((e) {
+        throw Exception('select_view.dart line: ${getCurrentLine(offset:  3)} DatabaseStorage Caught Error $e');
+      });
       
     }
   }
-
   
   //FUnction to exit playlists select menu
   void navigateToTracks(){
       Map<String, dynamic> sendPlaylist = currentPlaylist.toJson();
-      //Removes the Stacked Pages until the Home page is the only one Left
-      Navigator.popUntil(context, ModalRoute.withName(HomeView.routeName) );
-      //Adds the New Tracks Page to Stack
-      Navigator.restorablePushNamed(context, TracksView.routeName, arguments: sendPlaylist);
+      Navigator.pushNamedAndRemoveUntil(context, TracksView.routeName, ModalRoute.withName(HomeView.routeName), arguments: sendPlaylist);
   }
 
 
   Future<void> refreshPlaylists() async{
-    debugPrint('Refresh');
     loaded = false;
     refresh = true;
     setState(() {
@@ -263,7 +284,7 @@ class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: const Color.fromARGB(255, 6, 163, 11),
+        backgroundColor: spotHelperGreen,
         title: const Text(
           'Playlist(s) Select',
           textAlign: TextAlign.center,
@@ -305,6 +326,14 @@ class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
                   );
                   if(result != null){
                     selectedPlaylistsList = result;
+                    String id;
+                    for (var playEntry in result as List<MapEntry<String, dynamic>>){
+                      if (playEntry.value['chosen']){
+                        id = playEntry.key;
+                        selectedPlaylistsMap.putIfAbsent(id, () => allPlaylists[id]!);
+                      }
+                    }
+                    
                     //receiveSelected(result);
                   }
 
@@ -341,18 +370,6 @@ class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
                 ]),
             );
           }
-          else if (adding){
-            return const Center(
-              child: Column(
-                children: [
-                  CircularProgressIndicator.adaptive(),
-                  Text(
-                    'Adding Tracks to Playlists',
-                    textScaler: TextScaler.linear(1.3),
-                  )
-                ]),
-            );
-          }
           else if (loaded) {
             return selectBodyView();
           } 
@@ -376,6 +393,10 @@ class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
                 bool chosen = selectedPlaylistsList[index].value['chosen'];
                 Map<String, dynamic> selectMap = {'chosen': !chosen, 'title': playTitle, 'imageUrl': imageUrl};
 
+                if (option == 'move' && currentPlaylist.title == playTitle){
+                  return Container();
+                }
+
                 return Column(
                   children: [
                     InkWell(
@@ -387,10 +408,6 @@ class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
                         });
                       },
                       child: ListTile(
-                        trailing: imageUrl.contains('asset')
-                        ? Image.asset(imageUrl)
-                        :Image.network(imageUrl),
-                        
                         leading: Checkbox(
                           materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                           shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
@@ -407,6 +424,9 @@ class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
                           playTitle,
                           textAlign: TextAlign.start,
                         ),
+                        trailing: imageUrl.contains('asset')
+                        ? Image.asset(imageUrl)
+                        :Image.network(imageUrl),
                       ),
                     ),
 
@@ -428,7 +448,7 @@ class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
     }
 
     return BottomAppBar(
-      color: const Color.fromRGBO(25, 20, 20, 1),
+      color: spotHelperGreen,
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         crossAxisAlignment: CrossAxisAlignment.center,
@@ -439,38 +459,47 @@ class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
             child: InkWell(
               onTap: () async {
                 if (selectedTracksMap.isNotEmpty){
-                  adding = true;
-                  int totalChosen = selectedTracksMap.length;
-                  
-                  //Sets variables for User Notification
-                  int totalPlaylists = selectedPlaylistsMap.length;
+                  if (!adding){
+                    adding = true;
+                    int totalChosen = selectedTracksMap.length;
+                    
+                    //Sets variables for User Notification
+                    int totalPlaylists = selectedPlaylistsMap.length;
 
-                  //Message to display to the user
-                  String optionMsg = (option == 'move')
-                        ? 'Successfully moved $totalChosen songs to $totalPlaylists playlists'
-                        : 'Successfully added $totalChosen songs to $totalPlaylists playlists';
+                    //Message to display to the user
+                    String optionMsg = (option == 'move')
+                          ? 'Successfully moved $totalChosen songs to $totalPlaylists playlists'
+                          : 'Successfully added $totalChosen songs to $totalPlaylists playlists';
 
-                  setState(() {
-                    //Updates adding
-                  });
+                    setState(() {
+                      //Updates adding
+                    });
 
-                  await handleOptionSelect()
-                  .catchError((e){
-                    debugPrint('Caught Error in select_playlists_view.dart at line ${getCurrentLine(offset: 2)} $e');
-                  });
-                  navigateToTracks();
+                    await handleOptionSelect()
+                    .catchError((e){
+                      error = true;
+                      throw Exception('Caught Error in select_playlists_view.dart at line ${getCurrentLine(offset: 2)} $e');
+                    });
+                    navigateToTracks();
 
+                    if (!error){
+                      //Notification for the User alerting them to the result
+                      if(!popup){
+                        popup = true;
+                        popup = await SelectPopups().success(context, optionMsg);
+                      }
 
-                  //Notification for the User alerting them to the result
-                  Flushbar(
-                    backgroundColor: const Color.fromARGB(255, 10, 182, 16),
-                    title: 'Success Message',
-                    duration: const Duration(seconds: 5),
-                    flushbarPosition: FlushbarPosition.TOP,
-                    message: optionMsg,
-                  ).show(context);
-
-                  await SpotifySync().startUpdate(playlistIds, scaffoldMessengerState);
+                      await SpotifySync().startUpdate(playlistIds, scaffoldMessengerState);
+                    }
+                    else{
+                      //Notification for the User alerting them to the result
+                      if(!popup){
+                        popup = true;
+                        popup = await SelectPopups().success(context, optionMsg);
+                      }
+                      
+                    }
+                  }
                 }
               },
 
@@ -500,17 +529,14 @@ class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
 
                       await handleOptionSelect()
                       .catchError((e){
-                        debugPrint('Caught Error in select_playlists_view.dart at line ${getCurrentLine(offset: 2)} $e');
+                        throw Exception('Caught Error in select_playlists_view.dart at line ${getCurrentLine(offset: 2)} $e');
                       });
                       navigateToTracks();
 
-                      Flushbar(
-                        backgroundColor: const Color.fromARGB(255, 2, 155, 7),
-                        title: 'Success Message',
-                        duration: const Duration(seconds: 5),
-                        flushbarPosition: FlushbarPosition.TOP,
-                        message: optionMsg,
-                      ).show(context);
+                      if(!popup){
+                        popup = true;
+                        popup = await SelectPopups().success(context, optionMsg);
+                      }
                     }
                   },
                 ),

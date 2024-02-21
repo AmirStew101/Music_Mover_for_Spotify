@@ -3,7 +3,6 @@ import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:flutter/material.dart';
 import 'package:spotify_music_helper/src/tracks/tracks_view.dart';
 import 'package:spotify_music_helper/src/utils/analytics.dart';
-import 'package:spotify_music_helper/src/utils/ads.dart';
 import 'package:spotify_music_helper/src/utils/globals.dart';
 import 'package:spotify_music_helper/src/utils/object_models.dart';
 
@@ -122,15 +121,13 @@ class ImageGridState extends State<ImageGridWidget> {
                   }
               ),
             ),
-            if (!user.subscribed)
+            if (!user.subscribed && !devMode)
               //Space for Ad
               const SizedBox(
-                height: 70,
+                height: 60,
               )
           ],
         ),
-
-        homeAdRow(context, user),
       ],
     );
   }
