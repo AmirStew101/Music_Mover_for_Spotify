@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 const String hosted = 'https://amirstew.pythonanywhere.com';
-const String ngrok = 'https://7d75-173-66-70-24.ngrok-free.app';
+const String ngrok = 'https://858c-173-66-70-24.ngrok-free.app';
 
 const status = 'status';
 const success = 'Success';

@@ -1,6 +1,5 @@
 
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:flutter/material.dart';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:get/get.dart';
 import 'package:spotify_music_helper/src/utils/object_models.dart';
@@ -29,15 +28,14 @@ class UserRepository extends GetxController {
       return false;
     }
     catch (e){
-        debugPrint('Caught Error in database_calls.dart Function hasUser $e');
+        throw Exception('Caught Error in database_calls.dart Function hasUser $e');
     }
-    throw Exception('Escaped return in hasUser');
   }
   
   Future<void> createUser(UserModel user) async{
     await usersRef.doc(user.spotifyId).set(user.toJson())
     .catchError((e) {
-      debugPrint('Error trying to create user in databse_calls.dart line ${getCurrentLine(offset: 2)}: $e');
+      throw Exception('Error trying to create user in databse_calls.dart line ${getCurrentLine(offset: 2)}: $e');
       }
     );
   }
@@ -69,7 +67,7 @@ class UserRepository extends GetxController {
     if (databaseUser.exists){
       await userRef.update({'Subscribed': user.subscribed, 'Tier': user.tier, 'Username': user.username, 'Expiration': DateTime.now()})
       .catchError((e) {
-        debugPrint('Caught error in database_calls.dart line: line ${getCurrentLine(offset: 2)} error: $e');
+        throw Exception('Caught error in database_calls.dart line: line ${getCurrentLine(offset: 2)} error: $e');
       });
     }
   }
@@ -105,9 +103,7 @@ class UserRepository extends GetxController {
           newPlaylists.add(newPlaylist);
         }
         else{
-          final idUpdate = playlistRef.doc(playlistId);
-          final modelUpdate = newPlaylist.toJsonFirestore();
-          updateBatch.update(idUpdate, modelUpdate);
+          updateBatch.update(playlistRef.doc(playlistId), newPlaylist.toJsonFirestore());
         }
       }
 
@@ -191,19 +187,28 @@ class UserRepository extends GetxController {
 
       int databaseTracks = playlistTracks.docs.length;
       int spotTracks = spotifyTracks.entries.length;
-      List<String> removeTracks = [];
+
+      List<String> removeIds = [];
+      final batch = db.batch();
       
       //Removes extra tracks from playlist
       for (var track in playlistTracks.docs){
-        if (!spotifyTracks.containsKey(track.id)){
+        final spotTrack = spotifyTracks[track.id];
+
+        if (spotTrack == null){
           databaseTracks--;
-          removeTracks.add(track.id);
+          batch.delete(tracksRef.doc(track.id));
+        }
+        else if (spotTrack.duplicates != track.data()['duplicates']){
+          removeIds.add(spotTrack.id);
         }
       }
 
-      if(removeTracks.isNotEmpty){
-        await removePlaylistTracks(userId, removeTracks, playlistId);
+      if (removeIds.isNotEmpty){
+        await removePlaylistTracks(userId, removeIds, playlistId);
       }
+
+      await batch.commit();
 
       //If Spotify & Database do not have matching tracks it adds
       int i = 0;
@@ -212,11 +217,7 @@ class UserRepository extends GetxController {
       String trackId;
       TrackModel newTrack;
       DocumentSnapshot<Map<String, dynamic>> databaseTrack;
-      DocumentReference<Map<String, dynamic>> idUpdate ;
-      // ignore: prefer_typing_uninitialized_variables
-      var modelUpdate;
       final updateBatch = db.batch();
-
 
       while( (databaseTracks != spotTracks || updateDatabase) && i < spotTracks){
         spotifyTrack = spotifyTracks.entries.elementAt(i);
@@ -231,9 +232,7 @@ class UserRepository extends GetxController {
           createTracks.add(newTrack);
         }
         else if(updateDatabase){
-          idUpdate = tracksRef.doc(trackId);
-          modelUpdate = newTrack.toJson();
-          updateBatch.update(idUpdate, modelUpdate);
+          updateBatch.update(tracksRef.doc(trackId), newTrack.toJson());
         }
 
         i++;
@@ -247,7 +246,7 @@ class UserRepository extends GetxController {
 
     }
     catch (e){
-      debugPrint('Caught Error in database_calls.dart Function syncPlaylistTracks: $e');
+      throw Exception('Caught Error in database_calls.dart Function syncPlaylistTracks: $e');
     }
   }//syncPlaylistTracks
 
@@ -302,9 +301,36 @@ class UserRepository extends GetxController {
       await batch.commit();
     }
     catch (e){
-      debugPrint('Caught Error in database_calls.dart Function creatTrackDoc: $e');
+      throw Exception('Caught Error in database_calls.dart Function creatTrackDoc: $e');
     }
   }//createTrackDocs
+
+  Future<void> addTrackDocs(String userId, List<TrackModel> trackModels, String playlistId) async{
+
+    try{
+      final playistRef = usersRef.doc(userId).collection(playlistColl);
+      final tracksRef = playistRef.doc(playlistId).collection(tracksColl);
+      final batch = db.batch();
+
+      for (var model in trackModels){
+        final track = await tracksRef.doc(model.id).get();
+
+        if (track.exists){
+          batch.update(tracksRef.doc(model.id), {'duplicates': model.duplicates});
+        }
+        else{
+          batch.set(tracksRef.doc(model.id), model.toJson());
+        }
+      }
+
+      await batch.commit();
+    }
+    catch (e){
+      throw Exception('database_calls.dart line: ${getCurrentLine()} Caught Error: $e');
+    }
+    
+  }
+
 
   //Removes the playlist connection in the database
   Future<void> removePlaylistTracks(String userId, List<String> trackIds, String playlistId) async{
@@ -319,24 +345,38 @@ class UserRepository extends GetxController {
         throw Exception('Playlist does not exist');
       }
 
-      //Adds all tracks to be deleted to the batch
-      for (var id in trackIds){
-        final databaseTrack = await tracksRef.doc(id).get();
-        int dupe = databaseTrack.data()!['duplicates'] - 1;
+      Map<String, int> removeTotal = {};
 
-        if (dupe >= 0){
-          batch.update(tracksRef.doc(id), {'duplicates': dupe});
+      for (var id in trackIds){
+        if (removeTotal[id] != null){
+          removeTotal[id] = removeTotal[id]! + 1;
         }
         else{
-          batch.delete(tracksRef.doc(id));
+          removeTotal[id] = 1;
         }
+      }
+
+      //Adds all tracks to be deleted to the batch
+      for (var removeTrack in removeTotal.entries){
+        final databaseTrack = await tracksRef.doc(removeTrack.key).get();
+        int databaseDupes = databaseTrack.data()!['duplicates'];
+
+        int diff = databaseDupes - removeTrack.value;
+
+        if (diff < 0){
+          batch.delete(tracksRef.doc(removeTrack.key));
+        }
+        else{
+          batch.update(tracksRef.doc(removeTrack.key), {'duplicates': diff});
+        }
+
       }
 
       //Deletes all batched tracks
       await batch.commit();
     }
     catch (e){
-      debugPrint('Caught an Error in database_calls.dart function removePlaylistTracks: $e');
+      throw Exception('Caught an Error in database_calls.dart function removePlaylistTracks: $e');
     }
 
   }//removePlaylistTracks

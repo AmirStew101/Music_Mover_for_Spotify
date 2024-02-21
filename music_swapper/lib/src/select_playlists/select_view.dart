@@ -71,7 +71,6 @@ class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
   }
 
   void selectListUpdate(){
-    debugPrint('Updating select');
     selectedPlaylistsList = List.generate(allPlaylists.length, (index) {
         MapEntry<String, PlaylistModel> currPlaylist = allPlaylists.entries.elementAt(index);
 
@@ -109,8 +108,8 @@ class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
   }
 
   Future<void> checkLogin() async{
+    error = true;
     if (mounted && !loaded && !refresh){
-      debugPrint('Checking Login');
       CallbackModel? secureCall = await SecureStorage().getTokens();
       UserModel? secureUser = await SecureStorage().getUser();
       
@@ -129,7 +128,7 @@ class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
       await fetchSpotifyPlaylists()
       .catchError((e) {
         error = true;
-        debugPrint('Caught error in select_view.dart line: ${getCurrentLine(offset: 3)} error: $e');
+        throw Exception('Caught error in select_view.dart line: ${getCurrentLine(offset: 3)} error: $e');
       });
     }
 
@@ -138,7 +137,6 @@ class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
   Future<void> fetchDatabasePlaylists() async{
     try{
       if (mounted && !loaded){
-        debugPrint('Fetching Database');
         allPlaylists = await DatabaseStorage().getDatabasePlaylists(user.spotifyId)
         .catchError((e) {
           selectViewError(e, getCurrentLine(offset: 2));
@@ -165,7 +163,6 @@ class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
   Future<void> fetchSpotifyPlaylists() async {
     try{
       if (!loaded && !selectUpdating){
-        debugPrint('Fetching Spotify');
         bool forceRefresh = false;
         final result = await PlaylistsRequests().checkRefresh(receivedCall, forceRefresh);
 
@@ -193,17 +190,8 @@ class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
   //Handles what to do when the user selects the Move/Add Tracks button
   Future<void> handleOptionSelect() async {
     //Get Ids for selected tracks
-    List<String> trackIds = [];
-    List<String> notLikedTracks = [];
-    String trueId;
-    
-    for (var track in selectedTracksMap.entries) {
-      trueId = getTrackId(track.key);
-      if (!track.value.liked){
-        notLikedTracks.add(trueId);
-      }
-      trackIds.add(trueId);
-    }
+    List<String> addIds = TracksRequests().getUnmodifiedIds(selectedTracksMap);
+
 
     //Get Ids for selected Ids
     for (var playlist in selectedPlaylistsMap.entries) {
@@ -212,20 +200,43 @@ class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
 
     //Move tracks to Playlists
     if (option == 'move') {
+      List<String> removeIds = addIds;
+      List<String> addBackIds = TracksRequests().getAddBackIds(selectedTracksMap);
       
       final result = await PlaylistsRequests().checkRefresh(receivedCall, false);
       if(result != null){
         receivedCall = result;
       }
-      await TracksRequests().addTracks(trackIds, notLikedTracks, playlistIds, receivedCall.expiresAt, receivedCall.accessToken)
-      .catchError((e) {
+
+      try{
+        //Add tracks to selected playlists
+        await TracksRequests().addTracks(addIds, playlistIds, receivedCall.expiresAt, receivedCall.accessToken)
+        .catchError((e) {
+          error = true;
+          throw Exception('select_view.dart line: ${getCurrentLine(offset:  3)} Caught Error $e');
+        });
+
+        //Remove tracks from current playlist
+        await TracksRequests().removeTracks(removeIds, currentPlaylist.id, currentPlaylist.snapshotId, receivedCall.expiresAt, receivedCall.accessToken);
+
+        if (addBackIds.isNotEmpty){
+          //Add back the Duplicate tracks
+          await TracksRequests().addTracks(addBackIds, [currentPlaylist.id], receivedCall.expiresAt, receivedCall.accessToken);
+        }
+      }
+      catch (e){
         error = true;
-        debugPrint('select_view.dart line: ${getCurrentLine(offset:  3)} Caught Error $e');
+        throw Exception('select_view.dart line: ${getCurrentLine()} TracksRequests Caught Error: $e');
+      }
+
+      await DatabaseStorage().removeTracks(currentPlaylist, removeIds, user)
+      .catchError((e) {
+        throw Exception('select_view.dart line: ${getCurrentLine(offset:  3)} DatabaseStorage Caught Error $e');
       });
-      await DatabaseStorage().removeTracks(receivedCall, currentPlaylist, selectedTracksMap, allTracks, user)
+
+      await DatabaseStorage().addTracks(user.spotifyId, selectedTracksMap, playlistIds)
       .catchError((e) {
-        error = true;
-        debugPrint('select_view.dart line: ${getCurrentLine(offset:  3)} Caught Error $e');
+        throw Exception('select_view.dart line: ${getCurrentLine(offset:  3)} DatabaseStorage Caught Error $e');
       });
 
     }
@@ -237,10 +248,18 @@ class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
       if (result != null){
         receivedCall = result;
       }
-      await TracksRequests().addTracks(trackIds, notLikedTracks, playlistIds, receivedCall.expiresAt, receivedCall.accessToken)
+
+      //Update Spotify with the added tracks
+      await TracksRequests().addTracks(addIds, playlistIds, receivedCall.expiresAt, receivedCall.accessToken)
       .catchError((e) {
         error = true;
-        debugPrint('select_view.dart line: ${getCurrentLine(offset:  3)} Caught Error $e');
+        throw Exception('select_view.dart line: ${getCurrentLine(offset:  3)} Caught Error $e');
+      });
+
+      //Update the database to add the tracks
+      await DatabaseStorage().addTracks(user.spotifyId, selectedTracksMap, playlistIds)
+      .catchError((e) {
+        throw Exception('select_view.dart line: ${getCurrentLine(offset:  3)} DatabaseStorage Caught Error $e');
       });
       
     }
@@ -254,7 +273,6 @@ class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
 
 
   Future<void> refreshPlaylists() async{
-    debugPrint('Refresh');
     loaded = false;
     refresh = true;
     setState(() {
@@ -375,6 +393,10 @@ class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
                 bool chosen = selectedPlaylistsList[index].value['chosen'];
                 Map<String, dynamic> selectMap = {'chosen': !chosen, 'title': playTitle, 'imageUrl': imageUrl};
 
+                if (option == 'move' && currentPlaylist.title == playTitle){
+                  return Container();
+                }
+
                 return Column(
                   children: [
                     InkWell(
@@ -386,10 +408,6 @@ class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
                         });
                       },
                       child: ListTile(
-                        trailing: imageUrl.contains('asset')
-                        ? Image.asset(imageUrl)
-                        :Image.network(imageUrl),
-                        
                         leading: Checkbox(
                           materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                           shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
@@ -406,6 +424,9 @@ class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
                           playTitle,
                           textAlign: TextAlign.start,
                         ),
+                        trailing: imageUrl.contains('asset')
+                        ? Image.asset(imageUrl)
+                        :Image.network(imageUrl),
                       ),
                     ),
 
@@ -456,8 +477,8 @@ class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
 
                     await handleOptionSelect()
                     .catchError((e){
-                      debugPrint('Caught Error in select_playlists_view.dart at line ${getCurrentLine(offset: 2)} $e');
                       error = true;
+                      throw Exception('Caught Error in select_playlists_view.dart at line ${getCurrentLine(offset: 2)} $e');
                     });
                     navigateToTracks();
 
@@ -465,7 +486,7 @@ class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
                       //Notification for the User alerting them to the result
                       if(!popup){
                         popup = true;
-                        popup = await selectPopups().success(context, optionMsg);
+                        popup = await SelectPopups().success(context, optionMsg);
                       }
 
                       await SpotifySync().startUpdate(playlistIds, scaffoldMessengerState);
@@ -474,7 +495,7 @@ class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
                       //Notification for the User alerting them to the result
                       if(!popup){
                         popup = true;
-                        popup = await selectPopups().success(context, optionMsg);
+                        popup = await SelectPopups().success(context, optionMsg);
                       }
                       
                     }
@@ -508,13 +529,13 @@ class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
 
                       await handleOptionSelect()
                       .catchError((e){
-                        debugPrint('Caught Error in select_playlists_view.dart at line ${getCurrentLine(offset: 2)} $e');
+                        throw Exception('Caught Error in select_playlists_view.dart at line ${getCurrentLine(offset: 2)} $e');
                       });
                       navigateToTracks();
 
                       if(!popup){
                         popup = true;
-                        popup = await selectPopups().success(context, optionMsg);
+                        popup = await SelectPopups().success(context, optionMsg);
                       }
                     }
                   },

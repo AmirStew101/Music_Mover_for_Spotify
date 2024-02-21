@@ -1,9 +1,6 @@
 import 'dart:convert';
-import 'dart:ffi';
 import 'dart:io';
 
-import 'package:flutter/material.dart';
-import 'package:get/get.dart';
 import 'package:http/http.dart' as http;
 import 'package:spotify_music_helper/src/utils/globals.dart';
 import 'package:spotify_music_helper/src/utils/object_models.dart';
@@ -40,8 +37,7 @@ class TracksRequests{
 
       //Gets Tracks 50 at a time because of Spotify's limit
       for (var offset = 0; offset < totalTracks; offset +=50){
-
-        final getTracksUrl ='$ngrok/get-all-tracks/$playlistId/$expiresAt/$accessToken/$offset';
+        final getTracksUrl ='$hosted/get-tracks/$playlistId/$expiresAt/$accessToken/$offset';
         final response = await http.get(Uri.parse(getTracksUrl));
 
         if (response.statusCode != 200){
@@ -77,10 +73,17 @@ class TracksRequests{
     
       }
 
-      final checkResponse = await checkLiked(checkTracks, expiresAt, accessToken);
-
-      Map<String, TrackModel> newTracks = getPlatformTrackImages(checkResponse);
-      return newTracks;
+      //Returns the Liked Songs with no duplicates
+      if (playlistId == 'Liked_Songs'){
+        Map<String, TrackModel> newTracks = getPlatformTrackImages(receivedTracks);
+        return newTracks;
+      }
+      //Returns a PLaylist's tracks and checks if they are in liked
+      else{
+        final checkResponse = await checkLiked(checkTracks, expiresAt, accessToken);
+        Map<String, TrackModel> newTracks = getPlatformTrackImages(checkResponse);
+        return newTracks;
+      }
     }
     catch (e){
       throw Exception('Line: ${getCurrentLine()} : $e');
@@ -128,6 +131,8 @@ class TracksRequests{
   Future<Map<String, dynamic>> checkLiked(Map<String, dynamic> tracksMap, double expiresAt, String accessToken) async{
     List<String> trackIds = [];
     List<dynamic> boolList = [];
+
+    List<String> sendingIds = [];
     MapEntry<String, dynamic> track;
     
     final checkUrl = '$hosted/check-liked/$expiresAt/$accessToken';
@@ -136,24 +141,25 @@ class TracksRequests{
       for (var i = 0; i < tracksMap.length; i++){
         track = tracksMap.entries.elementAt(i);
         trackIds.add(track.key);
+        sendingIds.add(track.key);
         
-          if ( (i+1 % 50) == 0 || i == tracksMap.length-1){
+          if ( (i % 50) == 0 || i == tracksMap.length-1){
             //Check the Ids of up to 50 tracks
             final response = await http.post(Uri.parse(checkUrl),
               headers: {
                 'Content-Type': 'application/json'
               },
-              body: jsonEncode({'trackIds': trackIds})
+              body: jsonEncode({'trackIds': sendingIds})
             );
 
             //Not able to receive the checked result from Spotify
             if (response.statusCode != 200){
-              throw Exception('In tracks_requests.dart line: ${getCurrentLine()} : ${response.body}');
+              throw Exception('In tracks_requests.dart line: ${getCurrentLine(offset: 8)} : ${response.body}');
             }
 
             final responseDecoded = jsonDecode(response.body);
-
             boolList.addAll(responseDecoded['boolArray']);
+            sendingIds.clear();
           }
       }
 
@@ -169,6 +175,7 @@ class TracksRequests{
         }
         
       }
+      
       return tracksMap;
     }
     catch (e){
@@ -180,13 +187,22 @@ class TracksRequests{
   Future<void> addTracks(List<String> tracks, List<String> playlistIds, double expiresAt, String accessToken) async {
     final addTracksUrl ='$hosted/add-to-playlists/$expiresAt/$accessToken';
     try{
-      final response = await http.post(
-        Uri.parse(addTracksUrl),
-          headers: {
-          'Content-Type': 'application/json'
-          },
-          body: jsonEncode({'trackIds': tracks, 'playlistIds': playlistIds})
-      );
+      List<String> sendAdd = [];
+      dynamic response;
+
+      for (var i = 0; i < playlistIds.length; i++){
+        sendAdd.add(playlistIds[i]);
+
+        if (((i % 50) == 0 && i != 0) || i == playlistIds.length-1){
+          response = await http.post(
+            Uri.parse(addTracksUrl),
+              headers: {
+              'Content-Type': 'application/json'
+              },
+              body: jsonEncode({'trackIds': tracks, 'playlistIds': sendAdd})
+          );
+        }
+      }
 
       if (response.statusCode != 200){
         throw Exception('tracks_requests.dart line ${getCurrentLine(offset: 9)} : ${response.statusCode} ${response.body}');
@@ -216,59 +232,46 @@ class TracksRequests{
   }//removeTracks
 
   Map<String, TrackModel> makeDuplicates(Map<String, TrackModel> allTracks){
-
     Map<String, TrackModel> newAllTracks = {};
     int trackDupes;
     String dupeId;
-    String trueId;
 
     for (var track in allTracks.entries){
       trackDupes = track.value.duplicates;
-      trueId = track.key;
 
       if (trackDupes > 0){
-        for (var i = 0; 1 < trackDupes; i++){
+        for (var i = 0; i <= trackDupes; i++){
           dupeId = i == 0
-          ? trueId
-          : '${trueId}_$i';
+          ? track.key
+          : '${track.key}_$i';
 
-          newAllTracks.putIfAbsent(dupeId, () => track.value);
+          newAllTracks.addAll({dupeId: track.value});
         }
       }
       else{
-        newAllTracks.putIfAbsent(trueId, () => track.value);
+        newAllTracks.addAll({track.key: track.value});
       }
     }
 
     return newAllTracks;
   }
 
-  List<String> getRemoveIds(Map<String, TrackModel> selectedTracks){
+  ///Returns a List of the unmodified track Ids
+  List<String> getUnmodifiedIds(Map<String, TrackModel> selectedTracks){
 
-    List<String> removeIds = [];
-
-    for (var track in selectedTracks.entries){
-      String trueId = getTrackId(track.key);
-      removeIds.add(trueId);
-    }
-
-    return removeIds;
-  }
-
-  List<String> getAddIds(Map<String, TrackModel> selectedTracks){
-    List<String> addIds = [];
+    List<String> unmodifiedIds = [];
 
     for (var track in selectedTracks.entries){
       String trueId = getTrackId(track.key);
-      addIds.add(trueId);
+      unmodifiedIds.add(trueId);
     }
 
-    return addIds;
+    return unmodifiedIds;
   }
 
   List<String> getAddBackIds(Map<String, TrackModel> selectedTracks){
     Map<String, TrackModel> selectedNoDupes = {};
-    List<String> removeIds = getRemoveIds(selectedTracks);
+    List<String> removeIds = getUnmodifiedIds(selectedTracks);
     List<String> addBackIds = [];
 
     for(var track in selectedTracks.entries){
@@ -277,17 +280,14 @@ class TracksRequests{
       selectedNoDupes.putIfAbsent(trueId, () => track.value);
     }
 
-    //Dupes is 0 if its only one track
-    //First item in a list is at location 0
-    //Check if 
-
+    // Dupes is 0 if its only one track
+    // First item in a list is at location 0
     removeIds.sort();
     for (var track in selectedNoDupes.entries){
       int dupes = track.value.duplicates;
-      int removeTotal = 0;
 
       //Gets location of element in sorted list
-      removeTotal = removeIds.lastIndexOf(track.key);
+      final removeTotal = removeIds.lastIndexOf(track.key);
 
       //Gets the difference between the deleted tracks and its duplicates
       int diff = dupes - removeTotal;

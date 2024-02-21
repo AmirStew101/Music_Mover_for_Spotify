@@ -48,14 +48,14 @@ class SpotLoginState extends State<SpotLoginWidget> {
 
     try{
       final response = await http.get(Uri.parse(loginURL));
+      
       if (response.statusCode != 200){
-        loginIssue();
+        await loginIssue();
       }
       responseDecode = json.decode(response.body);
     }
     catch (e){
-      debugPrint('Caught Error in spot_login_view.dart in function initialLogin trying to get authUrl $e');
-      loginIssue();
+      await loginIssue();
     }
 
     final authUrl = responseDecode['data']; //The authorization url to get Spotify access
@@ -118,7 +118,7 @@ class SpotLoginState extends State<SpotLoginWidget> {
           ..loadRequest(authUri, method: LoadRequestMethod.get);
       }
       catch (e){
-        debugPrint('Caught Error while trying to login to Spotify $e');
+        throw Exception('Caught Error while trying to login to Spotify $e');
       }
 
       return controller;
@@ -142,25 +142,26 @@ Future<Map> getCallback(String callRequest) async {
 
   }
   else {
-    debugPrint('Response: ${response.body.toString()}');
+    throw Exception('Response: ${response.body.toString()}');
   }
 
   return {};
 }
 
+///Creates an error Notification for the User and Returns to the Start Screen
 Future<void> loginIssue({bool loginReset = true, bool hasUser = false}) async{
-  Flushbar(
-    title: 'Error',
-    message: 'Problem with connecting to Spotify redirecting back to Start page',
-    backgroundColor: Colors.red,
-    duration: const Duration(seconds: 3),
-  ).show(context);
-
   await Future.delayed(const Duration(seconds: 3));
   bool reLogin = loginReset;
   Navigator.pushNamedAndRemoveUntil(context, StartViewWidget.routeName, (route) => false, arguments: reLogin);
 
-}
+  Flushbar(
+    title: 'Error',
+    message: 'Problem with connecting to Spotify redirecting back to Start page',
+    titleColor: failedRed,
+    messageColor: failedRed,
+    duration: const Duration(seconds: 3),
+  ).show(context);
+}//loginIssue
 
   @override
   Widget build(BuildContext context) {

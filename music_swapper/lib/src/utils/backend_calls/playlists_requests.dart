@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'dart:io';
-import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:spotify_music_helper/src/utils/global_classes/global_objects.dart';
 import 'package:spotify_music_helper/src/utils/globals.dart';
@@ -126,7 +125,6 @@ class PlaylistsRequests{
           checkCall = response;
         }
         else{
-          debugPrint('Failed to get Spotify Playlists:');
           return null;
         }
       }

@@ -103,7 +103,6 @@ class SecureStorage {
           return userModel;
         }
       }
-      debugPrint('failed to Get');
     }
     catch (e){
       debugPrint('Error in secure_storage line ${getCurrentLine(offset: 40)}: $e');

@@ -3,7 +3,7 @@ import 'package:another_flushbar/flushbar.dart';
 import 'package:flutter/material.dart';
 import 'package:spotify_music_helper/src/utils/globals.dart';
 
-class selectPopups{
+class SelectPopups{
 
   Future<bool> success(BuildContext context, String message) async{
     Flushbar(

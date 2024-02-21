@@ -49,7 +49,7 @@ String getTrackId(String trackId){
 }//getTrackId
 
 void selectViewError(dynamic e, int line){
-  debugPrint('Caught error in select_view.dart line: $line error: $e');
+  throw Exception('Caught error in select_view.dart line: $line error: $e');
 }
 
 Image spotifyHeart(){
@@ -175,7 +175,6 @@ Drawer optionsMenu(BuildContext context){
 
               bool reLogin = true;
               Navigator.pushNamedAndRemoveUntil(context, StartViewWidget.routeName, (route) => false, arguments: reLogin);
-              debugPrint('Sign Out Selected');
             },
           ),
           ListTile(

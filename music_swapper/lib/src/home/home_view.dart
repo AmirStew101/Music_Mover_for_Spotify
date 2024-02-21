@@ -85,14 +85,14 @@ class HomeViewState extends State<HomeView> with SingleTickerProviderStateMixin{
         await fetchDatabasePlaylists()
         .catchError((e) {
           error = true;
-          debugPrint('home_view.dart line: ${getCurrentLine(offset: 3)} Caught Error $e');
+          throw Exception('home_view.dart line: ${getCurrentLine(offset: 3)} Caught Error $e');
         });
       }
       else{
         await fetchSpotifyPlaylists()
         .catchError((e) {
           error = true;
-          debugPrint('home_view.dart line: ${getCurrentLine(offset: 3)} Caught Error $e');
+          throw Exception('home_view.dart line: ${getCurrentLine(offset: 3)} Caught Error $e');
         });
       }
     }
@@ -109,7 +109,7 @@ class HomeViewState extends State<HomeView> with SingleTickerProviderStateMixin{
       await fetchSpotifyPlaylists()
       .catchError((e) {
           error = true;
-          debugPrint('home_view.dart line: ${getCurrentLine(offset: 3)} Caught Error $e');
+          throw Exception('home_view.dart line: ${getCurrentLine(offset: 3)} Caught Error $e');
       });
     }
 
@@ -137,7 +137,7 @@ class HomeViewState extends State<HomeView> with SingleTickerProviderStateMixin{
     }
     catch (e){
       error = true;
-      debugPrint('home_view.dart Caught Error in fetchSpotifyPLaylists: $e');
+      throw Exception('home_view.dart Caught Error in fetchSpotifyPLaylists: $e');
     }
     refresh = false;
     loaded = true; //Future methods have complete
@@ -153,7 +153,7 @@ class HomeViewState extends State<HomeView> with SingleTickerProviderStateMixin{
       Navigator.restorablePushNamed(context, TracksView.routeName, arguments: currPlaylist);
     }
     catch (e){
-      debugPrint('Home_view line ${getCurrentLine()} caught error: $e');
+      throw Exception('Home_view line ${getCurrentLine()} caught error: $e');
     }
   }//navigateToTracks
 
@@ -179,7 +179,12 @@ class HomeViewState extends State<HomeView> with SingleTickerProviderStateMixin{
         future: checkLogin(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.done && loaded && !error) {
-            return ImageGridWidget(playlists: playlists, receivedCall: receivedCall, user: user);
+            return Stack(
+              children: [
+                ImageGridWidget(playlists: playlists, receivedCall: receivedCall, user: user),
+                homeAdRow(context, user)
+              ],
+            );
           }
           else if(refresh) {
               return Stack(

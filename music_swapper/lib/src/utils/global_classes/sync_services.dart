@@ -199,7 +199,6 @@ class SpotifySync{
         for (var playlist in playlists.entries){
           String total = '';
           try{
-            debugPrint('Getting tracks for ${playlist.value.title} ${playlist.key}');
             
             final result = await PlaylistsRequests().checkRefresh(receivedCall, false); 
 
@@ -270,7 +269,7 @@ class SpotifySync{
             )
           ],
         ),
-        duration: Duration(seconds: 8),
+        duration: const Duration(seconds: 8),
         backgroundColor: errorMessageRed,
       ));
   }

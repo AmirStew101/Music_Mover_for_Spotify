@@ -35,6 +35,8 @@ LOGGIN_MSG = {STATUS: FAILED, MESSAGE: 'Not Logged In'}
 EXPIRES_MSG = {STATUS: FAILED, MESSAGE: 'No Expiration time received'}
 
 def failed_response(message):
+    '''Returns a `Response` with a status code of `400` and the received `message`'''
+
     failed_body = jsonify(message)
     failed = make_response(failed_body)
     failed.status_code = 400
@@ -43,13 +45,9 @@ def failed_response(message):
 @app.route('/get-auth-url-no-dialog', methods=['GET'])
 def login():
     """
-    To see playlists: playlist-read-private
-    To see playlist tracks: 
-
-    To add tracks from playlist: POST
-    To remove tracks from playlist: DELETE
-    To create a playlist: playlist-modify-private playlist-modify-public
+    Sends the Auth Url for Spotify to auto Login
     """
+
     scope = 'playlist-read-private playlist-modify-private playlist-modify-public user-library-read user-library-modify user-read-private'
 
     params = {
@@ -67,12 +65,7 @@ def login():
 @app.route('/get-auth-url-dialog', methods=['GET'])
 def re_login():
     """
-    To see playlists: playlist-read-private
-    To see playlist tracks: 
-
-    To add tracks from playlist: POST
-    To remove tracks from playlist: DELETE
-    To create a playlist: playlist-modify-private playlist-modify-public
+    Sends the Auth Url for Spotify to Re-Login
     """
     scope = 'playlist-read-private playlist-modify-private playlist-modify-public user-library-read user-library-modify user-read-private'
 
@@ -81,7 +74,7 @@ def re_login():
         'response_type': 'code',
         'scope': scope,
         'redirect_uri': SITE_REDIRECT_URI,
-        'show_dialog': True #Forces the user to login again for Testing
+        'show_dialog': True #Forces the user to login again
     }
 
     auth_url = f"{AUTH_URL}?{urllib.parse.urlencode(params)}"
@@ -118,9 +111,10 @@ def callback():
 
     return jsonify({STATUS: SUCCESS, 'data': info})
 
-#Refreshes the token when called
+
 @app.route('/refresh-token/<expires_at>/<refresh_token>')
 def refresh_token(expires_at, refresh_token):
+    '''Refreshes the token when called'''
 
     expires_at = float(expires_at)
 
@@ -157,6 +151,12 @@ def refresh_token(expires_at, refresh_token):
 
 @app.route('/get-playlists/<expires_at>/<access_token>')
 def get_playlists(expires_at, access_token):
+    """
+    Returns the playlist image, its name, its ID
+    Name & Img shown to user
+    ID for backend search
+    """
+
     expires_at = float(expires_at)
 
     if not access_token:
@@ -207,18 +207,13 @@ def get_playlists(expires_at, access_token):
 
     #Manually add Liked_Songs playlist
     user_playlists['Liked_Songs'] = {
-    'title': 'Liked_Songs', 
+    'title': 'Liked Songs', 
     'link': '', 
     'imageUrl': [], 
     'snapshotId': 'Liked_Songs',
     'owner': 'Liked_Songs',
     }
 
-    """
-    Return the playlist image, its name, its ID
-    Name & Img shown to user
-    ID for backend search
-    """
     return jsonify({STATUS: SUCCESS, 'data': user_playlists})
 
 
@@ -259,8 +254,10 @@ def get_tracks_total(playlist_id, expires_at, access_token):
     return failed_response({MESSAGE: 'Missing Playlist ID'})
 
 
-@app.route('/get-all-tracks/<playlist_id>/<expires_at>/<access_token>/<offset>/')
-def get_all_tracks(playlist_id, expires_at, access_token, offset):
+@app.route('/get-tracks/<playlist_id>/<expires_at>/<access_token>/<offset>/')
+def get_tracks(playlist_id, expires_at, access_token, offset):
+    '''Retreives 50 tracks from a users Playlist from an offset'''
+
     expires_at = float(expires_at)
     offset = str(offset)
     print(f'Offset {offset}')
@@ -325,6 +322,9 @@ def get_all_tracks(playlist_id, expires_at, access_token, offset):
     return failed_response({MESSAGE: 'Missing Playlist ID'})
 
 def handleGetTracks(playlist_id, offsetStr, header):
+    '''
+    Sends a request to Spotify to retreive upto 50 tracks from Spotify.
+    '''
     if playlist_id != 'Liked_Songs':
         getUrl = API_BASE_URL + 'playlists/' + playlist_id + f'/tracks?limit=50&offset={offsetStr}'
     else:
@@ -333,17 +333,21 @@ def handleGetTracks(playlist_id, offsetStr, header):
     response = requests.get(getUrl, headers=header)
     return response
 
-#Checks if a track is in a playlist multiple times
 def duplicateCheck(track_id, playlist_tracks):
+    ''' 
+    Checks if a track is in a playlist multiple times
+    '''
     if playlist_tracks.get(track_id):
         dupe = playlist_tracks[track_id]['duplicates'] + 1
         return dupe
     
     return 0
 
-#Check if tracks are in liked Songs
 @app.route('/check-liked/<expires_at>/<access_token>', methods=['POST'])
 def check_liked(expires_at, access_token):
+    '''
+    Check if tracks are in liked Songs
+    '''
     expires_at = float(expires_at)
 
     if not access_token:
@@ -406,20 +410,19 @@ def add_tracks(expires_at, access_token):
                 'Authorization': f"Bearer {access_token}",
                 'Content-Type': 'application/json'
             }
-        
+        print(f'Tracks: {tracks}')
         addUris = []
         likedUris = []
         items = 0
+        print(f'Tracks Length = {len(tracks)}')
 
         for track in tracks:
-            #Increments the item tracker
-            items += 1
-
             addUri = 'spotify:track:' + track
             addUris.append(addUri)
             likedUris.append(track)
 
-            if (items % 50) == 0 or track == tracks[-1]:
+            if ((items % 50) == 0 and items != 0) or items == len(tracks)-1:
+                print(f'Adding with i = {items} and tracks being {track}')
                 bodyUri = {"uris": addUris}
 
                 for id in playlist_ids:
@@ -429,8 +432,10 @@ def add_tracks(expires_at, access_token):
                         return failed_response(status[MESSAGE])
                     
                 #Resets the tracks when they reach the max 100 tracks
-                addUris.clear
-                likedUris.clear
+                addUris.clear()
+                likedUris.clear()
+            #Increments the item tracker
+            items += 1
 
     return jsonify(SUCCESS)
 
@@ -438,13 +443,15 @@ def handleAddTracks(header, id, bodyUri, likedUris):
 
     if id != 'Liked_Songs':
         postUrl = f"{API_BASE_URL}playlists/{id}/tracks"
-
+        print(f'Post Url {postUrl}')
+        print(f'Body {bodyUri}')
         #Add track to other playlists
         response = requests.post(postUrl, headers=header, json=bodyUri)
 
     else:
         bodyUri = {'ids': likedUris}
         postUrl = f"{API_BASE_URL}me/tracks"
+        
 
         #Add track to Liked Songs playlist
         response = requests.put(postUrl, headers=header, json=bodyUri)

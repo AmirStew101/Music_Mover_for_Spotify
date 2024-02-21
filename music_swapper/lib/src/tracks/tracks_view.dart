@@ -3,7 +3,6 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:get/get.dart';
 import 'package:spotify_music_helper/src/login/start_screen.dart';
 import 'package:spotify_music_helper/src/select_playlists/select_view.dart';
 import 'package:spotify_music_helper/src/utils/ads.dart';
@@ -35,14 +34,11 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
   CallbackModel receivedCall = CallbackModel();
   UserModel user = UserModel.defaultUser();
 
-  String playlistId = '';
-
   Map<String, TrackModel> allTracks = {}; //Tracks for the chosen playlist
   //All of the selected tracks 
   //key: Track ID
   //values: TrackModel {Id, Track Title, Artist, Image Url, PreviewUrl}
   Map<String, TrackModel> selectedTracksMap = {};
-  String playlistName = '';
 
   //List of all tracks with Key: ID and Value: if Chosen & Title
   List<MapEntry<String, dynamic>> selectedTracksList = [];
@@ -55,14 +51,12 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
   bool selectingAll = false;
   bool error = false;
   bool homeTimer = false;
+  bool removing = false;
   
   late TabController tabController;
 
   //Users Smart Sync text
-  final List<String> smartSyncTexts = ['Smart Syncing Tracks.', 'Syncing a lot of Tracks may take a minute.', 'Someone has a lot of Tracks to Sync, over 1000?'];
-
-  //Users Deep Sync text
-  final List<String> deepSyncTexts = ['Deep Syncing Tracks.', 'Deep syncing updates every track so it might take awhile.', 'Someone has a lot of Tracks to Sync, over 1000?'];
+  final List<String> smartSyncTexts = ['Syncing Tracks.', 'Syncing a lot of Tracks may take a minute.', 'Someone has a lot of Tracks to Sync, over 1000?'];
 
   final List<String> loadTexts = ['Loading Tracks.', 'First time Loading a lot of Tracks may take awhile.', 'Someone has a lot of Tracks to Load, over 1000?'];
   int loadingIndex = 0;
@@ -76,11 +70,6 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
   void initState(){
     super.initState();
 
-    currentPlaylist = const PlaylistModel().mapToModel(widget.currentPLaylist);
-
-    playlistId = currentPlaylist.id;
-    playlistName = currentPlaylist.title;
-    
     tabController = TabController(length: devMode ? 3 : 2, vsync: this);
   }
 
@@ -90,6 +79,7 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
     super.dispose();
   }
 
+  ///Creates a new [selectedTracksList] out of the old list
   void selectListUpdate() {
     //Initializes the selected playlists
     selectedTracksList = List.generate(allTracks.length, (index) {
@@ -167,7 +157,7 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
     final response = await PlaylistsRequests().checkRefresh(receivedCall, false);
 
     if (mounted && !checkedLogin || response == null){
-      checkedLogin = true;
+      currentPlaylist = const PlaylistModel().mapToModel(widget.currentPLaylist);
 
       CallbackModel? secureCall = await SecureStorage().getTokens();
       UserModel? secureUser = await SecureStorage().getUser();
@@ -181,6 +171,7 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
         storageCheck(context, secureCall, secureUser);
       }
       else{
+        checkedLogin = true;
         receivedCall = secureCall;
         user = secureUser;
       }
@@ -190,26 +181,30 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
       //Timer isn't running, still on the same page, loading the page, & not updating select List
       //Keeps from repeating functions when setState is called
       if(!homeTimer && mounted && !loaded && !selectingAll){
+
         //Initial load of the page Starts the timer for Loading message change
         if (!refresh){
           homeTimer = true;
           startLoadTimer();
 
-          await fetchDatabaseTracks().catchError((e){
+          await fetchDatabaseTracks()
+          .catchError((e){
             homeTimer = false;
             error = true;
-            debugPrint('Error when trying to fetchDatabaseTracks ${getCurrentLine()} $e');
+            throw Exception('Error when trying to fetchDatabaseTracks ${getCurrentLine()} $e');
           });
         }
+        
         //Sync load of the page Starts the timer for Sync message change
         else{
           homeTimer = true;
           startSyncTimer();
 
-          await fetchSpotifyTracks().catchError((e){
+          await fetchSpotifyTracks()
+          .catchError((e){
             homeTimer = false;
             error = true;
-            debugPrint('Error when trying to fetchSpotifyTracks line: ${getCurrentLine()} $e');
+            throw Exception('Error when trying to fetchSpotifyTracks line: ${getCurrentLine()} $e');
           });
         }
       }
@@ -219,23 +214,36 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
   Future<void> fetchDatabaseTracks() async{
     if (mounted){
       //Fills Users tracks from the Database
-      allTracks = await DatabaseStorage().getDatabaseTracks(user.spotifyId, playlistId, context);
+      final allTemp = await DatabaseStorage().getDatabaseTracks(user.spotifyId, currentPlaylist.id, context);
       
-      //If not refreshing page and Database has tracks Page is loaded
       //Database has found tracks so page is done loading
-      if (allTracks.isNotEmpty && !refresh){
-        totalTracks = allTracks.length;
+      if (allTemp.isNotEmpty){
+        totalTracks = allTemp.length;
+        allTracks = TracksRequests().makeDuplicates(allTemp);
 
         selectListUpdate();
         loaded = true;
         homeTimer = false;
       }
+      else{
+        totalTracks = allTracks.length;
+        allTracks = allTemp;
+
+        selectListUpdate();
+        loaded = true;
+        homeTimer = false;
+        setState(() {
+          
+        });
+      }
+
       //Database has no tracks so check Spotify
-      else if (mounted){
-        await fetchSpotifyTracks().catchError((e){
+      if (mounted && allTracks.isEmpty){
+        await fetchSpotifyTracks()
+        .catchError((e){
           homeTimer = false;
           error = true;
-          debugPrint('Error when trying to fetchSpotifyTracks in tracks_view.dart: $e');
+          throw Exception('Error when trying to fetchSpotifyTracks in tracks_view.dart: $e');
         });
       }
     }
@@ -251,29 +259,46 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
       receivedCall = result;
     }
 
-    totalTracks = await TracksRequests().getTracksTotal(playlistId, receivedCall.expiresAt, receivedCall.accessToken);
+    totalTracks = await TracksRequests().getTracksTotal(currentPlaylist.id, receivedCall.expiresAt, receivedCall.accessToken);
 
-    if (totalTracks > 0 && mounted) {
-      allTracks = await TracksRequests().getPlaylistTracks(
-          playlistId,
+    if (mounted) {
+      //gets user tracks for playlist
+      final allTemp = await TracksRequests().getPlaylistTracks(
+          currentPlaylist.id,
           receivedCall.expiresAt,
           receivedCall.accessToken,
           totalTracks,
-      ); //gets user tracks for playlist
+      );
+
+      if (allTemp.isNotEmpty){
+        allTracks = TracksRequests().makeDuplicates(allTemp);
+        loaded = true;
+        debugPrint('Spotify Tracks Loaded');
+      }
+      else{
+        allTracks = allTemp;
+        loaded = true;
+        debugPrint('Spotify Tracks Loaded');
+      }
 
       selectListUpdate();
+      debugPrint('Select list updated');
+
+      debugPrint('Start Database sync');
       //Adds tracks to database for faster retreival later
-      await DatabaseStorage().syncTracks(user.spotifyId, allTracks, playlistId)
+      await DatabaseStorage().syncTracks(user.spotifyId, allTracks, currentPlaylist.id)
       .catchError((e) {
         throw Exception('tracks_view.dart error trying to syncPlaylistTracksData line: ${getCurrentLine(offset: 2)} Caught Error: $e');
       });
-      
+      debugPrint('Finished Database sync');
     }
-    
 
     loaded = true; //Tracks if the tracks are loaded to be shown
     homeTimer = false;
     refresh = false;
+    setState(() {
+      
+    });
   }
 
 
@@ -282,6 +307,8 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
     selectingAll = false;
     loadingIndex = 0;
     error = false;
+    removing = false;
+    selectAll = false;
 
     selectedTracksMap.clear();
 
@@ -439,7 +466,7 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
 
             backgroundColor: spotHelperGreen,
             title: Text(
-              playlistName, //Playlist Name
+              currentPlaylist.title, //Playlist Name
               textAlign: TextAlign.center,
             ),
 
@@ -473,10 +500,10 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
 
   Widget tracksBody(){
     return FutureBuilder<void>(
-          future: checkLogin().catchError((e) => debugPrint('\nTracks_view.dart line ${getCurrentLine()} error in tracks_view: $e')),
+          future: checkLogin().catchError((e) => throw Exception('\nTracks_view.dart line ${getCurrentLine()} error in tracks_view: $e')),
           builder: (context, snapshot) {
 
-            if (selectingAll){
+            if (selectingAll || removing){
               return Center(
                   child: CircularProgressIndicator(color: spotHelperGreen,)
               );
@@ -524,10 +551,10 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
 
                       //Deep Sync was pressed
                       else if(refresh)
-                        Center(child: 
+                        const Center(child: 
                           Text(
-                            deepSyncTexts[loadingIndex],
-                            textScaler: const TextScaler.linear(2),
+                            'Deepe Syncing Tracks',
+                            textScaler: TextScaler.linear(2),
                             textAlign: TextAlign.center,
                           )
                         )
@@ -731,7 +758,7 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
             Navigator.restorablePushNamed(context, SelectPlaylistsViewWidget.routeName, arguments: trackArgs.toJson());
             }
             catch (e){
-              debugPrint('Tracks_view line ${getCurrentLine()} caught error $e');
+              throw Exception('Tracks_view line ${getCurrentLine()} caught error $e');
             }
           } 
           //Removes track(s) from current playlist
@@ -765,28 +792,41 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
             );
 
             if (confirmed){
-              debugPrint('\nConfirmed!\n');
+              removing = true;
               int tracksDeleted = selectedTracksMap.length;
-              String playlistTitle = currentPlaylist.title;
 
-              List<String> removeIds = TracksRequests().getRemoveIds(selectedTracksMap);
+              List<String> removeIds = TracksRequests().getUnmodifiedIds(selectedTracksMap);
 
               List<String> addBackIds = TracksRequests().getAddBackIds(selectedTracksMap);
 
+              final callResponse = await PlaylistsRequests().checkRefresh(receivedCall, false);
+              if (callResponse == null){
+                error = true;
+                throw Exception('tracks_view.dart Callback Refresh Failed line: ${getCurrentLine()}');
+              }
+
+              receivedCall = callResponse;
               await TracksRequests().removeTracks(removeIds, currentPlaylist.id, currentPlaylist.snapshotId, receivedCall.expiresAt, receivedCall.accessToken);
-              //Add the tracks back to the playlist
-              await TracksRequests().addTracks(addBackIds, [currentPlaylist.id], receivedCall.expiresAt, receivedCall.accessToken);
+
+              if (addBackIds.isNotEmpty){
+                //Add the tracks back to the playlist
+                await TracksRequests().addTracks(addBackIds, [currentPlaylist.id], receivedCall.expiresAt, receivedCall.accessToken);
+              }
+              else if (removeIds.length == totalTracks){
+                totalTracks = 0;
+              }
               
-              await DatabaseStorage().removeTracks(receivedCall, currentPlaylist, selectedTracksMap, allTracks, user);
+              await DatabaseStorage().removeTracks(currentPlaylist, removeIds, user);
               await deleteRefresh();
 
               if (!showing){
                 showing = true;
-                showing = await TracksViewPopups().deletedTracks(context, tracksDeleted, playlistTitle);
+                showing = await TracksViewPopups().deletedTracks(context, tracksDeleted, currentPlaylist.title);
               }
-            }
-          }
+            }//User Confirmed Deltion
 
+          }
+          //User Hasn't selected a Track
           else {
             if (!showing){
               showing = true;
