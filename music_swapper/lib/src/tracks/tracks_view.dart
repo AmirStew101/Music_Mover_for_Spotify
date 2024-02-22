@@ -764,25 +764,28 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
                   actions: [
                     TextButton(
                       onPressed: () {
+                        //Close Popup
+                        Navigator.of(context).pop();
+                      }, 
+                      child: const Text('Cancel')
+                    ),
+                    TextButton(
+                      onPressed: () {
                         confirmed = true;
                         //Close Popup
                         Navigator.of(context).pop();
                       },
                       child: const Text('Confirm'),
                     ),
-                    TextButton(
-                      onPressed: () {
-                        //Close Popup
-                        Navigator.of(context).pop();
-                      }, 
-                      child: const Text('Cancel'))
                   ],
                 );
               },
             );
 
             if (confirmed){
-              removing = true;
+              setState(() {
+                removing = true;
+              });
               int tracksDeleted = selectedTracksMap.length;
 
               List<String> removeIds = TracksRequests().getUnmodifiedIds(selectedTracksMap);

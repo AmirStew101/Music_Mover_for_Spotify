@@ -22,6 +22,7 @@ class ImageGridState extends State<ImageGridWidget> {
   Map<String, PlaylistModel> playlists = {};
   UserModel user = UserModel.defaultUser();
   FirebaseAnalytics analytics = FirebaseAnalytics.instance;
+  List<PlaylistModel> playlistsList = [];
 
   @override
   void initState(){
@@ -29,6 +30,8 @@ class ImageGridState extends State<ImageGridWidget> {
     receivedCall = widget.receivedCall;
     playlists = widget.playlists;
     user = widget.user;
+    playlistsList = List.generate(playlists.length, (index) => playlists.entries.elementAt(index).value);
+    playlistsList.sort((a, b) => a.title.compareTo(b.title));
   }
 
 
@@ -46,21 +49,21 @@ class ImageGridState extends State<ImageGridWidget> {
                   crossAxisSpacing: 8, //Spacing between Col
                   mainAxisSpacing: 10, //Spacing between rows
                 ),
-                  itemCount: playlists.length,
+                  itemCount: playlistsList.length,
                   itemBuilder: (context, index) {
                     //Gets the Map items by index with the extra item in mind
-                    final item = playlists.entries.elementAt(index);
-                    final String imageName = item.value.title;
-                    String imageUrl = item.value.imageUrl;
+                    final item = playlistsList[index];
+                    final String imageName = item.title;
+                    String imageUrl = item.imageUrl;
 
                     return Column(
                       children: [
                         //Displays Images that can be clicked
                         InkWell(
                           onTap: () async {
-                            Map<String, dynamic> currPlaylist = item.value.toJson();
+                            Map<String, dynamic> currPlaylist = item.toJson();
 
-                            if (item.value.title == 'Liked_Songs'){
+                            if (item.title == 'Liked_Songs'){
                               await AppAnalytics().trackLikedSongs();
                             }
 

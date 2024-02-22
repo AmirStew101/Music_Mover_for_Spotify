@@ -97,7 +97,6 @@ class MyApp extends StatelessWidget {
                   //Select playlists to move/add tracks to
                   case SelectPlaylistsViewWidget.routeName:
                     final trackArgs = routeSettings.arguments as Map<String, dynamic>;
-                    debugPrint('App sending TrackArgs = $trackArgs');
                     return SelectPlaylistsViewWidget(trackArgs: trackArgs);
 
                   case HomeView.routeName:

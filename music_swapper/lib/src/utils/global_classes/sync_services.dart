@@ -179,12 +179,7 @@ class SpotifySync{
 
       if (user != null && callback != null && isSyncing){
 
-        if (option == 'tracks'){
-          startMessage(scaffoldMessengerState, 'Tracks');
-        }
-        else{
-          startMessage(scaffoldMessengerState, 'Playlists & Tracks');
-        }
+        startMessage(scaffoldMessengerState, 'Tracks');
 
         CallbackModel receivedCall = callback;
 

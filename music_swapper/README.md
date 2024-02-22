@@ -1,4 +1,4 @@
-# music_swapper
+# Spotify Helper
 
 A new Flutter project.
 

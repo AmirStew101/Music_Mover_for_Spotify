@@ -31,6 +31,9 @@ dependencies:
   firebase_auth: ^4.17.4
 
   intl: any
+  flutter_native_splash: ^2.3.10
+
+  
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -46,5 +49,3 @@ flutter:
   assets:
     # Add assets from the images directory to the application.
     - assets/images/
-    - assets/images/Spotify_logos/
-    - assets/images/Spotify_icons/

@@ -192,7 +192,7 @@ class SettingsViewState extends State<SettingsViewWidget> with TickerProviderSta
                       await SpotifySync().startAll(allOption, scaffoldMessenger);
 
                       if (mounted) allController.reset(); //FInished Syncing
-                      syncingTracks = false;
+                      syncingAll = false;
                       setState(() {});
 
                       scaffoldMessenger.showSnackBar(

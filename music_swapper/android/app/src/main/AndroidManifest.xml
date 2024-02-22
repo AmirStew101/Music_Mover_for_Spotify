@@ -4,7 +4,7 @@
     <application
         android:label="spotify_music_helper"
         android:name="${applicationName}"
-        android:icon="@mipmap/ic_launcher"
+        android:icon="@mipmap/spotify_icon_rgb_green"
         android:enableOnBackInvokedCallback="true">
         <!-- AdMob Setup-->
         <meta-data

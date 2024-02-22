@@ -20,20 +20,20 @@ const assetNoImage = 'assets/images/no_image.png';
 const unlikeHeart = 'assets/images/unlike_heart-64.png';
 
 Color spotHelperGrey = const Color.fromRGBO(25, 20, 20, 1);
-Color spotHelperGreen = const Color.fromARGB(255, 2, 141, 7);
-Color failedRed = const Color.fromARGB(255, 179, 28, 17);
+Color spotHelperGreen = const Color.fromARGB(255, 3, 153, 8);
+Color failedRed = const Color.fromARGB(255, 199, 27, 15);
 
 bool updateDatabase = true;
 bool devMode = true;
 
 class SpotifyIcons{
-  final blackCMYK = 'assets/images/Spotify_icons/Spotify_Icon_CMYK_Black.png';
-  final greenCMYK = 'assets/images/Spotify_icons/Spotify_Icon_CMYK_Green.png';
-  final whiteCMYK = 'assets/images/Spotify_icons/Spotify_Icon_CMYK_White.png';
+  final blackCMYK = 'assets/images/Spotify_Icon_CMYK_Black.png';
+  final greenCMYK = 'assets/images/Spotify_Icon_CMYK_Green.png';
+  final whiteCMYK = 'assets/images/Spotify_Icon_CMYK_White.png';
 
-  final blackRGB = 'assets/images/Spotify_icons/Spotify_Icon_RGB_Black.png';
-  final greenRGB = 'assets/images/Spotify_icons/Spotify_Icon_RGB_Green.png';
-  final whiteRGB = 'assets/images/Spotify_icons/Spotify_Icon_RGB_White.png';
+  final blackRGB = 'assets/images/Spotify_Icon_RGB_Black.png';
+  final greenRGB = 'assets/images/Spotify_Icon_RGB_Green.png';
+  final whiteRGB = 'assets/images/Spotify_Icon_RGB_White.png';
 
   String get iconBlackCMYK{
     return blackCMYK;
@@ -62,13 +62,13 @@ class SpotifyIcons{
 }
 
 class SpotifyLogos{
-  final blackCMYK = 'assets/images/Spotify_logos/Spotify_Logo_CMYK_Black.png';
-  final greenCMYK = 'assets/images/Spotify_logos/Spotify_Logo_CMYK_Green.png';
-  final whiteCMYK = 'assets/images/Spotify_logos/Spotify_Logo_CMYK_White.png';
+  final blackCMYK = 'assets/images/Spotify_Logo_CMYK_Black.png';
+  final greenCMYK = 'assets/images/Spotify_Logo_CMYK_Green.png';
+  final whiteCMYK = 'assets/images/Spotify_Logo_CMYK_White.png';
 
-  final blackRGB = 'assets/images/Spotify_logos/Spotify_Logo_RGB_Black.png';
-  final greenRGB = 'assets/images/Spotify_logos/Spotify_Logo_RGB_Green.png';
-  final whiteRGB = 'assets/images/Spotify_logos/Spotify_Logo_RGB_White.png';
+  final blackRGB = 'assets/images/Spotify_Logo_RGB_Black.png';
+  final greenRGB = 'assets/images/Spotify_Logo_RGB_Green.png';
+  final whiteRGB = 'assets/images/Spotify_Logo_RGB_White.png';
 
   String get logoBlackCMYK{
     return blackCMYK;
