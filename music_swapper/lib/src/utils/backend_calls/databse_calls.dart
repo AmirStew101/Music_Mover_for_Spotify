@@ -257,7 +257,6 @@ class UserRepository extends GetxController {
       final playlistRef = usersRef.doc(userId).collection(playlistColl);
       final tracksRef = playlistRef.doc(playlistId).collection(tracksColl);
       final playlistTracks = await tracksRef.get();
-      playlistTracks.docs.sort((a, b) => a.data()['title'] > b.data()['title']);
       
       Map<String, TrackModel> newTracks = {};
 

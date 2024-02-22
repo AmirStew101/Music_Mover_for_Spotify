@@ -35,6 +35,8 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
   UserModel user = UserModel.defaultUser();
 
   Map<String, TrackModel> allTracks = {}; //Tracks for the chosen playlist
+  List<TrackModel> allTracksList = [];
+
   //All of the selected tracks 
   //key: Track ID
   //values: TrackModel {Id, Track Title, Artist, Image Url, PreviewUrl}
@@ -69,7 +71,7 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
   @override
   void initState(){
     super.initState();
-
+    currentPlaylist = const PlaylistModel().toPlaylistModel(widget.currentPLaylist);
     tabController = TabController(length: devMode ? 3 : 2, vsync: this);
   }
 
@@ -81,13 +83,17 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
 
   ///Creates a new [selectedTracksList] out of the old list
   void selectListUpdate() {
+    //Sorts the tracks by their title
+    allTracksList = List.generate(allTracks.length, (index) => allTracks.entries.elementAt(index).value);
+    allTracksList.sort((a, b) => a.title.compareTo(b.title));
+
     //Initializes the selected playlists
-    selectedTracksList = List.generate(allTracks.length, (index) {
-      MapEntry<String, TrackModel> currTrack = allTracks.entries.elementAt(index);
+    selectedTracksList = List.generate(allTracksList.length, (index) {
+      TrackModel currTrack = allTracksList[index];
       //MapEntry<String, dynamic>? prevTrack = prevMap[currTrack.key];
 
-      String trackTitle = currTrack.value.title;
-      String trackId = currTrack.key;
+      String trackTitle = currTrack.title;
+      String trackId = currTrack.id;
       bool selected = false;
 
       //If the track is already selected from past widget
@@ -157,8 +163,6 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
     final response = await PlaylistsRequests().checkRefresh(receivedCall, false);
 
     if (mounted && !checkedLogin || response == null){
-      currentPlaylist = const PlaylistModel().toPlaylistModel(widget.currentPLaylist);
-
       CallbackModel? secureCall = await SecureStorage().getTokens();
       UserModel? secureUser = await SecureStorage().getUser();
 
@@ -190,13 +194,14 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
           await fetchDatabaseTracks()
           .catchError((e){
             homeTimer = false;
+            debugPrint('Database Failed');
             error = true;
-            throw Exception('Error when trying to fetchDatabaseTracks ${getCurrentLine()} $e');
           });
         }
         
         //Sync load of the page Starts the timer for Sync message change
-        else{
+        if (error || refresh){
+          error = false;
           homeTimer = true;
           startSyncTimer();
 
@@ -204,7 +209,6 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
           .catchError((e){
             homeTimer = false;
             error = true;
-            throw Exception('Error when trying to fetchSpotifyTracks line: ${getCurrentLine()} $e');
           });
         }
       }
@@ -220,22 +224,15 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
       if (allTemp.isNotEmpty){
         totalTracks = allTemp.length;
         allTracks = TracksRequests().makeDuplicates(allTemp);
-
-        selectListUpdate();
-        loaded = true;
-        homeTimer = false;
       }
       else{
         totalTracks = allTracks.length;
         allTracks = allTemp;
-
-        selectListUpdate();
-        loaded = true;
-        homeTimer = false;
-        setState(() {
-          
-        });
       }
+
+      selectListUpdate();
+      loaded = true;
+      homeTimer = false;
 
       //Database has no tracks so check Spotify
       if (mounted && allTracks.isEmpty){
@@ -272,14 +269,15 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
 
       if (allTemp.isNotEmpty){
         allTracks = TracksRequests().makeDuplicates(allTemp);
-        loaded = true;
       }
       else{
         allTracks = allTemp;
-        loaded = true;
+        allTracksList = [];
       }
 
       selectListUpdate();
+      loaded = true;
+      homeTimer = false;
 
       //Adds tracks to database for faster retreival later
       await DatabaseStorage().syncTracks(user.spotifyId, allTracks, currentPlaylist.id)
@@ -291,6 +289,7 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
     loaded = true; //Tracks if the tracks are loaded to be shown
     homeTimer = false;
     refresh = false;
+    error = false;
     setState(() {
       
     });
@@ -460,6 +459,7 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
             ),
 
             backgroundColor: spotHelperGreen,
+
             title: Text(
               currentPlaylist.title, //Playlist Name
               textAlign: TextAlign.center,
@@ -574,16 +574,16 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
     //Stack for the hovering select all button & tracks view
     return Stack(children: [
       ListView.builder(
-          itemCount: allTracks.length,
+          itemCount: allTracksList.length,
           itemBuilder: (context, index) {
-            final trackMap = allTracks.entries.elementAt(index);
+            final trackModel = allTracksList[index];
 
             //Used for displaying track information
-            final trackTitle = trackMap.value.title;
-            final trackImage = trackMap.value.imageUrl;
+            final trackTitle = trackModel.title;
+            final trackImage = trackModel.imageUrl;
             //final trackPrevUrl = trackMap.value.previewUrl ?? '';
-            final trackArtist = trackMap.value.artist;
-            final liked = trackMap.value.liked;
+            final trackArtist = trackModel.artist;
+            final liked = trackModel.liked;
 
             //Used to update Selected Tracks
             bool chosen = selectedTracksList[index].value['chosen'];
@@ -645,7 +645,7 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
               ),
 
               //Makes space so last item isn't behind ad
-              if (index == allTracks.length-1)
+              if (index == allTracksList.length-1)
                 const SizedBox(
                   height: 90,
                 ),

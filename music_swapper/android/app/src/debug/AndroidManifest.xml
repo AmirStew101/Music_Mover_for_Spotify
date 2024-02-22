@@ -9,7 +9,7 @@
     <application
         android:label="spotify_music_helper"
         android:name="${applicationName}"
-        android:icon="@mipmap/spotify_icon_rgb_green"
+        android:icon="@mipmap/box_mover"
         android:enableOnBackInvokedCallback="true">
         <!-- AdMob Setup-->
         <meta-data

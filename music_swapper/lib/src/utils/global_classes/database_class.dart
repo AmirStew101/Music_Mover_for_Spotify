@@ -30,7 +30,8 @@ class DatabaseStorage {
   ///the tracks collection using the names
   Future<Map<String, TrackModel>> getDatabaseTracks(String userId, String playlistId, BuildContext context) async{
     final tracks = await userRepo.getTracks(userId, playlistId)
-    .onError((error, stackTrace) {
+    .catchError((error, stackTrace) {
+      debugPrint('Error $error');
       Flushbar(
         duration: const Duration(seconds: 3),
         titleColor: failedRed,
