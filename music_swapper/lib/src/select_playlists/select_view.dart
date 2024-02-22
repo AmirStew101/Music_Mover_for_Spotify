@@ -41,6 +41,8 @@ class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
 
   //Playlist Variables
   Map<String, PlaylistModel> allPlaylists = {};
+  List<PlaylistModel> allPlaylistsList = [];
+
   Map<String, PlaylistModel> selectedPlaylistsMap = {};
   List<MapEntry<String, dynamic>> selectedPlaylistsList = []; //Stores [Key: playlist ID, Values: Title, bool of if 'chosen', image]
   List<String> playlistIds = [];
@@ -72,12 +74,15 @@ class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
   }
 
   void selectListUpdate(){
-    selectedPlaylistsList = List.generate(allPlaylists.length, (index) {
-        MapEntry<String, PlaylistModel> currPlaylist = allPlaylists.entries.elementAt(index);
+    allPlaylistsList = List.generate(allPlaylists.length, (index) => allPlaylists.entries.elementAt(index).value);
+    allPlaylistsList.sort((a, b) => a.title.compareTo(b.title));
 
-        String playlistTitle = currPlaylist.value.title;
-        String playlistId = currPlaylist.key;
-        String imageUrl = currPlaylist.value.imageUrl;
+    selectedPlaylistsList = List.generate(allPlaylistsList.length, (index) {
+        PlaylistModel currPlaylist = allPlaylistsList[index];
+
+        String playlistTitle = currPlaylist.title;
+        String playlistId = currPlaylist.id;
+        String imageUrl = currPlaylist.imageUrl;
         bool selected = false;
 
         if (selectedPlaylistsMap.containsKey(playlistId)){
@@ -378,12 +383,12 @@ class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
   Widget selectBodyView(){
     //Creates the list of user playlists
     return ListView.builder(
-              itemCount: allPlaylists.length,
+              itemCount: allPlaylistsList.length,
               itemBuilder: (context, index) {
-                MapEntry<String, PlaylistModel> playEntry = allPlaylists.entries.elementAt(index);
-                String playTitle = playEntry.value.title;
-                String playId = playEntry.key;
-                String imageUrl = playEntry.value.imageUrl;
+                PlaylistModel playModel = allPlaylistsList[index];
+                String playTitle = playModel.title;
+                String playId = playModel.id;
+                String imageUrl = playModel.imageUrl;
 
                 bool chosen = selectedPlaylistsList[index].value['chosen'];
                 Map<String, dynamic> selectMap = {'chosen': !chosen, 'title': playTitle, 'imageUrl': imageUrl};
