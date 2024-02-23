@@ -26,6 +26,9 @@ class SelectPlaylistSearchDelegate extends SearchDelegate {
         
     });
 
+    searchResults.sort((a, b) => a.value.compareTo(b.value));
+    selectedList.sort((a, b) => a.value['title'].compareTo(b.value['title']));
+
   }
 
   //What Icons on the Left side of the Search Bar

@@ -6,8 +6,6 @@ import 'package:spotify_music_helper/src/utils/global_classes/global_objects.dar
 class TracksSearchDelegate extends SearchDelegate {
   //Will have a key: track name & value: Artist & ID
   List<MapEntry<String, dynamic>> searchResults = [];
-  
-  Map<String, TrackModel> playlistTracks = {}; //All of the users tracks for the playlist
 
   bool artistFilter = false;
   
@@ -18,7 +16,6 @@ class TracksSearchDelegate extends SearchDelegate {
   //Gets all the tracks for the playlist from tracks
   //Gets all the selected Tracks from previous widget
   TracksSearchDelegate(Map<String, TrackModel> allTracks, Map<String, TrackModel> tracksSelectedMap) {
-    playlistTracks = allTracks;
 
     allTracks.forEach((key, value) {
       String trackTitle = value.title;
@@ -31,6 +28,9 @@ class TracksSearchDelegate extends SearchDelegate {
       Map<String, dynamic> selectedMap = {'chosen': chosen, 'title': trackTitle};
       chosenTracksList.add(MapEntry(key, selectedMap));
     });
+
+    searchResults.sort((a, b) => a.value['title'].compareTo(b.value['title']));
+    chosenTracksList.sort((a, b) => a.value['title'].compareTo(b.value['title']));
   }
   
   @override

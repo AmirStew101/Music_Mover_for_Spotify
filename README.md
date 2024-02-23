@@ -1,30 +1,12 @@
-# Spotify Helper
+# Music Mover for Spotify
 
-A new Flutter project.
+An app made with Flutter to help reorder your Spotify playlists faster. It connects with Spotify to get playlists you have made and all the tracks within them. Users can then select multiple tracks to be moved, added, or removed in bulk. You can either move multiple tracks to another playlist or multiple playlists. You can add multiple tracks to another playlist/playlists or remove multiple tracks from a playlist.
 
-## Getting Started
+## Instillation
 
-This project is a starting point for a Flutter application that follows the
-[simple app state management
-tutorial](https://flutter.dev/docs/development/data-and-backend/state-mgmt/simple).
-
-For help getting started with Flutter development, view the
-[online documentation](https://flutter.dev/docs), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+1. Complete the flutter setup from [https://docs.flutter.dev/get-started/install](https://docs.flutter.dev/get-started/install)
+2. Move to the Flutter project directory using the terminal command `cd music_swapper`
+3. Get the projects dependencies using the command `flutter pub get`
+4. Run the project using the command `flutter run`
 
 ## Assets
-
-The `assets` directory houses images, fonts, and any other files you want to
-include with your application.
-
-The `assets/images` directory contains [resolution-aware
-images](https://flutter.dev/docs/development/ui/assets-and-images#resolution-aware).
-
-## Localization
-
-This project generates localized messages based on arb files found in
-the `lib/src/localization` directory.
-
-To support additional languages, please visit the tutorial on
-[Internationalizing Flutter
-apps](https://flutter.dev/docs/development/accessibility-and-localization/internationalization)

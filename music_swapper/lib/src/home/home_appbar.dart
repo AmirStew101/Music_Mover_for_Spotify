@@ -11,6 +11,7 @@ class PlaylistSearchDelegate extends SearchDelegate {
     playlists.forEach((key, value) {
       searchResults.add(value.title);
     });
+    searchResults.sort((a, b) => a.compareTo(b));
   }
 
   //What Icons on the Left side of the Search Bar
@@ -30,7 +31,8 @@ class PlaylistSearchDelegate extends SearchDelegate {
             onPressed: () {
               if (query.isEmpty) {
                 close(context, null);
-              } else {
+              } 
+              else {
                 query = '';
               }
             })
