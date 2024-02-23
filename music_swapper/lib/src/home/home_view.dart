@@ -173,78 +173,78 @@ class HomeViewState extends State<HomeView> with SingleTickerProviderStateMixin{
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: homeAppbar(),
+        appBar: homeAppbar(),
 
-      drawer: optionsMenu(context),
+        drawer: optionsMenu(context),
 
-      body: FutureBuilder<void>(
-        future: checkLogin(),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.done && loaded && !error) {
-            return Stack(
-              children: [
-                ImageGridWidget(playlists: playlists, receivedCall: receivedCall, user: user),
-                homeAdRow(context, user)
-              ],
-            );
-          }
-          else if(refresh) {
+        body: FutureBuilder<void>(
+          future: checkLogin(),
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.done && loaded && !error) {
               return Stack(
                 children: [
-                  const Center(
-                    child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          CircularProgressIndicator(strokeWidth: 6),
-                          Text(
-                            'Syncing Playlists',
-                            textScaler: TextScaler.linear(2)
-                          ),
-                        ]
-                    )
-                  ),
-                  homeAdRow(context, user),
+                  ImageGridWidget(playlists: playlists, receivedCall: receivedCall, user: user),
+                  homeAdRow(context, user)
                 ],
-              ) ;
+              );
             }
-          else if(error && loaded){
-            return Stack(
-              children: [
-                const Center(
-                  child: Text(
-                    'Error retreiving Playlists from Spotify. Check connection and Refresh page.',
-                    textAlign: TextAlign.center,
-                    textScaler: TextScaler.linear(2),
-                  ),
-                ),
-                homeAdRow(context, user),
-              ],
-            );
-          }
-          else{
+            else if(refresh) {
+                return Stack(
+                  children: [
+                    const Center(
+                      child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            CircularProgressIndicator(strokeWidth: 6),
+                            Text(
+                              'Syncing Playlists',
+                              textScaler: TextScaler.linear(2)
+                            ),
+                          ]
+                      )
+                    ),
+                    homeAdRow(context, user),
+                  ],
+                ) ;
+              }
+            else if(error && loaded){
               return Stack(
                 children: [
                   const Center(
-                    child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          CircularProgressIndicator(strokeWidth: 6,),
-                          Text(
-                            'Loading Playlists',
-                            textScaler: TextScaler.linear(2)
-                          ),
-                        ]
-                    )
+                    child: Text(
+                      'Error retreiving Playlists from Spotify. Check connection and Refresh page.',
+                      textAlign: TextAlign.center,
+                      textScaler: TextScaler.linear(2),
+                    ),
                   ),
                   homeAdRow(context, user),
                 ],
               );
             }
-        },
-      ),
-    );
+            else{
+                return Stack(
+                  children: [
+                    const Center(
+                      child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            CircularProgressIndicator(strokeWidth: 6,),
+                            Text(
+                              'Loading Playlists',
+                              textScaler: TextScaler.linear(2)
+                            ),
+                          ]
+                      )
+                    ),
+                    homeAdRow(context, user),
+                  ],
+                );
+              }
+          },
+        ),
+      );
   }//build
 
   AppBar homeAppbar(){

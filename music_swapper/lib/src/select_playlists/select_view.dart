@@ -279,7 +279,7 @@ class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
   //FUnction to exit playlists select menu
   void navigateToTracks(){
       Map<String, dynamic> sendPlaylist = currentPlaylist.toJson();
-      Navigator.pushNamedAndRemoveUntil(context, TracksView.routeName, ModalRoute.withName(HomeView.routeName), arguments: sendPlaylist);
+      Navigator.pushNamedAndRemoveUntil(context, TracksView.routeName, (route) => route.isFirst, arguments: sendPlaylist);
   }
 
 
