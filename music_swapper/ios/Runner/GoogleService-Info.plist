@@ -14,10 +14,12 @@
 	<string>spot-helper-1688d</string>
 	<key>STORAGE_BUCKET</key>
 	<string>spot-helper-1688d.appspot.com</string>
+	<key>GADApplicationIdentifier</key>
+	<string>ca-app-pub-6435368838932310~7899121379</string>
 	<key>IS_ADS_ENABLED</key>
-	<false></false>
+	<true></true>
 	<key>IS_ANALYTICS_ENABLED</key>
-	<false></false>
+	<true></true>
 	<key>IS_APPINVITE_ENABLED</key>
 	<true></true>
 	<key>IS_GCM_ENABLED</key>
