@@ -78,20 +78,19 @@ class UserRepository extends GetxController {
     try{
       final playlistRef = usersRef.doc(userId).collection(playlistColl);
       final playlistDocs = await playlistRef.get();
+      final batch = db.batch();
 
       //Removes playlists from database that are not in Spotify
       for (var playlistDoc in playlistDocs.docs){
         final playlistId = playlistDoc.id;
 
         if (!spotifyPlaylists.containsKey(playlistId)){
-          await removePlaylist(userId, playlistId);
+          batch.delete(playlistRef.doc(playlistDoc.id));
         }
       }
 
       //Adds playlists that Database is missing or Updates existing
       List<PlaylistModel> newPlaylists = [];
-
-      final updateBatch = db.batch();
 
       for (var playlist in spotifyPlaylists.entries){
         String playlistId = playlist.key;
@@ -103,11 +102,11 @@ class UserRepository extends GetxController {
           newPlaylists.add(newPlaylist);
         }
         else{
-          updateBatch.update(playlistRef.doc(playlistId), newPlaylist.toJsonFirestore());
+          batch.update(playlistRef.doc(playlistId), newPlaylist.toJsonFirestore());
         }
       }
 
-      await updateBatch.commit();
+      await batch.commit();
 
       if (newPlaylists.isNotEmpty){
         await createPlaylists(userId, newPlaylists);

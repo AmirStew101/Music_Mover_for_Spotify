@@ -8,6 +8,7 @@ import 'package:spotify_music_helper/src/utils/object_models.dart';
 import 'package:spotify_music_helper/src/utils/global_classes/secure_storage.dart';
 import 'package:spotify_music_helper/src/utils/global_classes/sync_services.dart';
 import 'package:spotify_music_helper/src/utils/global_classes/global_objects.dart';
+import 'package:url_launcher/link.dart';
 
 import 'settings_controller.dart';
 
@@ -270,6 +271,45 @@ class SettingsViewState extends State<SettingsViewWidget> with TickerProviderSta
                   },
                 ),
                 const Divider(color: Colors.grey),
+
+                //Contacts
+                const ListTile(
+                  title: Text(
+                    'Contact Options',
+                    textScaler: TextScaler.linear(1.1),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+                const Divider(color: Colors.grey),
+
+                const ListTile(
+                  title: Text(
+                    'Email: spotmusicmover@gmail.com',
+                    textScaler: TextScaler.linear(1.1),
+                  ),
+                ),
+                const Divider(color: Colors.grey),
+
+                ListTile(
+                  title: const Text(
+                    'Discord Link',
+                    textAlign: TextAlign.center,
+                  ),
+                  subtitle: Link(
+                    uri: Uri.parse('https://discord.gg/9tUebJyuMH'), 
+                    builder: (context, followLink) {
+                      return TextButton(
+                        onPressed: followLink, 
+                        child: const Text(
+                          'https://discord.gg/9tUebJyuMH',
+                          style: TextStyle(color: Color.fromARGB(255, 17, 134, 230)),
+                        )
+                      );
+                    },
+                  ),
+                ),
+                const Divider(color: Colors.grey),
+
                 // if (user.subscribed)
                 //   ListTile(
                 //   leading: const Icon(Icons.monetization_on_rounded),
