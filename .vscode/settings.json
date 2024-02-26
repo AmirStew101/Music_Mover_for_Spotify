@@ -1,4 +1,7 @@
 {
     "cmake.sourceDirectory": "C:/Users/amirs/VCodeSource/Music_Swapper/music_swapper/windows/flutter",
-    "java.configuration.updateBuildConfiguration": "interactive"
+    "java.configuration.updateBuildConfiguration": "interactive",
+    "files.associations": {
+        "xstring": "cpp"
+    }
 }

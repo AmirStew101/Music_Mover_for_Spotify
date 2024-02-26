@@ -8,5 +8,3 @@ An app made with Flutter to help reorder your Spotify playlists faster. It conne
 2. Move to the Flutter project directory using the terminal command `cd music_swapper`
 3. Get the projects dependencies using the command `flutter pub get`
 4. Run the project using the command `flutter run`
-
-## Assets

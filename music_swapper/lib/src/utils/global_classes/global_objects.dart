@@ -1,7 +1,5 @@
 
 // ignore_for_file: use_build_context_synchronously
-
-import 'dart:async';
 import 'dart:io';
 
 import 'package:another_flushbar/flushbar.dart';
@@ -11,8 +9,6 @@ import 'package:spotify_music_helper/src/info/info_page.dart';
 import 'package:spotify_music_helper/src/home/home_view.dart';
 import 'package:spotify_music_helper/src/login/start_screen.dart';
 import 'package:spotify_music_helper/src/settings/settings_view.dart';
-import 'package:spotify_music_helper/src/utils/backend_calls/playlists_requests.dart';
-import 'package:spotify_music_helper/src/utils/backend_calls/tracks_requests.dart';
 import 'package:spotify_music_helper/src/utils/globals.dart';
 import 'package:spotify_music_helper/src/utils/object_models.dart';
 import 'package:spotify_music_helper/src/utils/backend_calls/databse_calls.dart';
@@ -62,61 +58,6 @@ Image spotifyHeart(){
   );
 }
 
-//Used to organize what songs a user has in their Liked Songs playlist
-class LikedSongs{
-  String likedId = 'Liked_Songs';
-
-  //Use the check API
-
-  //Checks if the tracks in a playlist is a Liked Song
-  Future<Map<String, TrackModel>?> checkLiked(Map<String, TrackModel> playlistTracks, String userId) async{
-    Map<String, TrackModel>? likedSongs = await getLikedSongs(userId);
-
-    if (likedSongs != null && likedSongs.isNotEmpty){
-      List liked = [];
-      for (var trackId in playlistTracks.keys){
-        if (likedSongs.containsKey(trackId)){
-          liked.add(trackId);
-        }
-      }
-    }
-    //User has no liked songs
-    if (likedSongs != null && likedSongs.isEmpty){
-      return likedSongs;
-    }
-
-    //User needs a new callback
-    return null;
-  }
-
-  //Gets all the users liked songs
-  Future<Map<String, TrackModel>?> getLikedSongs(String userId) async{
-    Map<String, TrackModel> likedSongs = await userRepo.getTracks(userId, likedId);
-
-    //Database Liked Songs is empty
-    if (likedSongs.isEmpty){
-      CallbackModel? callback = await SecureStorage().getTokens();
-
-      //Get tracks from spotify
-      if (callback != null){
-        callback = await PlaylistsRequests().checkRefresh(callback, false);
-        
-        if (callback != null){
-          int totalTracks = await TracksRequests().getTracksTotal(likedId, callback.expiresAt, callback.accessToken);
-          likedSongs = await TracksRequests().getPlaylistTracks(likedId, callback.expiresAt, callback.accessToken, totalTracks);
-        }
-      }
-      //User needs a new callback
-      else{
-        return null;
-      }
-    }
-
-    return likedSongs;
-  }
-
-}//LikedSongs
-
 
 String modifyBadQuery(String query){
   List badInput = ['\\', ';', '\'', '"', '@', '|'];
@@ -139,10 +80,13 @@ Drawer optionsMenu(BuildContext context){
       child: ListView(
         children: [
           DrawerHeader(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
+            margin: const EdgeInsets.only(bottom: 5),
             decoration: BoxDecoration(color: spotHelperGreen),
             child: const Text(
-              'Sidebar Options',
+              'Options',
               style: TextStyle(fontSize: 18),
+              textAlign: TextAlign.center,
             )
           ),
           ListTile(

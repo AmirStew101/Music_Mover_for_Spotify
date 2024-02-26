@@ -48,9 +48,9 @@ class HomeViewState extends State<HomeView> with SingleTickerProviderStateMixin{
   }
 
   Future<void> checkLogin() async {
-    final response = await PlaylistsRequests().checkRefresh(receivedCall, false);
+    final refreshResponse = await PlaylistsRequests().checkRefresh(receivedCall, false);
 
-    if (!checkedLogin || response == null){
+    if (!checkedLogin || refreshResponse == null){
       checkedLogin = true;
       
       //Make a function that returns a bool to check
@@ -290,7 +290,7 @@ class HomeViewState extends State<HomeView> with SingleTickerProviderStateMixin{
         backgroundColor: spotHelperGreen,
 
         title: const Text(
-          'Spotify Helper',
+          'Music Mover',
           textAlign: TextAlign.center,
         ),
 

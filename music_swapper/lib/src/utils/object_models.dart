@@ -35,6 +35,28 @@ class UserModel{
       };
   }
 
+  toMap(){
+    return {
+      'spotifyId': spotifyId,
+      'username': username,
+      'uri': uri,
+      'subscribed': subscribed,
+      'tier': tier,
+      'expiration': expiration,
+    };
+  }
+
+  UserModel toModel(Map<String, dynamic> userMap){
+    return UserModel(
+      spotifyId: userMap['spotifyId'],
+      subscribed: userMap['subscribed'],
+      tier: userMap['tier'],
+      uri: userMap['uri'],
+      username: userMap['username'],
+      expiration: userMap['expiration']
+    );
+  }
+
   //Returns the day for the Models expiration
   int get getDay{
     final day = expiration.toDate().day;
@@ -55,7 +77,7 @@ class UserModel{
 
   @override
   String toString(){
-    return 'TrackModel(spotifyId: $spotifyId, username: $username, uri: $uri, subscribed: $subscribed, tier: $tier, expiration: $expiration)';
+    return 'UserModel(spotifyId: $spotifyId, username: $username, uri: $uri, subscribed: $subscribed, tier: $tier, expiration: $expiration)';
   }
 }
 

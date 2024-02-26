@@ -272,16 +272,6 @@ class SettingsViewState extends State<SettingsViewWidget> with TickerProviderSta
                 ),
                 const Divider(color: Colors.grey),
 
-                //Contacts
-                const ListTile(
-                  title: Text(
-                    'Contact Options',
-                    textScaler: TextScaler.linear(1.1),
-                    textAlign: TextAlign.center,
-                  ),
-                ),
-                const Divider(color: Colors.grey),
-
                 const ListTile(
                   title: Text(
                     'Email: spotmusicmover@gmail.com',
@@ -291,18 +281,15 @@ class SettingsViewState extends State<SettingsViewWidget> with TickerProviderSta
                 const Divider(color: Colors.grey),
 
                 ListTile(
-                  title: const Text(
-                    'Discord Link',
-                    textAlign: TextAlign.center,
-                  ),
-                  subtitle: Link(
-                    uri: Uri.parse('https://discord.gg/9tUebJyuMH'), 
+                  title: Link(
+                    uri: Uri.parse('https://discord.gg/2nRRFtkrhd'), 
                     builder: (context, followLink) {
                       return TextButton(
                         onPressed: followLink, 
                         child: const Text(
-                          'https://discord.gg/9tUebJyuMH',
+                          'Discord Link',
                           style: TextStyle(color: Color.fromARGB(255, 17, 134, 230)),
+                          textScaler: TextScaler.linear(1.1),
                         )
                       );
                     },

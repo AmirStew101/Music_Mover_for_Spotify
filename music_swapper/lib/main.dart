@@ -21,7 +21,7 @@ Future<void> main() async {
   if (shouldUseFirestoreEmulator){
     FirebaseFirestore.instance.useFirestoreEmulator('localhost', 8080);
   }
-
+  
   //Google AdMob initialization
   await MobileAds.instance.initialize();
 
