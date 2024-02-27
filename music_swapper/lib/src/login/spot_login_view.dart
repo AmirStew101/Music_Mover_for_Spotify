@@ -98,17 +98,14 @@ class SpotLoginState extends State<SpotLoginWidget> {
                   final UserModel? syncedUser = await DatabaseStorage().syncUserData(callback['expiresAt'], callback['accessToken']);
 
                   if (syncedUser != null){
-                    debugPrint('\nSending to python');
                     final fireApp = FirebaseAuth.instance.app;
-                    final getCustomTokenUrl = '$ngrok/get-custom-token/${syncedUser.spotifyId}/$fireApp';
+                    final getCustomTokenUrl = '$ngrok/get-custom-token/${syncedUser.spotifyId}';
                     final customResponse = await http.get(Uri.parse(getCustomTokenUrl));
-                    debugPrint('\nReceived response');
 
                     if (customResponse.statusCode != 200){
                       throw Exception('spot_login_view.dart line: ${getCurrentLine()} Caught Error: ${customResponse.body}');
                     }
 
-                    debugPrint('\nSetting user');
                     await UserAuth().setUser(customResponse.body);
                     final CallbackModel callbackModel = CallbackModel(expiresAt: callback['expiresAt'], accessToken: callback['accessToken'], refreshToken: callback['refreshToken']);
 
