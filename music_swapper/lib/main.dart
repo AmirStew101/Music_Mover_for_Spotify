@@ -1,8 +1,11 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:spotify_music_helper/firebase_options.dart';
+import 'package:spotify_music_helper/src/utils/dev_global.dart';
+import 'package:http/http.dart' as http;
 
 import 'src/app.dart';
 import 'src/settings/settings_controller.dart';

@@ -3,11 +3,15 @@
 import 'dart:convert';
 
 import 'package:another_flushbar/flushbar.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:spotify_music_helper/src/home/home_view.dart';
 import 'package:spotify_music_helper/src/login/start_screen.dart';
 import 'package:spotify_music_helper/src/utils/analytics.dart';
+import 'package:spotify_music_helper/src/utils/auth.dart';
 import 'package:spotify_music_helper/src/utils/dev_global.dart';
+import 'package:spotify_music_helper/src/utils/global_classes/global_objects.dart';
 import 'package:spotify_music_helper/src/utils/object_models.dart';
 import 'package:spotify_music_helper/src/utils/globals.dart';
 import 'package:spotify_music_helper/src/utils/global_classes/database_class.dart';
@@ -94,6 +98,18 @@ class SpotLoginState extends State<SpotLoginWidget> {
                   final UserModel? syncedUser = await DatabaseStorage().syncUserData(callback['expiresAt'], callback['accessToken']);
 
                   if (syncedUser != null){
+                    debugPrint('\nSending to python');
+                    final fireApp = FirebaseAuth.instance.app;
+                    final getCustomTokenUrl = '$ngrok/get-custom-token/${syncedUser.spotifyId}/$fireApp';
+                    final customResponse = await http.get(Uri.parse(getCustomTokenUrl));
+                    debugPrint('\nReceived response');
+
+                    if (customResponse.statusCode != 200){
+                      throw Exception('spot_login_view.dart line: ${getCurrentLine()} Caught Error: ${customResponse.body}');
+                    }
+
+                    debugPrint('\nSetting user');
+                    await UserAuth().setUser(customResponse.body);
                     final CallbackModel callbackModel = CallbackModel(expiresAt: callback['expiresAt'], accessToken: callback['accessToken'], refreshToken: callback['refreshToken']);
 
                     await SecureStorage().saveTokens(callbackModel);
