@@ -53,16 +53,9 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
   bool selectAll = false;
   bool selectingAll = false;
   bool error = false;
-  bool homeTimer = false;
   bool removing = false;
   
   late TabController tabController;
-
-  //Users Smart Sync text
-  final List<String> smartSyncTexts = ['Syncing Tracks.', 'Syncing a lot of Tracks may take a minute.', 'Someone has a lot of Tracks to Sync, over 1000?'];
-
-  final List<String> loadTexts = ['Loading Tracks.', 'First time Loading a lot of Tracks may take awhile.', 'Someone has a lot of Tracks to Load, over 1000?'];
-  int loadingIndex = 0;
 
   bool checkedLogin = false;
 
@@ -113,52 +106,6 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
     selectingAll = false;
   }
 
-  void startSyncTimer(){
-    if (homeTimer && mounted){
-      Timer.periodic(const Duration(seconds: 20), (timer) {
-        if(mounted){
-          setState(() {
-            loadingIndex = (loadingIndex + 1) % smartSyncTexts.length;
-          });
-        }
-        else{
-          loadingIndex = 0;
-          timer.cancel();
-        }
-        if(loaded && mounted){
-          loadingIndex = 0;
-          timer.cancel();
-          setState(() {
-            //Stops the timer and resets messages
-          });
-        }
-      });
-     }
-  }
-
-  void startLoadTimer(){
-    if(homeTimer && mounted){
-      Timer.periodic(const Duration(seconds: 20), (timer) {
-        if(mounted){
-          setState(() {
-            loadingIndex = (loadingIndex + 1) % loadTexts.length;
-          });
-        }
-        else{
-          loadingIndex = 0;
-          timer.cancel();
-        }
-        if(loaded && mounted){
-          loadingIndex = 0;
-          timer.cancel();
-          setState(() {
-            //Stops the timer and resets messages
-          });
-        }
-      });
-    }
-  }
-
 
   Future<void> checkLogin() async{
     final response = await PlaylistsRequests().checkRefresh(receivedCall, false);
@@ -185,16 +132,12 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
     if (mounted && !loaded && checkedLogin){
       //Timer isn't running, still on the same page, loading the page, & not updating select List
       //Keeps from repeating functions when setState is called
-      if(!homeTimer && mounted && !loaded && !selectingAll){
+      if(mounted && !loaded && !selectingAll){
 
         //Initial load of the page Starts the timer for Loading message change
         if (!refresh){
-          homeTimer = true;
-          startLoadTimer();
-
           await fetchDatabaseTracks()
           .catchError((e){
-            homeTimer = false;
             debugPrint('Database Failed');
             error = true;
           });
@@ -203,12 +146,9 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
         //Sync load of the page Starts the timer for Sync message change
         if (error || refresh){
           error = false;
-          homeTimer = true;
-          startSyncTimer();
 
           await fetchSpotifyTracks()
           .catchError((e){
-            homeTimer = false;
             error = true;
           });
         }
@@ -233,13 +173,11 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
 
       selectListUpdate();
       loaded = true;
-      homeTimer = false;
 
       //Database has no tracks so check Spotify
       if (mounted && allTracks.isEmpty){
         await fetchSpotifyTracks()
         .catchError((e){
-          homeTimer = false;
           error = true;
           throw Exception('Error when trying to fetchSpotifyTracks in tracks_view.dart: $e');
         });
@@ -278,7 +216,6 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
 
       selectListUpdate();
       loaded = true;
-      homeTimer = false;
 
       //Adds tracks to database for faster retreival later
       await DatabaseStorage().syncTracks(user.spotifyId, allTracks, currentPlaylist.id)
@@ -288,7 +225,6 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
     }
 
     loaded = true; //Tracks if the tracks are loaded to be shown
-    homeTimer = false;
     refresh = false;
     error = false;
     setState(() {
@@ -300,7 +236,6 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
   Future<void> deleteRefresh() async{
     loaded = false;
     selectingAll = false;
-    loadingIndex = 0;
     error = false;
     removing = false;
     selectAll = false;
@@ -317,7 +252,6 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
     selectingAll = false;
     refresh = true;
     loaded = false;
-    loadingIndex = 0;
     error = false;
 
     setState(() {
@@ -537,10 +471,10 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
 
                       //Smart Sync was pressed
                       if(refresh) 
-                        Center(child: 
+                        const Center(child: 
                           Text(
-                            smartSyncTexts[loadingIndex],
-                            textScaler: const TextScaler.linear(2),
+                            'Syncing Tracks',
+                            textScaler: TextScaler.linear(2),
                             textAlign: TextAlign.center,
                           )
                         )
@@ -556,10 +490,10 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
                         )
                       //Just loaded page
                       else
-                        Center(child: 
+                        const Center(child: 
                           Text(
-                            loadTexts[loadingIndex],
-                            textScaler: const TextScaler.linear(2),
+                            'Loading Tracks',
+                            textScaler: TextScaler.linear(2),
                             textAlign: TextAlign.center,
                           )
                         )
