@@ -223,22 +223,21 @@ class HomeViewState extends State<HomeView> with SingleTickerProviderStateMixin{
               );
             }
             else{
-                return Stack(
+                return const Stack(
                   children: [
-                    const Center(
+                    Center(
                       child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.center,
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            CircularProgressIndicator(strokeWidth: 6,),
-                            Text(
-                              'Loading Playlists',
-                              textScaler: TextScaler.linear(2)
-                            ),
-                          ]
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          CircularProgressIndicator(strokeWidth: 6,),
+                          Text(
+                            'Loading Playlists',
+                            textScaler: TextScaler.linear(2)
+                          ),
+                        ]
                       )
                     ),
-                    homeAdRow(context, user),
                   ],
                 );
               }

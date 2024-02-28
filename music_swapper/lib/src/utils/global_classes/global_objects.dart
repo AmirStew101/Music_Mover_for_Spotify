@@ -124,8 +124,39 @@ Drawer optionsMenu(BuildContext context){
           ListTile(
             leading: const Icon(Icons.exit_to_app),
             title: const Text('Exit App'),
-            onTap: () {
-              exit(0);
+            onTap: () async {
+              bool confirmed = false;
+
+              await showDialog(
+                context: context, 
+                builder: (context) {
+                  return AlertDialog.adaptive(
+                    title: const Text('Sure you want to exit the App?'),
+                    actionsAlignment: MainAxisAlignment.center,
+                    actions: [
+                      TextButton(
+                        onPressed: () {
+                          //Close Popup
+                          Navigator.of(context).pop();
+                        }, 
+                        child: const Text('Cancel')
+                      ),
+                      TextButton(
+                        onPressed: () {
+                          confirmed = true;
+                          //Close Popup
+                          Navigator.of(context).pop();
+                        },
+                        child: const Text('Confirm'),
+                      ),
+                    ],
+                  );
+                },
+              );
+              
+              if(confirmed){
+                exit(0);
+              }
             },
           ),
         ],
