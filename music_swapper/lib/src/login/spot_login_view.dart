@@ -55,11 +55,13 @@ class SpotLoginState extends State<SpotLoginWidget> {
       final response = await http.get(Uri.parse(loginURL));
       
       if (response.statusCode != 200){
+        debugPrint('Login Response Fail:');
         await loginIssue();
       }
       responseDecode = json.decode(response.body);
     }
     catch (e){
+      debugPrint('Login Fail: $e');
       await loginIssue();
     }
 
@@ -99,7 +101,7 @@ class SpotLoginState extends State<SpotLoginWidget> {
 
                   if (syncedUser != null){
                     final fireApp = FirebaseAuth.instance.app;
-                    final getCustomTokenUrl = '$ngrok/get-custom-token/${syncedUser.spotifyId}';
+                    final getCustomTokenUrl = '$hosted/get-custom-token/${syncedUser.spotifyId}';
                     final customResponse = await http.get(Uri.parse(getCustomTokenUrl));
 
                     if (customResponse.statusCode != 200){
@@ -116,11 +118,13 @@ class SpotLoginState extends State<SpotLoginWidget> {
                     Navigator.pushNamedAndRemoveUntil(context, HomeView.routeName, (route) => false);
                   }
                   else{
+                    debugPrint('Synced User Fail');
                     await loginIssue();
                   }
                 }
                 //Spotify was unable to send the callback
                 else{
+                  debugPrint('Callback Fail');
                   await loginIssue();
                 }
 

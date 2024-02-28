@@ -22,7 +22,6 @@ class UserRepository extends GetxController {
       final DocumentSnapshot<Map<String, dynamic>> userExists = await usersRef.doc(user.spotifyId).get();
 
       if (userExists.exists) {
-        await updateUser(user);
         return true;
       }
       return false;

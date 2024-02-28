@@ -117,7 +117,7 @@ class DatabaseStorage {
       userInfo = responseDecoded['data'];
 
       //Converts user from Spotify to Firestore user
-      UserModel user = UserModel(username: userInfo['user_name'] , spotifyId: userInfo['id'], uri: userInfo['uri'], subscribed: false, tier: 0, expiration: Timestamp.now());
+      UserModel user = UserModel(username: userInfo['user_name'] , spotifyId: userInfo['id'], uri: userInfo['uri'], expiration: Timestamp.now());
 
       //Checks if user is already in the database
       if (!await userRepo.hasUser(user)){
