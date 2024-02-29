@@ -3,9 +3,8 @@
 import 'package:flutter/material.dart';
 import 'package:spotify_music_helper/src/utils/globals.dart';
 import 'package:spotify_music_helper/src/utils/object_models.dart';
-import 'package:spotify_music_helper/src/utils/backend_calls/playlists_requests.dart';
-import 'package:spotify_music_helper/src/utils/backend_calls/tracks_requests.dart';
-import 'package:spotify_music_helper/src/utils/global_classes/database_class.dart';
+import 'package:spotify_music_helper/src/utils/backend_calls/spotify_requests.dart';
+import 'package:spotify_music_helper/src/utils/global_classes/database_classes.dart';
 import 'package:spotify_music_helper/src/utils/global_classes/secure_storage.dart';
 
 String allOption = 'all';
@@ -65,7 +64,7 @@ class SpotifySync{
         CallbackModel receivedCall = callback;
 
         try{
-          final result = await PlaylistsRequests().checkRefresh(receivedCall, false); 
+          final result = await OtherRequests().checkRefresh(receivedCall, false); 
 
           if (result != null){
             receivedCall = result;
@@ -131,7 +130,7 @@ class SpotifySync{
         CallbackModel receivedCall = callback;
 
         try{
-          final result = await PlaylistsRequests().checkRefresh(receivedCall, false); 
+          final result = await OtherRequests().checkRefresh(receivedCall, false); 
 
           if (result != null){
             receivedCall = result;
@@ -183,7 +182,7 @@ class SpotifySync{
 
         CallbackModel receivedCall = callback;
 
-        final result = await PlaylistsRequests().checkRefresh(receivedCall, false); 
+        final result = await OtherRequests().checkRefresh(receivedCall, false); 
 
         if (result != null){
           receivedCall = result;
@@ -195,7 +194,7 @@ class SpotifySync{
           String total = '';
           try{
             
-            final result = await PlaylistsRequests().checkRefresh(receivedCall, false); 
+            final result = await OtherRequests().checkRefresh(receivedCall, false); 
 
             if (result != null){
               receivedCall = result;

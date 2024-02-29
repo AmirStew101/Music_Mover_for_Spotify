@@ -8,12 +8,11 @@ import 'package:spotify_music_helper/src/select_playlists/select_popups.dart';
 import 'package:spotify_music_helper/src/tracks/tracks_view.dart';
 import 'package:spotify_music_helper/src/utils/globals.dart';
 import 'package:spotify_music_helper/src/utils/object_models.dart';
-import 'package:spotify_music_helper/src/utils/backend_calls/playlists_requests.dart';
 import 'package:spotify_music_helper/src/select_playlists/select_search.dart';
-import 'package:spotify_music_helper/src/utils/global_classes/database_class.dart';
+import 'package:spotify_music_helper/src/utils/global_classes/database_classes.dart';
 import 'package:spotify_music_helper/src/utils/global_classes/secure_storage.dart';
 import 'package:spotify_music_helper/src/utils/global_classes/sync_services.dart';
-import 'package:spotify_music_helper/src/utils/backend_calls/tracks_requests.dart';
+import 'package:spotify_music_helper/src/utils/backend_calls/spotify_requests.dart';
 import 'package:spotify_music_helper/src/utils/global_classes/global_objects.dart';
 
 class SelectPlaylistsViewWidget extends StatefulWidget {
@@ -169,7 +168,7 @@ class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
     try{
       if (!loaded && !selectUpdating){
         bool forceRefresh = false;
-        final result = await PlaylistsRequests().checkRefresh(receivedCall, forceRefresh);
+        final result = await OtherRequests().checkRefresh(receivedCall, forceRefresh);
 
         if (result != null){
           receivedCall = result;
@@ -207,7 +206,7 @@ class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
       List<String> removeIds = addIds;
       List<String> addBackIds = TracksRequests().getAddBackIds(selectedTracksMap);
       
-      final result = await PlaylistsRequests().checkRefresh(receivedCall, false);
+      final result = await OtherRequests().checkRefresh(receivedCall, false);
       if(result != null){
         receivedCall = result;
       }
@@ -249,7 +248,7 @@ class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
     }
     //Adds tracks to Playlists
     else {
-      final result = await PlaylistsRequests().checkRefresh(receivedCall, false);
+      final result = await OtherRequests().checkRefresh(receivedCall, false);
 
       if (result != null){
         receivedCall = result;

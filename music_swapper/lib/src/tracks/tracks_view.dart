@@ -10,10 +10,9 @@ import 'package:spotify_music_helper/src/tracks/tracks_popups.dart';
 import 'package:spotify_music_helper/src/utils/dev_global.dart';
 import 'package:spotify_music_helper/src/utils/globals.dart';
 import 'package:spotify_music_helper/src/utils/object_models.dart';
-import 'package:spotify_music_helper/src/utils/backend_calls/playlists_requests.dart';
-import 'package:spotify_music_helper/src/utils/backend_calls/tracks_requests.dart';
+import 'package:spotify_music_helper/src/utils/backend_calls/spotify_requests.dart';
 import 'package:spotify_music_helper/src/tracks/tracks_search.dart';
-import 'package:spotify_music_helper/src/utils/global_classes/database_class.dart';
+import 'package:spotify_music_helper/src/utils/global_classes/database_classes.dart';
 import 'package:spotify_music_helper/src/utils/global_classes/secure_storage.dart';
 import 'package:spotify_music_helper/src/utils/global_classes/global_objects.dart';
 
@@ -108,7 +107,7 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
 
 
   Future<void> checkLogin() async{
-    final response = await PlaylistsRequests().checkRefresh(receivedCall, false);
+    final response = await OtherRequests().checkRefresh(receivedCall, false);
 
     if (mounted && !checkedLogin || response == null){
       CallbackModel? secureCall = await SecureStorage().getTokens();
@@ -189,7 +188,7 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
   //Gets the users tracks for the selected Playlist
   Future<void> fetchSpotifyTracks() async {
     //Checks if Token needs to be refreshed
-    final result = await PlaylistsRequests().checkRefresh(receivedCall, false); 
+    final result = await OtherRequests().checkRefresh(receivedCall, false); 
 
     if (result != null){
       receivedCall = result;
@@ -727,7 +726,7 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
 
               List<String> addBackIds = TracksRequests().getAddBackIds(selectedTracksMap);
 
-              final callResponse = await PlaylistsRequests().checkRefresh(receivedCall, false);
+              final callResponse = await OtherRequests().checkRefresh(receivedCall, false);
               if (callResponse == null){
                 error = true;
                 throw Exception('tracks_view.dart Callback Refresh Failed line: ${getCurrentLine()}');

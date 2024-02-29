@@ -41,13 +41,6 @@ class AppAnalytics{
     .logEvent(
       name: 'liked_songs_viewed',
     );
-
-  //   await analytics.logEvent(
-  //     name: 'liked_songs_viewed',
-  //     parameters: {
-  //       'screen_name': 'playlists',
-  //     },
-  //   );
   }
 
 }//AppAnalytics

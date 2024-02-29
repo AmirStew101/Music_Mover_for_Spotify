@@ -8,11 +8,12 @@ import 'package:spotify_music_helper/src/home/home_view.dart';
 import 'package:spotify_music_helper/src/login/start_screen.dart';
 import 'package:spotify_music_helper/src/utils/analytics.dart';
 import 'package:spotify_music_helper/src/utils/auth.dart';
+import 'package:spotify_music_helper/src/utils/backend_calls/spotify_requests.dart';
 import 'package:spotify_music_helper/src/utils/dev_global.dart';
 import 'package:spotify_music_helper/src/utils/global_classes/global_objects.dart';
 import 'package:spotify_music_helper/src/utils/object_models.dart';
 import 'package:spotify_music_helper/src/utils/globals.dart';
-import 'package:spotify_music_helper/src/utils/global_classes/database_class.dart';
+import 'package:spotify_music_helper/src/utils/global_classes/database_classes.dart';
 import 'package:spotify_music_helper/src/utils/global_classes/secure_storage.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:http/http.dart' as http;
@@ -95,10 +96,10 @@ class SpotLoginState extends State<SpotLoginWidget> {
                 
                 //No errors in getting the callback
                 if (callback.isNotEmpty){
-                  final UserModel? syncedUser = await DatabaseStorage().syncUserData(callback['expiresAt'], callback['accessToken']);
+                  final UserModel? spotifyUser = await OtherRequests().getUser(callback['expiresAt'], callback['accessToken']);
 
-                  if (syncedUser != null){
-                    final getCustomTokenUrl = '$hosted/get-custom-token/${syncedUser.spotifyId}';
+                  if (spotifyUser != null){
+                    final getCustomTokenUrl = '$hosted/get-custom-token/${spotifyUser.spotifyId}';
                     final customResponse = await http.get(Uri.parse(getCustomTokenUrl));
 
                     if (customResponse.statusCode != 200){
@@ -106,12 +107,14 @@ class SpotLoginState extends State<SpotLoginWidget> {
                     }
 
                     await UserAuth().setUser(customResponse.body);
+                    await DatabaseStorage().syncUserData(spotifyUser);
+                    
                     final CallbackModel callbackModel = CallbackModel(expiresAt: callback['expiresAt'], accessToken: callback['accessToken'], refreshToken: callback['refreshToken']);
 
                     await SecureStorage().saveTokens(callbackModel);
-                    await SecureStorage().saveUser(syncedUser);
+                    await SecureStorage().saveUser(spotifyUser);
 
-                    await AppAnalytics().trackSpotifyLogin(syncedUser);
+                    await AppAnalytics().trackSpotifyLogin(spotifyUser);
                     Navigator.pushNamedAndRemoveUntil(context, HomeView.routeName, (route) => false);
                   }
                   else{

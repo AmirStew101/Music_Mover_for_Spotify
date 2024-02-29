@@ -106,40 +106,14 @@ class DatabaseStorage {
   }
 
 
-  Future<UserModel?> syncUserData(double expiresAt, String accessToken) async {
+  ///Checks if user is already in the database and adds them if they are not.
+  Future<void> syncUserData(UserModel user) async {
+    if (!await userRepo.hasUser(user)){
+      //Creates an unsubscribed user
+      await userRepo.createUser(user);
 
-    final getUserInfo = '$hosted/get-user-info/$expiresAt/$accessToken';
-    final response = await http.get(Uri.parse(getUserInfo));
-    Map<String, dynamic> userInfo = {};
-
-    if (response.statusCode == 200){
-      final responseDecoded = json.decode(response.body);
-      userInfo = responseDecoded['data'];
-
-      //Converts user from Spotify to Firestore user
-      UserModel user = UserModel(username: userInfo['user_name'] , spotifyId: userInfo['id'], uri: userInfo['uri'], expiration: Timestamp.now());
-
-      //Checks if user is already in the database
-      if (!await userRepo.hasUser(user)){
-        //Creates an unsubscribed user
-        await userRepo.createUser(user);
-
-        //User was created Successfully and retreived from database
-        return user;
-      }
-
-      //Gets the user from the database
-      else{
-        UserModel? retreivedUser = await userRepo.getUser(user);
-        if (retreivedUser != null){
-          //User was retreived Successfully from database
-          return retreivedUser;
-        }
-      }
+      //User was created Successfully
     }
-
-    //User was not able to be synced with database
-    return null;
   }
 
 

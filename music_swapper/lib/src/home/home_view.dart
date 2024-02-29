@@ -7,12 +7,12 @@ import 'package:spotify_music_helper/src/home/home_appbar.dart';
 import 'package:spotify_music_helper/src/login/start_screen.dart';
 import 'package:spotify_music_helper/src/utils/analytics.dart';
 import 'package:spotify_music_helper/src/utils/ads.dart';
+import 'package:spotify_music_helper/src/utils/backend_calls/spotify_requests.dart';
 import 'package:spotify_music_helper/src/utils/globals.dart';
 import 'package:spotify_music_helper/src/utils/object_models.dart';
-import 'package:spotify_music_helper/src/utils/backend_calls/playlists_requests.dart';
 import 'package:spotify_music_helper/src/home/home_body.dart';
 import 'package:spotify_music_helper/src/tracks/tracks_view.dart';
-import 'package:spotify_music_helper/src/utils/global_classes/database_class.dart';
+import 'package:spotify_music_helper/src/utils/global_classes/database_classes.dart';
 import 'package:spotify_music_helper/src/utils/global_classes/secure_storage.dart';
 import 'package:spotify_music_helper/src/utils/global_classes/global_objects.dart';
 
@@ -48,7 +48,7 @@ class HomeViewState extends State<HomeView> with SingleTickerProviderStateMixin{
   }
 
   Future<void> checkLogin() async {
-    final refreshResponse = await PlaylistsRequests().checkRefresh(receivedCall, false);
+    final refreshResponse = await OtherRequests().checkRefresh(receivedCall, false);
 
     if (!checkedLogin || refreshResponse == null){
       checkedLogin = true;
@@ -122,7 +122,7 @@ class HomeViewState extends State<HomeView> with SingleTickerProviderStateMixin{
     try{
       bool forceRefresh = false;
       //Checks to make sure Tokens are up to date before making a Spotify request
-      CallbackModel? result = await PlaylistsRequests().checkRefresh(receivedCall, forceRefresh);
+      CallbackModel? result = await OtherRequests().checkRefresh(receivedCall, forceRefresh);
 
       if (result == null){
         checkedLogin = false;
