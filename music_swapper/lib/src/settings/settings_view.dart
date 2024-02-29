@@ -3,6 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:spotify_music_helper/src/login/start_screen.dart';
 import 'package:spotify_music_helper/src/utils/ads.dart';
+import 'package:spotify_music_helper/src/utils/global_classes/database_classes.dart';
 import 'package:spotify_music_helper/src/utils/globals.dart';
 import 'package:spotify_music_helper/src/utils/object_models.dart';
 import 'package:spotify_music_helper/src/utils/global_classes/secure_storage.dart';
@@ -95,7 +96,7 @@ class SettingsViewState extends State<SettingsViewWidget> with TickerProviderSta
     scaffoldMessenger = ScaffoldMessenger.of(context);
   }
 
-  Future<void> getUSer()async{
+  Future<void> getUser()async{
     final response = await SecureStorage().getUser();
 
     if (response != null){
@@ -297,6 +298,60 @@ class SettingsViewState extends State<SettingsViewWidget> with TickerProviderSta
                 ),
                 const Divider(color: Colors.grey),
 
+                ListTile(
+                  title: Text(
+                    'Delete Stored App Data',
+                    style: TextStyle(color: failedRed),
+                    textAlign: TextAlign.center,
+                  ),
+                  onTap: () async{
+                    bool confirmed = false;
+
+                    await showDialog(
+                      context: context, 
+                      builder: (context) {
+                        return AlertDialog.adaptive(
+                          title: const Text('Sure you want to delete your app data? Unrelated to Spotify data.'),
+                          actionsAlignment: MainAxisAlignment.center,
+                          actions: [
+                            TextButton(
+                              onPressed: () {
+                                //Close Popup
+                                Navigator.of(context).pop();
+                              }, 
+                              child: const Text('Cancel')
+                            ),
+                            TextButton(
+                              onPressed: () {
+                                confirmed = true;
+                                //Close Popup
+                                Navigator.of(context).pop();
+                              },
+                              child: const Text('Confirm'),
+                            ),
+                          ],
+                        );
+                      },
+                    );
+                    
+                    if(confirmed){
+                      await getUser();
+                      try{
+                        int removeResponse = await DatabaseStorage().removeUser(user);
+                        if (removeResponse == 0){
+                          await SecureStorage().removeUser();
+                        }
+                        removeUserMessage(removeResponse);
+                      }
+                      catch (e){
+                        debugPrint('settings_view.dart line: ${getCurrentLine()} Caught Error: $e');
+                        removeUserMessage(-1);
+                      }
+                    }
+                  },
+                ),
+                const Divider(color: Colors.grey),
+
                 // if (user.subscribed)
                 //   ListTile(
                 //   leading: const Icon(Icons.monetization_on_rounded),
@@ -329,6 +384,8 @@ class SettingsViewState extends State<SettingsViewWidget> with TickerProviderSta
     );
   }//Widget
 
+  ///Animation Builder for the Sync Icons to rotate requiring [AnimationController] and [String] of which 
+  ///Sync Icon to rotate.
   AnimatedBuilder rotatingSync(AnimationController controller, String option){
     return AnimatedBuilder(
       animation: controller,
@@ -361,6 +418,35 @@ class SettingsViewState extends State<SettingsViewWidget> with TickerProviderSta
         );
       },
     );
+  }
+
+  ///Creates popup for User depending on the success or failure of removing the
+  ///users data.
+  void removeUserMessage(int code){
+    if (code == 0){
+      scaffoldMessenger.showSnackBar(
+        SnackBar(
+          content: Text(
+            'Successfully Removed User Data',
+            style: TextStyle(color: spotHelperGreen),
+          ),
+          duration: const Duration(seconds: 4),
+        )
+      );
+      bool reLogin = true;
+      Navigator.of(context).pushReplacementNamed(StartViewWidget.routeName, arguments: reLogin);
+    }
+    else{
+      scaffoldMessenger.showSnackBar(
+        SnackBar(
+          content: Text(
+            'Failed to Removed User Data',
+            style: TextStyle(color: failedRed),
+          ),
+          duration: const Duration(seconds: 4),
+        )
+      );
+    }
   }
 
 }//State

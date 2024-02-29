@@ -1,9 +1,3 @@
-
-
-import 'dart:convert';
-
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:http/http.dart' as http;
 import 'package:another_flushbar/flushbar.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
@@ -82,7 +76,6 @@ class DatabaseStorage {
       }
 
       for (var playId in playlistIds){
-        debugPrint('Sending to Add Playlist: $playId, Updates: $tracksUpdate');
         await userRepo.addTrackDocs(userId, tracksUpdate, playId);
       }
     }
@@ -107,12 +100,31 @@ class DatabaseStorage {
 
 
   ///Checks if user is already in the database and adds them if they are not.
-  Future<void> syncUserData(UserModel user) async {
-    if (!await userRepo.hasUser(user)){
+  Future<UserModel> syncUserData(UserModel user) async {
+    if (await userRepo.hasUser(user)){
+      user = (await userRepo.getUser(user))!;
+    }
+    else{
       //Creates an unsubscribed user
       await userRepo.createUser(user);
+    }
 
-      //User was created Successfully
+    //User was Synced Successfully
+    return user;
+  }
+
+  Future<int> removeUser(UserModel user) async{
+    try{
+      if (await userRepo.hasUser(user)){
+        await userRepo.removeUser(user);
+      }
+      else{
+        return -1;
+      }
+      return 0;
+    }
+    catch (e){
+      throw Exception('database_classes.dart line: ${getCurrentLine(offset: 11)} Caught Error: $e');
     }
   }
 

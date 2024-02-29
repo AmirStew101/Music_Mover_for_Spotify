@@ -1,5 +1,6 @@
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:get/get.dart';
 import 'package:spotify_music_helper/src/utils/object_models.dart';
@@ -27,7 +28,7 @@ class UserRepository extends GetxController {
       return false;
     }
     catch (e){
-        throw Exception('Caught Error in database_calls.dart Function hasUser $e');
+        throw Exception('Caught Error in database_calls.dart line: ${getCurrentLine()} Function hasUser $e');
     }
   }
   
@@ -37,6 +38,11 @@ class UserRepository extends GetxController {
       throw Exception('Error trying to create user in databse_calls.dart line ${getCurrentLine(offset: 2)}: $e');
       }
     );
+  }
+
+  Future<void> removeUser(UserModel user) async{
+    await usersRef.doc(user.spotifyId).delete()
+    .catchError((e) => throw Exception('database_calls.dart line: ${getCurrentLine()} Caught Error: $e'));
   }
 
   Future<UserModel?> getUser(UserModel user) async{

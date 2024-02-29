@@ -60,7 +60,7 @@ class HomeViewState extends State<HomeView> with SingleTickerProviderStateMixin{
 
       if (secureCall == null || secureUser == null){
         checkedLogin = false;
-        bool reLogin = false;
+        bool reLogin = true;
 
         Navigator.of(context).pushReplacementNamed(StartViewWidget.routeName, arguments: reLogin);
 

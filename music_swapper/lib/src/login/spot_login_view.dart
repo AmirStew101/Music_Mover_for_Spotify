@@ -96,7 +96,7 @@ class SpotLoginState extends State<SpotLoginWidget> {
                 
                 //No errors in getting the callback
                 if (callback.isNotEmpty){
-                  final UserModel? spotifyUser = await OtherRequests().getUser(callback['expiresAt'], callback['accessToken']);
+                  UserModel? spotifyUser = await OtherRequests().getUser(callback['expiresAt'], callback['accessToken']);
 
                   if (spotifyUser != null){
                     final getCustomTokenUrl = '$hosted/get-custom-token/${spotifyUser.spotifyId}';
@@ -107,7 +107,7 @@ class SpotLoginState extends State<SpotLoginWidget> {
                     }
 
                     await UserAuth().setUser(customResponse.body);
-                    await DatabaseStorage().syncUserData(spotifyUser);
+                    spotifyUser = await DatabaseStorage().syncUserData(spotifyUser);
                     
                     final CallbackModel callbackModel = CallbackModel(expiresAt: callback['expiresAt'], accessToken: callback['accessToken'], refreshToken: callback['refreshToken']);
 

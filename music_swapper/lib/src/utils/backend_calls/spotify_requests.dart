@@ -287,11 +287,9 @@ class TracksRequests{
     // Dupes is 0 if its only one track
     // First item in a list is at location 0
     removeIds.sort();
-    debugPrint('selectedNoDupes $selectedNoDupes');
     for (var track in selectedNoDupes.entries){
       int dupes = track.value.duplicates;
 
-      debugPrint('Searching for ${track.key}');
       //Gets location of element in sorted list
       final removeTotal = removeIds.lastIndexOf(track.key);
       final removeStart = removeIds.indexOf(track.key);
@@ -305,12 +303,8 @@ class TracksRequests{
           addBackIds.add(track.key);
         }
       }
-
-      debugPrint('Remove range 0 to ${removeTotal+1}');
-      debugPrint('Remove Ids before $removeIds');
       //Removes the tracks that have been checked
       removeIds.removeRange(removeStart, removeTotal+1);
-      debugPrint('Remove Ids after $removeIds');
     }
 
     return addBackIds;
