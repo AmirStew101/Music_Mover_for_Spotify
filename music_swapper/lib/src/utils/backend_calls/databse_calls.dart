@@ -79,14 +79,17 @@ class UserRepository extends GetxController {
       final playlistDocs = await playlistRef.get();
       final batch = db.batch();
 
-      //Removes playlists from database that are not in Spotify
-      for (var playlistDoc in playlistDocs.docs){
-        final playlistId = playlistDoc.id;
+      await db.runTransaction((transaction) async{
+        //Removes playlists from database that are not in Spotify
+        for (var playlistDoc in playlistDocs.docs){
+          final playlistId = playlistDoc.id;
 
-        if (!spotifyPlaylists.containsKey(playlistId)){
-          batch.delete(playlistRef.doc(playlistDoc.id));
+          if (!spotifyPlaylists.containsKey(playlistId)){
+            transaction.delete(playlistRef.doc(playlistDoc.id));
+            //batch.delete(playlistRef.doc(playlistDoc.id));
+          }
         }
-      }
+      });
 
       //Adds playlists that Database is missing or Updates existing
       List<PlaylistModel> newPlaylists = [];
@@ -119,26 +122,29 @@ class UserRepository extends GetxController {
 
   Future<Map<String, PlaylistModel>> getPlaylists(String userId) async{
     try {
-      //Gets all the Docs in the Playlist Ref
-      QuerySnapshot<Map<String, dynamic>> playlistDocs = await usersRef.doc(userId).collection(playlistColl).get();
       Map<String, PlaylistModel> allPlaylists = {};
 
-      //For every Doc it adds its fields to the Spotify Id as a Map
-      //Ignoring the list of trackIds
-      for (var element in playlistDocs.docs) {
-        String imageUrl = element.data()['imageUrl'];
-        String link = element.data()['link'];
-        String snapshotId = element.data()['snapshotId'];
-        String title = element.data()['title'];
-        String playId = element.id;
+      await db.runTransaction((transaction) async {
+        //Gets all the Docs in the Playlist Ref
+        QuerySnapshot<Map<String, dynamic>> playlistDocs = await usersRef.doc(userId).collection(playlistColl).get();
+      
+        //For every Doc it adds its fields to the Spotify Id as a Map
+        //Ignoring the list of trackIds
+        for (var element in playlistDocs.docs) {
+          String imageUrl = element.data()['imageUrl'];
+          String link = element.data()['link'];
+          String snapshotId = element.data()['snapshotId'];
+          String title = element.data()['title'];
+          String playId = element.id;
 
-        allPlaylists[element.id] = PlaylistModel(
-          title: title, 
-          id: playId, 
-          link: link, 
-          imageUrl: imageUrl, 
-          snapshotId: snapshotId);
-      }
+          allPlaylists[element.id] = PlaylistModel(
+            title: title, 
+            id: playId, 
+            link: link, 
+            imageUrl: imageUrl, 
+            snapshotId: snapshotId);
+        }
+      });
 
       return allPlaylists;
     }

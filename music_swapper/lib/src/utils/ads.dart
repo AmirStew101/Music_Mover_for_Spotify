@@ -1,4 +1,3 @@
-import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
@@ -16,7 +15,7 @@ Widget playlistsAdRow(BuildContext context, UserModel user){
 
   final BannerAd bannerAd = BannerAd(
     size: AdSize.fluid, 
-    adUnitId: testBannerAd, 
+    adUnitId: playlistsBannerAd, 
     listener: BannerAdListener(
       onAdLoaded: (ad) => debugPrint('Ad Loaded\n'),
       onAdClicked: (ad) => debugPrint('Ad Clicked\n'),), 
@@ -48,7 +47,7 @@ Widget homeAdRow(BuildContext context, UserModel user){
 
   final BannerAd bannerAd = BannerAd(
     size: AdSize.fluid, 
-    adUnitId: testBannerAd, 
+    adUnitId: homeBannerAd, 
     listener: BannerAdListener(
       onAdLoaded: (ad) => debugPrint('Ad Loaded\n'),
       onAdClicked: (ad) => debugPrint('Ad Clicked\n'),), 
@@ -80,7 +79,7 @@ Widget settingsAdRow(BuildContext context, UserModel user){
 
   final BannerAd bannerAd = BannerAd(
     size: AdSize.fluid, 
-    adUnitId: testBannerAd, 
+    adUnitId: settingsNativeAd, 
     listener: BannerAdListener(
       onAdLoaded: (ad) => debugPrint('Ad Loaded\n'),
       onAdClicked: (ad) => debugPrint('Ad Clicked\n'),), 

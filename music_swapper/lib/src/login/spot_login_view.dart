@@ -3,8 +3,6 @@
 import 'dart:convert';
 
 import 'package:another_flushbar/flushbar.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:spotify_music_helper/src/home/home_view.dart';
 import 'package:spotify_music_helper/src/login/start_screen.dart';
@@ -100,7 +98,6 @@ class SpotLoginState extends State<SpotLoginWidget> {
                   final UserModel? syncedUser = await DatabaseStorage().syncUserData(callback['expiresAt'], callback['accessToken']);
 
                   if (syncedUser != null){
-                    final fireApp = FirebaseAuth.instance.app;
                     final getCustomTokenUrl = '$hosted/get-custom-token/${syncedUser.spotifyId}';
                     final customResponse = await http.get(Uri.parse(getCustomTokenUrl));
 
