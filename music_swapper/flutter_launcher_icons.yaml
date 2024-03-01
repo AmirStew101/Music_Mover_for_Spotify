@@ -1,0 +1,11 @@
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: "assets/images/3.0x/Box_Mover.png"
+  min_sdk_android: 21 # android min sdk min:16, default 21
+  web:
+    generate: false
+  windows:
+    generate: false
+  macos:
+    generate: false

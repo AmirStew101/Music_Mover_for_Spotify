@@ -9,7 +9,7 @@
     <application
         android:label="Music Mover for Spotify"
         android:name="${applicationName}"
-        android:icon="@mipmap/box_mover"
+        android:icon="@mipmap/ic_launcher"
         android:enableOnBackInvokedCallback="true">
         <!-- AdMob Setup-->
         <meta-data
