@@ -216,7 +216,7 @@ class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
         await TracksRequests().addTracks(addIds, playlistIds, receivedCall.expiresAt, receivedCall.accessToken)
         .catchError((e) {
           error = true;
-          throw Exception('select_view.dart line: ${getCurrentLine(offset:  3)} Caught Error $e');
+          throw Exception('select_view.dart line: ${getCurrentLine(offset: 3)} Caught Error $e');
         });
 
         //Remove tracks from current playlist

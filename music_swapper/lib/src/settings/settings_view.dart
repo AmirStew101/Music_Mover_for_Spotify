@@ -10,6 +10,7 @@ import 'package:spotify_music_helper/src/utils/global_classes/secure_storage.dar
 import 'package:spotify_music_helper/src/utils/global_classes/sync_services.dart';
 import 'package:spotify_music_helper/src/utils/global_classes/global_objects.dart';
 import 'package:url_launcher/link.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import 'settings_controller.dart';
 
@@ -175,6 +176,8 @@ class SettingsViewState extends State<SettingsViewWidget> with TickerProviderSta
                     ],
                   ),
 
+                  const SizedBox(height: 10,),
+
                 //Playlists & Tracks Sync Tile
                 ListTile(
                   selected: syncingAll,
@@ -265,7 +268,6 @@ class SettingsViewState extends State<SettingsViewWidget> with TickerProviderSta
                           content: const Text('Finished Syncing Tracks'),
                           duration: const Duration(seconds: 5),
                           backgroundColor: spotHelperGreen,
-
                         )
                       );
                     }
@@ -273,10 +275,18 @@ class SettingsViewState extends State<SettingsViewWidget> with TickerProviderSta
                 ),
                 const Divider(color: Colors.grey),
 
-                const ListTile(
-                  title: Text(
-                    'Email: spotmusicmover@gmail.com',
-                    textScaler: TextScaler.linear(1.1),
+                ListTile(
+                  leading: const Text(
+                    'Email:',
+                    textScaler: TextScaler.linear(1.3),
+                  ),
+                  title: TextButton(
+                    onPressed: () async => await launchEmail(),
+                    child: Text(
+                      'spotmusicmover@gmail.com',
+                      textScaler: const TextScaler.linear(1.1),
+                      style: TextStyle(color: linkBlue),
+                    ),
                   ),
                 ),
                 const Divider(color: Colors.grey),
@@ -287,10 +297,10 @@ class SettingsViewState extends State<SettingsViewWidget> with TickerProviderSta
                     builder: (context, followLink) {
                       return TextButton(
                         onPressed: followLink, 
-                        child: const Text(
+                        child: Text(
                           'Discord Link',
-                          style: TextStyle(color: Color.fromARGB(255, 17, 134, 230)),
-                          textScaler: TextScaler.linear(1.1),
+                          textScaler: const TextScaler.linear(1.1),
+                          style: TextStyle(color: linkBlue),
                         )
                       );
                     },
@@ -299,58 +309,33 @@ class SettingsViewState extends State<SettingsViewWidget> with TickerProviderSta
                 const Divider(color: Colors.grey),
 
                 ListTile(
-                  title: Text(
-                    'Delete Stored App Data',
-                    style: TextStyle(color: failedRed),
-                    textAlign: TextAlign.center,
+                  title: Link(
+                    uri: Uri.parse('https://spot-helper-1688d.firebaseapp.com'), 
+                    builder: (context, followLink) {
+                      return TextButton(
+                        onPressed: followLink,
+                        child: Text(
+                          'Privacy Policy',
+                          textScaler: const TextScaler.linear(1.1),
+                          style: TextStyle(color: linkBlue),
+                        )
+                      );
+                    },
                   ),
-                  onTap: () async{
-                    bool confirmed = false;
-
-                    await showDialog(
-                      context: context, 
-                      builder: (context) {
-                        return AlertDialog.adaptive(
-                          title: const Text('Sure you want to delete your app data? Unrelated to Spotify data.'),
-                          actionsAlignment: MainAxisAlignment.center,
-                          actions: [
-                            TextButton(
-                              onPressed: () {
-                                //Close Popup
-                                Navigator.of(context).pop();
-                              }, 
-                              child: const Text('Cancel')
-                            ),
-                            TextButton(
-                              onPressed: () {
-                                confirmed = true;
-                                //Close Popup
-                                Navigator.of(context).pop();
-                              },
-                              child: const Text('Confirm'),
-                            ),
-                          ],
-                        );
-                      },
-                    );
-                    
-                    if(confirmed){
-                      await getUser();
-                      try{
-                        int removeResponse = await DatabaseStorage().removeUser(user);
-                        if (removeResponse == 0){
-                          await SecureStorage().removeUser();
-                        }
-                        removeUserMessage(removeResponse);
-                      }
-                      catch (e){
-                        debugPrint('settings_view.dart line: ${getCurrentLine()} Caught Error: $e');
-                        removeUserMessage(-1);
-                      }
-                    }
-                  },
                 ),
                 const Divider(color: Colors.grey),
+                
+                ListTile(
+                  title: TextButton(
+                    onPressed: () async => await confirmationBox(),
+                    child: Text(
+                      'Delete Stored App Data',
+                      textScaler: const TextScaler.linear(1.1),
+                      style: TextStyle(color: failedRed),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                ),
 
                 // if (user.subscribed)
                 //   ListTile(
@@ -375,6 +360,7 @@ class SettingsViewState extends State<SettingsViewWidget> with TickerProviderSta
                 //       debugPrint('Open purchase Menu');
                 //     },
                 //   ),
+                const SizedBox(height: 10),
               ]
             ),
             settingsAdRow(context, user),
@@ -383,6 +369,79 @@ class SettingsViewState extends State<SettingsViewWidget> with TickerProviderSta
       ),
     );
   }//Widget
+
+  Future<void> confirmationBox() async{
+    bool confirmed = false;
+    debugPrint('Remove data');
+
+    await showDialog(
+      context: context, 
+      builder: (context) {
+        return AlertDialog.adaptive(
+          title: const Text('Sure you want to delete your app data? Unrelated to Spotify data.'),
+          actionsAlignment: MainAxisAlignment.center,
+          actions: [
+            TextButton(
+              onPressed: () {
+                //Close Popup
+                Navigator.of(context).pop();
+              }, 
+              child: const Text('Cancel')
+            ),
+            TextButton(
+              onPressed: () {
+                confirmed = true;
+                //Close Popup
+                Navigator.of(context).pop();
+              },
+              child: const Text('Confirm'),
+            ),
+          ],
+        );
+      },
+    );
+    
+    if(confirmed){
+      await getUser();
+      try{
+        int removeResponse = await DatabaseStorage().removeUser(user);
+        if (removeResponse == 0){
+          await SecureStorage().removeUser();
+        }
+        removeUserMessage(removeResponse);
+      }
+      catch (e){
+        debugPrint('settings_view.dart line: ${getCurrentLine()} Caught Error: $e');
+        removeUserMessage(-1);
+      }
+    }
+  }
+
+  String? encodeQueryParameters(Map<String, String> params) {
+    return params.entries
+        .map((MapEntry<String, String> e) =>
+            '${Uri.encodeComponent(e.key)}=${Uri.encodeComponent(e.value)}')
+        .join('&');
+  }
+
+  Future<void> launchEmail() async{
+    const supportEmail = 'spotmusicmover@gmail.com';
+
+    final supportUri = Uri(
+      scheme: 'mailto',
+      path: supportEmail,
+      query: encodeQueryParameters(<String, String>{
+      'subject': 'Music Mover Support',
+      })
+    );
+    debugPrint('Uri: ${supportUri.toString()}');
+
+    await launchUrl(supportUri)
+    .catchError((e) {
+      throw Exception('Failed to launch email $e');
+    });
+
+  }
 
   ///Animation Builder for the Sync Icons to rotate requiring [AnimationController] and [String] of which 
   ///Sync Icon to rotate.

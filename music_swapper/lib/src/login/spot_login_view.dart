@@ -40,6 +40,7 @@ class SpotLoginState extends State<SpotLoginWidget> {
   //Spotify Login view
   Future<WebViewController> initiateLogin(BuildContext context, bool reLogin) async {
     late final String loginURL;
+    bool error = false;
 
     if (reLogin){
       loginURL = '$hosted/get-auth-url-dialog';
@@ -124,11 +125,19 @@ class SpotLoginState extends State<SpotLoginWidget> {
                 }
                 //Spotify was unable to send the callback
                 else{
-                  debugPrint('Callback Fail');
+                  debugPrint('\nCallback Fail');
                   await loginIssue();
                 }
 
                 return NavigationDecision.prevent;
+              }
+              else{
+                if(request.url.contains('error')){
+                  error = true;
+                  loginIssue(error: error);
+                  NavigationDecision.prevent;
+                }
+                debugPrint('\nRequest URL: ${request.url.toString()}\n');
               }
               return NavigationDecision.navigate;
             },
@@ -167,18 +176,30 @@ Future<Map> getCallback(String callRequest) async {
 }
 
 ///Creates an error Notification for the User and Returns to the Start Screen
-Future<void> loginIssue({bool loginReset = true, bool hasUser = false}) async{
+Future<void> loginIssue({bool loginReset = true, bool hasUser = false, bool error = false}) async{
   await Future.delayed(const Duration(seconds: 3));
   bool reLogin = loginReset;
   Navigator.pushNamedAndRemoveUntil(context, StartViewWidget.routeName, (route) => false, arguments: reLogin);
 
-  Flushbar(
-    title: 'Error',
-    message: 'Problem with connecting to Spotify redirecting back to Start page',
-    titleColor: failedRed,
-    messageColor: failedRed,
-    duration: const Duration(seconds: 3),
-  ).show(context);
+  if(!error){
+    Flushbar(
+      title: 'Error',
+      message: 'Problem with connecting to Spotify redirecting back to Start page',
+      titleColor: failedRed,
+      messageColor: failedRed,
+      duration: const Duration(seconds: 3),
+    ).show(context);
+  }
+  else{
+    Flushbar(
+      title: 'Error',
+      message: 'Spotify Account does not exist',
+      titleColor: failedRed,
+      messageColor: failedRed,
+      duration: const Duration(seconds: 3),
+    ).show(context);
+  }
+
 }//loginIssue
 
   @override

@@ -3,3 +3,5 @@ main.py
 music_swapper/new_keystore.jks
 spot-helper-1688d-firebase-adminsdk-du18s-7bb29a9972.json
 music_swapper/lib/src/utils/auth.dart
+music_swapper/assets/images
+music_swapper\android\app\src\main\res

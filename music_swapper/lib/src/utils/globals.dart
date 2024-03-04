@@ -12,6 +12,7 @@ const unlikeHeart = 'assets/images/unlike_heart-64.png';
 Color spotHelperGrey = const Color.fromRGBO(25, 20, 20, 1);
 Color spotHelperGreen = const Color.fromARGB(255, 3, 153, 8);
 Color failedRed = const Color.fromARGB(255, 199, 27, 15);
+Color linkBlue = const Color.fromARGB(255, 17, 134, 230);
 
 class SpotifyIcons{
   final blackCMYK = 'assets/images/Spotify_Icon_CMYK_Black.png';
