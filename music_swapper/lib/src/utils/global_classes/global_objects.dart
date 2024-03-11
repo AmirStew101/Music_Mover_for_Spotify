@@ -9,6 +9,7 @@ import 'package:spotify_music_helper/src/info/info_page.dart';
 import 'package:spotify_music_helper/src/home/home_view.dart';
 import 'package:spotify_music_helper/src/login/start_screen.dart';
 import 'package:spotify_music_helper/src/settings/settings_view.dart';
+import 'package:spotify_music_helper/src/utils/auth.dart';
 import 'package:spotify_music_helper/src/utils/globals.dart';
 import 'package:spotify_music_helper/src/utils/object_models.dart';
 import 'package:spotify_music_helper/src/utils/backend_calls/databse_calls.dart';
@@ -113,9 +114,10 @@ Drawer optionsMenu(BuildContext context){
           ListTile(
             leading: const Icon(Icons.switch_account),
             title: const Text('Sign Out'),
-            onTap: () {
-              SecureStorage().removeTokens();
-              SecureStorage().removeUser();
+            onTap: () async{
+              await SecureStorage().removeTokens();
+              await SecureStorage().removeUser();
+              await UserAuth().signOutUser();
 
               bool reLogin = true;
               Navigator.pushNamedAndRemoveUntil(context, StartViewWidget.routeName, (route) => false, arguments: reLogin);

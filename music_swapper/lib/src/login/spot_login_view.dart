@@ -107,7 +107,7 @@ class SpotLoginState extends State<SpotLoginWidget> {
                       throw Exception('spot_login_view.dart line: ${getCurrentLine()} Caught Error: ${customResponse.body}');
                     }
 
-                    await UserAuth().setUser(customResponse.body);
+                    await UserAuth().signInUser(customResponse.body);
                     spotifyUser = await DatabaseStorage().syncUserData(spotifyUser);
                     
                     final CallbackModel callbackModel = CallbackModel(expiresAt: callback['expiresAt'], accessToken: callback['accessToken'], refreshToken: callback['refreshToken']);
