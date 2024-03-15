@@ -3,6 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:spotify_music_helper/src/login/start_screen.dart';
 import 'package:spotify_music_helper/src/utils/ads.dart';
+import 'package:spotify_music_helper/src/utils/auth.dart';
 import 'package:spotify_music_helper/src/utils/global_classes/database_classes.dart';
 import 'package:spotify_music_helper/src/utils/globals.dart';
 import 'package:spotify_music_helper/src/utils/object_models.dart';
@@ -336,6 +337,7 @@ class SettingsViewState extends State<SettingsViewWidget> with TickerProviderSta
                     ),
                   ),
                 ),
+                const Divider(color: Colors.grey),
 
                 // if (user.subscribed)
                 //   ListTile(
@@ -360,9 +362,13 @@ class SettingsViewState extends State<SettingsViewWidget> with TickerProviderSta
                 //       debugPrint('Open purchase Menu');
                 //     },
                 //   ),
-                const SizedBox(height: 10),
+                
+                const Padding(
+                  padding: EdgeInsets.fromLTRB(10, 10, 10, 10),
+                ),
               ]
             ),
+            
             settingsAdRow(context, user),
           ]
         ),
@@ -407,6 +413,7 @@ class SettingsViewState extends State<SettingsViewWidget> with TickerProviderSta
         int removeResponse = await DatabaseStorage().removeUser(user);
         if (removeResponse == 0){
           await SecureStorage().removeUser();
+          await UserAuth().deleteUser();
         }
         removeUserMessage(removeResponse);
       }
@@ -417,6 +424,7 @@ class SettingsViewState extends State<SettingsViewWidget> with TickerProviderSta
     }
   }
 
+
   String? encodeQueryParameters(Map<String, String> params) {
     return params.entries
         .map((MapEntry<String, String> e) =>
@@ -424,6 +432,8 @@ class SettingsViewState extends State<SettingsViewWidget> with TickerProviderSta
         .join('&');
   }
 
+  ///Opens the Users preferred email app to send and email
+  ///to the Support email
   Future<void> launchEmail() async{
     const supportEmail = 'spotmusicmover@gmail.com';
 
