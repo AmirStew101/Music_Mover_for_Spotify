@@ -1,4 +1,6 @@
 
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:spotify_music_helper/src/utils/dev_global.dart';
@@ -9,6 +11,14 @@ import 'package:spotify_music_helper/src/utils/object_models.dart';
 Widget playlistsAdRow(BuildContext context, UserModel user){
   if (user.subscribed || devMode){
     return Container();
+  }
+  
+  late final String playlistsBannerAd;
+  if (Platform.isAndroid){
+    playlistsBannerAd = androidPlaylistsBannerAd;
+  }
+  if (Platform.isIOS){
+    playlistsBannerAd = iosPlaylistsBannerAd;
   }
 
   final width = MediaQuery.of(context).size.width;
@@ -43,6 +53,14 @@ Widget homeAdRow(BuildContext context, UserModel user){
     return Container();
   }
 
+  late final String homeBannerAd;
+  if (Platform.isAndroid){
+    homeBannerAd = androidHomeBannerAd;
+  }
+  if (Platform.isIOS){
+    homeBannerAd = iosHomeBannerAd;
+  }
+
   final width = MediaQuery.of(context).size.width;
 
   final BannerAd bannerAd = BannerAd(
@@ -73,6 +91,14 @@ Widget homeAdRow(BuildContext context, UserModel user){
 Widget settingsAdRow(BuildContext context, UserModel user){
   if (user.subscribed || devMode){
     return Container();
+  }
+  
+  late final String settingsNativeAd;
+  if (Platform.isAndroid){
+    settingsNativeAd = androidSettingsNativeAd;
+  }
+  if (Platform.isIOS){
+    settingsNativeAd = iosSettingsNativeAd;
   }
 
   final width = MediaQuery.of(context).size.width;
