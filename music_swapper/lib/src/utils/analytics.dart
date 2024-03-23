@@ -17,7 +17,7 @@ class AppAnalytics{
       },
     )
     .whenComplete(() => debugPrint('Spotify Login Event Logged\n'))
-    .catchError((e) => debugPrint('Failed to Log Login Event: $e\n'));
+    .onError((error, stackTrace) => debugPrint('Failed to Log Login Event: $error\n'));
   }
 
   Future<void> trackSavedLogin(UserModel user) async{
@@ -30,7 +30,7 @@ class AppAnalytics{
       },
     )
     .whenComplete(() => debugPrint('Saved Login Event Logged\n'))
-    .catchError((e) => debugPrint('Failed to Log Login Event: $e\n'));
+    .onError((error, stackTrace) => debugPrint('Failed to Log Login Event: $error\n'));
   }
 
 

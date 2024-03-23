@@ -15,6 +15,7 @@ import 'package:spotify_music_helper/src/tracks/tracks_view.dart';
 import 'package:spotify_music_helper/src/utils/global_classes/database_classes.dart';
 import 'package:spotify_music_helper/src/utils/global_classes/secure_storage.dart';
 import 'package:spotify_music_helper/src/utils/global_classes/global_objects.dart';
+import 'package:spotify_music_helper/src/utils/global_classes/options_menu.dart';
 
 //Creates the state for the home screen to view/edit playlists
 class HomeView extends StatefulWidget {
@@ -84,17 +85,17 @@ class HomeViewState extends State<HomeView> with SingleTickerProviderStateMixin{
     if (mounted && !loaded && checkedLogin){
       if (!refresh){
         await fetchDatabasePlaylists()
-        .catchError((e) {
-          error = true;
-          throw Exception('home_view.dart line: ${getCurrentLine(offset: 3)} Caught Error $e');
+        .onError((error, stackTrace) {
+          //error = true;
+          throw Exception('home_view.dart line: ${getCurrentLine(offset: 3)} Caught Error $error');
         });
       }
       
       if (mounted){
         await fetchSpotifyPlaylists()
-        .catchError((e) {
+        .onError((error, stackTrace) {
           error = true;
-          throw Exception('home_view.dart line: ${getCurrentLine(offset: 3)} Caught Error $e');
+          throw Exception('home_view.dart line: ${getCurrentLine(offset: 3)} Caught Error $error');
         });
       }
     }
@@ -109,9 +110,8 @@ class HomeViewState extends State<HomeView> with SingleTickerProviderStateMixin{
     }
     else if (mounted){
       await fetchSpotifyPlaylists()
-      .catchError((e) {
-          error = true;
-          throw Exception('home_view.dart line: ${getCurrentLine(offset: 3)} Caught Error $e');
+      .onError((error, stackTrace) {
+          throw Exception('home_view.dart line: ${getCurrentLine(offset: 3)} Caught Error $error');
       });
     }
 
@@ -126,7 +126,6 @@ class HomeViewState extends State<HomeView> with SingleTickerProviderStateMixin{
 
       if (result == null){
         checkedLogin = false;
-        error = true;
         throw Exception('home_view.dart line: ${getCurrentLine(offset: 5)} Failed to get Refresh Tokens');
       }
       receivedCall = result;
@@ -138,7 +137,6 @@ class HomeViewState extends State<HomeView> with SingleTickerProviderStateMixin{
       
     }
     catch (e){
-      error = true;
       throw Exception('home_view.dart Caught Error in fetchSpotifyPLaylists: $e');
     }
     refresh = false;

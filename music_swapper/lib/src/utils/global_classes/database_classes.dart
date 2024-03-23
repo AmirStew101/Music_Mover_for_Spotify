@@ -135,7 +135,7 @@ class DatabaseStorage {
     String playlistId = currentPlaylist.id;
 
     await userRepo.removePlaylistTracks(user.spotifyId, selectedIds, playlistId)
-    .catchError((e) => throw Exception('database_class.dart line: ${getCurrentLine(offset: 1)} Caught Error: $e'));
+    .onError((error, stackTrace) => throw Exception('database_class.dart line: ${getCurrentLine(offset: 1)} Caught Error: $error'));
     
  }
 

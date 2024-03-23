@@ -33,15 +33,15 @@ class UserRepository extends GetxController {
   
   Future<void> createUser(UserModel user) async{
     await usersRef.doc(user.spotifyId).set(user.toJson())
-    .catchError((e) {
-      throw Exception('Error trying to create user in databse_calls.dart line ${getCurrentLine(offset: 2)}: $e');
+    .onError((error, stackTrace) {
+      throw Exception('Error trying to create user in databse_calls.dart line ${getCurrentLine(offset: 2)}: $error');
       }
     );
   }
 
   Future<void> removeUser(UserModel user) async{
     await usersRef.doc(user.spotifyId).delete()
-    .catchError((e) => throw Exception('database_calls.dart line: ${getCurrentLine()} Caught Error: $e'));
+    .onError((error, stackTrace) => throw Exception('database_calls.dart line: ${getCurrentLine()} Caught Error: $error'));
   }
 
   Future<UserModel?> getUser(UserModel user) async{
@@ -70,8 +70,8 @@ class UserRepository extends GetxController {
 
     if (databaseUser.exists){
       await userRef.update({'Subscribed': user.subscribed, 'Tier': user.tier, 'Username': user.username, 'Expiration': DateTime.now()})
-      .catchError((e) {
-        throw Exception('Caught error in database_calls.dart line: line ${getCurrentLine(offset: 2)} error: $e');
+      .onError((error, stackTrace) {
+        throw Exception('Caught error in database_calls.dart line: line ${getCurrentLine(offset: 2)} error: $error');
       });
     }
   }

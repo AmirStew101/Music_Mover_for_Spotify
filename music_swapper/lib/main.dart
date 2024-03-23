@@ -28,6 +28,8 @@ Future<void> main() async {
     return true;
   };
 
+  FirebaseAppCheck.instance.activate();
+
   FirebaseFirestore.instance.settings = const Settings(
     persistenceEnabled: true,
   );

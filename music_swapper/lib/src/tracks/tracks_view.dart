@@ -15,6 +15,7 @@ import 'package:spotify_music_helper/src/tracks/tracks_search.dart';
 import 'package:spotify_music_helper/src/utils/global_classes/database_classes.dart';
 import 'package:spotify_music_helper/src/utils/global_classes/secure_storage.dart';
 import 'package:spotify_music_helper/src/utils/global_classes/global_objects.dart';
+import 'package:spotify_music_helper/src/utils/global_classes/options_menu.dart';
 
 class TracksView extends StatefulWidget {
   static const routeName = '/tracksView';
@@ -136,7 +137,7 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
         //Initial load of the page Starts the timer for Loading message change
         if (!refresh){
           await fetchDatabaseTracks()
-          .catchError((e){
+          .onError((error, stackTrace){
             debugPrint('Database Failed');
             error = true;
           });
@@ -147,7 +148,7 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
           error = false;
 
           await fetchSpotifyTracks()
-          .catchError((e){
+          .onError((error, stackTrace){
             error = true;
           });
         }
@@ -176,9 +177,9 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
       //Database has no tracks so check Spotify
       if (mounted && allTracks.isEmpty){
         await fetchSpotifyTracks()
-        .catchError((e){
+        .onError((error, stackTrace){
           error = true;
-          throw Exception('Error when trying to fetchSpotifyTracks in tracks_view.dart: $e');
+          throw Exception('Error when trying to fetchSpotifyTracks in tracks_view.dart: $error');
         });
       }
     }
@@ -218,8 +219,8 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
 
       //Adds tracks to database for faster retreival later
       await DatabaseStorage().syncTracks(user.spotifyId, allTracks, currentPlaylist.id)
-      .catchError((e) {
-        throw Exception('tracks_view.dart error trying to syncPlaylistTracksData line: ${getCurrentLine(offset: 2)} Caught Error: $e');
+      .onError((error, stackTrace) {
+        throw Exception('tracks_view.dart error trying to syncPlaylistTracksData line: ${getCurrentLine(offset: 2)} Caught Error: $error');
       });
     }
 
@@ -429,7 +430,7 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
 
   Widget tracksBody(){
     return FutureBuilder<void>(
-          future: checkLogin().catchError((e) => throw Exception('\nTracks_view.dart line ${getCurrentLine()} error in tracks_view: $e')),
+          future: checkLogin().onError((error, stackTrace) => throw Exception('\nTracks_view.dart line ${getCurrentLine()} error in tracks_view: $error')),
           builder: (context, snapshot) {
 
             if (selectingAll || removing){

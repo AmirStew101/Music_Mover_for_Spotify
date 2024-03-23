@@ -130,9 +130,9 @@ class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
     
     if (mounted && refresh && !loaded){
       await fetchSpotifyPlaylists()
-      .catchError((e) {
+      .onError((error, stackTrace) {
         error = true;
-        throw Exception('Caught error in select_view.dart line: ${getCurrentLine(offset: 3)} error: $e');
+        throw Exception('Caught error in select_view.dart line: ${getCurrentLine(offset: 3)} error: $error');
       });
     }
 
@@ -142,8 +142,8 @@ class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
     try{
       if (mounted && !loaded){
         allPlaylists = await DatabaseStorage().getDatabasePlaylists(user.spotifyId)
-        .catchError((e) {
-          selectViewError(e, getCurrentLine(offset: 2));
+        .onError((error, stackTrace) {
+          selectViewError(error, getCurrentLine(offset: 2));
           return Future.value({'': const PlaylistModel()});
         });
       }
@@ -214,9 +214,9 @@ class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
       try{
         //Add tracks to selected playlists
         await TracksRequests().addTracks(addIds, playlistIds, receivedCall.expiresAt, receivedCall.accessToken)
-        .catchError((e) {
+        .onError((error, stackTrace) {
           error = true;
-          throw Exception('select_view.dart line: ${getCurrentLine(offset: 3)} Caught Error $e');
+          throw Exception('select_view.dart line: ${getCurrentLine(offset: 3)} Caught Error $error');
         });
 
         //Remove tracks from current playlist
@@ -233,16 +233,16 @@ class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
       }
       
       await DatabaseStorage().removeTracks(currentPlaylist, removeIds, user)
-      .catchError((e) {
-        throw Exception('select_view.dart line: ${getCurrentLine(offset:  3)} DatabaseStorage Caught Error $e');
+      .onError((error, stackTrace) {
+        throw Exception('select_view.dart line: ${getCurrentLine(offset:  3)} DatabaseStorage Caught Error $error');
       });
 
       //Finished moving tracks for the playlist
       adding = false;
 
       await DatabaseStorage().addTracks(user.spotifyId, selectedTracksMap, playlistIds)
-      .catchError((e) {
-        throw Exception('select_view.dart line: ${getCurrentLine(offset:  3)} DatabaseStorage Caught Error $e');
+      .onError((error, stackTrace) {
+        throw Exception('select_view.dart line: ${getCurrentLine(offset:  3)} DatabaseStorage Caught Error $error');
       });
 
     }
@@ -256,9 +256,9 @@ class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
 
       //Update Spotify with the added tracks
       await TracksRequests().addTracks(addIds, playlistIds, receivedCall.expiresAt, receivedCall.accessToken)
-      .catchError((e) {
+      .onError((error, stackTrace) {
         error = true;
-        throw Exception('select_view.dart line: ${getCurrentLine(offset:  3)} Caught Error $e');
+        throw Exception('select_view.dart line: ${getCurrentLine(offset:  3)} Caught Error $error');
       });
 
       //Finished adding tracks to 
@@ -267,8 +267,8 @@ class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
       debugPrint('Adding $selectedTracksMap to $playlistIds');
       //Update the database to add the tracks
       await DatabaseStorage().addTracks(user.spotifyId, selectedTracksMap, playlistIds)
-      .catchError((e) {
-        throw Exception('select_view.dart line: ${getCurrentLine(offset:  3)} DatabaseStorage Caught Error $e');
+      .onError((error, stackTrace) {
+        throw Exception('select_view.dart line: ${getCurrentLine(offset:  3)} DatabaseStorage Caught Error $error');
       });
 
     }
@@ -474,9 +474,9 @@ class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
                     });
 
                     await handleOptionSelect()
-                    .catchError((e){
+                    .onError((error, stackTrace){
                       error = true;
-                      throw Exception('Caught Error in select_playlists_view.dart at line ${getCurrentLine(offset: 2)} $e');
+                      throw Exception('Caught Error in select_playlists_view.dart at line ${getCurrentLine(offset: 2)} $error');
                     });
                     navigateToTracks();
 
@@ -526,8 +526,8 @@ class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
                       });
 
                       await handleOptionSelect()
-                      .catchError((e){
-                        throw Exception('Caught Error in select_playlists_view.dart at line ${getCurrentLine(offset: 2)} $e');
+                      .onError((error, stackTrace){
+                        throw Exception('Caught Error in select_playlists_view.dart at line ${getCurrentLine(offset: 2)} $error');
                       });
                       navigateToTracks();
 

@@ -5,6 +5,7 @@ import 'package:spotify_music_helper/src/login/start_screen.dart';
 import 'package:spotify_music_helper/src/utils/ads.dart';
 import 'package:spotify_music_helper/src/utils/auth.dart';
 import 'package:spotify_music_helper/src/utils/global_classes/database_classes.dart';
+import 'package:spotify_music_helper/src/utils/global_classes/options_menu.dart';
 import 'package:spotify_music_helper/src/utils/globals.dart';
 import 'package:spotify_music_helper/src/utils/object_models.dart';
 import 'package:spotify_music_helper/src/utils/global_classes/secure_storage.dart';
@@ -185,7 +186,7 @@ class SettingsViewState extends State<SettingsViewWidget> with TickerProviderSta
                   selectedColor: Colors.blue,
                   leading: rotatingSync(allController, allOption),
                   title: const Text(
-                    'Sync All Playlists & Tracks. ',
+                    'Sync All Tracks',
                     textScaler: TextScaler.linear(1.1),
                   ),
                   subtitle: const Text('Updates Paylist Images, Names, & gets missing Tracks and Playlists from Spotify.'),
@@ -211,67 +212,6 @@ class SettingsViewState extends State<SettingsViewWidget> with TickerProviderSta
                       );
                     }
 
-                  },
-                ),
-                const Divider(color: Colors.grey),
-
-                //Playlists Sync Tile
-                ListTile(
-                  selected: syncingPlaylists,
-                  selectedColor: Colors.blue,
-                  leading: rotatingSync(playlistsController, playlistsOption),
-                  title: const Text(
-                    'Sync All Playlists',
-                    textScaler: TextScaler.linear(1.1),
-                  ),
-                  subtitle: const Text('Updates Images and Names of Playlists'),
-                  onTap: () async{
-                    if (!syncingAll && !syncingPlaylists && !syncingPlaylists){
-                      if (mounted) playlistsController.repeat(); //Start animation
-                      syncingPlaylists = true;
-                      setState(() {});
-                      
-                      await SpotifySync().startPlaylists(playlistsOption, scaffoldMessenger);
-                    
-                      if (mounted) playlistsController.reset(); //FInished Syncing
-                      syncingPlaylists = false;
-                      setState(() {});
-                    }
-
-                  },
-                ),
-                const Divider(color: Colors.grey),
-
-                //Tracks Sync Tile
-                ListTile(
-                  selected: syncingTracks,
-                  selectedColor: Colors.blue,
-                  leading: rotatingSync(tracksController, tracksOption),
-                  title: const Text(
-                    'Sync All Tracks',
-                    textScaler: TextScaler.linear(1.1),
-                  ),
-                  subtitle: const Text('Retreives any missing tracks for all your playlists.'),
-                  onTap: () async{
-                    if (!syncingTracks && !syncingPlaylists && !syncingAll){
-                      if (mounted) tracksController.repeat(); //Start animation
-                      syncingTracks = true;
-                      setState(() {});
-
-                      await SpotifySync().startTracks(tracksOption, scaffoldMessenger);
-                      
-                      if (mounted) tracksController.reset(); //FInished Syncing
-                      syncingTracks = false;
-                      setState(() {});
-
-                      scaffoldMessenger.showSnackBar(
-                         SnackBar(
-                          content: const Text('Finished Syncing Tracks'),
-                          duration: const Duration(seconds: 5),
-                          backgroundColor: spotHelperGreen,
-                        )
-                      );
-                    }
                   },
                 ),
                 const Divider(color: Colors.grey),
@@ -447,8 +387,8 @@ class SettingsViewState extends State<SettingsViewWidget> with TickerProviderSta
     debugPrint('Uri: ${supportUri.toString()}');
 
     await launchUrl(supportUri)
-    .catchError((e) {
-      throw Exception('Failed to launch email $e');
+    .onError((error, stackTrace) {
+      throw Exception('Failed to launch email $error');
     });
 
   }

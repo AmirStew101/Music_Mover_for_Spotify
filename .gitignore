@@ -1,2 +1,3 @@
 music_swapper/lib/src/utils/dev_global.dart
 music_swapper/lib/src/utils/auth.dart
+music_swapper/lib/src/utils/analytics.dart

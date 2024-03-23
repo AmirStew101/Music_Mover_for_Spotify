@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:spotify_music_helper/src/utils/global_classes/global_objects.dart';
+import 'package:spotify_music_helper/src/utils/global_classes/options_menu.dart';
 import 'package:spotify_music_helper/src/utils/globals.dart';
 
 class InfoView extends StatelessWidget {
