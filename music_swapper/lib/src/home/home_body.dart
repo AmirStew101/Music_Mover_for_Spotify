@@ -8,6 +8,7 @@ import 'package:spotify_music_helper/src/utils/globals.dart';
 import 'package:spotify_music_helper/src/utils/object_models.dart';
 
 class ImageGridWidget extends StatefulWidget{
+  ///Playlists View.
   const ImageGridWidget({required this.receivedCall, required this.playlists, required this.user, super.key});
   final CallbackModel receivedCall;
   final Map<String, PlaylistModel> playlists;
@@ -17,9 +18,9 @@ class ImageGridWidget extends StatefulWidget{
   State<ImageGridWidget> createState() => ImageGridState();
 }
 
-//Class for the Playlist Images with their Names under them
+///State view for the users Playlists showing each playlists image with its name under it.
 class ImageGridState extends State<ImageGridWidget> {
-  CallbackModel receivedCall = CallbackModel();
+  CallbackModel receivedCall = const CallbackModel();
   Map<String, PlaylistModel> playlists = {};
   UserModel user = UserModel.defaultUser();
   FirebaseAnalytics analytics = FirebaseAnalytics.instance;
@@ -50,86 +51,88 @@ class ImageGridState extends State<ImageGridWidget> {
                   crossAxisSpacing: 8, //Spacing between Col
                   mainAxisSpacing: 10, //Spacing between rows
                 ),
-                  itemCount: playlistsList.length,
+                  itemCount: playlistsList.length+1,
                   itemBuilder: (context, index) {
-                    //Gets the Map items by index with the extra item in mind
-                    final item = playlistsList[index];
-                    final String imageName = item.title;
-                    String imageUrl = item.imageUrl;
+                    
+                    if(index >= playlistsList.length){
+                      return const SizedBox(
+                        height: 10,
+                      );
+                    }
+                    else{
+                      //Gets the Map items by index with the extra item in mind
+                      final item = playlistsList[index];
+                      final String imageName = item.title;
+                      String imageUrl = item.imageUrl;
+                      
+                      return Column(
+                        children: [
+                          //Displays Images that can be clicked
+                          InkWell(
+                            onTap: () async {
+                              Map<String, dynamic> currPlaylist = item.toJson();
 
-                    return Column(
-                      children: [
-                        //Displays Images that can be clicked
-                        InkWell(
-                          onTap: () async {
-                            Map<String, dynamic> currPlaylist = item.toJson();
+                              if (item.title == 'Liked_Songs'){
+                                await AppAnalytics().trackLikedSongs();
+                              }
 
-                            if (item.title == 'Liked_Songs'){
-                              await AppAnalytics().trackLikedSongs();
-                            }
-
-                            // ignore: use_build_context_synchronously
-                            Navigator.restorablePushNamed(context, TracksView.routeName, arguments: currPlaylist);
-                          },
-                          //Aligns the image over its title
-                          child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.center,
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                imageUrl.contains('asset')
-                                //Playlist doesn't have an image from Spotify
-                                ? Image(
-                                    image: AssetImage(imageUrl),
-                                    fit: BoxFit.cover,
-                                    height: 154,
-                                    width: 155,
-                                )
-                                //Playlist has an image from Spotify
-                                : Image.network(
-                                    imageUrl,
-                                    fit: BoxFit.cover,
-                                    height: 154,
-                                    width: 155,
-                                    //Error connecting to the images URL
-                                    //Use the No image asset
-                                    errorBuilder: (context, error, stackTrace) => const Image(
-                                      image: AssetImage(assetNoImage),
+                              // ignore: use_build_context_synchronously
+                              Navigator.restorablePushNamed(context, TracksView.routeName, arguments: currPlaylist);
+                            },
+                            //Aligns the image over its title
+                            child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.center,
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  imageUrl.contains('asset')
+                                  //Playlist doesn't have an image from Spotify
+                                  ? Image(
+                                      image: AssetImage(imageUrl),
                                       fit: BoxFit.cover,
                                       height: 154,
                                       width: 155,
-                                    ),
-                                ),
-
-                                //Playlist Name
-                                Text(
-                                  imageName,
-                                  style: const TextStyle(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.bold,
+                                  )
+                                  //Playlist has an image from Spotify
+                                  : Image.network(
+                                      imageUrl,
+                                      fit: BoxFit.cover,
+                                      height: 154,
+                                      width: 155,
+                                      //Error connecting to the images URL
+                                      //Use the No image asset
+                                      errorBuilder: (context, error, stackTrace) => const Image(
+                                        image: AssetImage(assetNoImage),
+                                        fit: BoxFit.cover,
+                                        height: 154,
+                                        width: 155,
+                                      ),
                                   ),
-                                  overflow: TextOverflow.ellipsis, //Displays (...) when oveflowed
-                                ),
-                              ],
-                            ),
-                        ),
-                      
-                        //Playlist Divider underlining the Name
-                        const Divider(
-                          height: 1,
-                          color: Colors.grey,
-                        ),
 
-                      ]
-                    );
+                                  //Playlist Name
+                                  Text(
+                                    imageName,
+                                    style: const TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                    overflow: TextOverflow.ellipsis, //Displays (...) when oveflowed
+                                  ),
+                                ],
+                              ),
+                          ),
+                        
+                          //Playlist Divider underlining the Name
+                          const Divider(
+                            height: 1,
+                            color: Colors.grey,
+                          ),
 
+                        ]
+                      );
+                    }
                   }
               ),
             ),
-            if (!user.subscribed && !devMode)
-              //Space for Ad
-              const SizedBox(
-                height: 60,
-              )
           ],
         ),
       ],

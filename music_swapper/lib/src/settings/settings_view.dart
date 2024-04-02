@@ -17,10 +17,13 @@ import 'package:url_launcher/url_launcher.dart';
 import 'settings_controller.dart';
 
 /// Displays the various settings that can be customized by the user.
+/// 
 /// When a user changes a setting, the SettingsController is updated and
 /// Widgets that listen to the SettingsController are rebuilt.
-/// Users are provided multiple Sync options
-/// Ad removal services are placed here
+/// 
+/// Users are provided a Sync option.
+/// Support links for email and discord.
+/// Option to delete their data from the database.
 
 class SettingsViewWidget extends StatefulWidget{
   const SettingsViewWidget({
@@ -37,44 +40,21 @@ class SettingsViewWidget extends StatefulWidget{
 }
 
 class SettingsViewState extends State<SettingsViewWidget> with TickerProviderStateMixin{
-  late AnimationController allController;
-  late AnimationController playlistsController;
-  late AnimationController tracksController;
+  late AnimationController syncController;
   late ScaffoldMessengerState scaffoldMessenger;
   
   UserModel user = UserModel.defaultUser();
-
-  bool syncingAll = false;
-  bool syncingPlaylists = false;
-  bool syncingTracks = false;
-
+  bool syncing = false;
   String allOption = 'all';
-  String tracksOption = 'tracks';
-  String playlistsOption = 'playlists';
-
-  Color textColor = Colors.white;
 
   @override
   void initState(){
     super.initState();
+    getUser();
 
-    if (!syncingAll && !syncingPlaylists && !syncingTracks){
-      if (widget.controller.themeMode == ThemeMode.light){
-        textColor = Colors.black;
-      }
-
-      //Animation controllers for different Sync Icons
-      allController = AnimationController(
-        vsync: this,
-        duration: const Duration(seconds: 3)
-      );
-
-      playlistsController = AnimationController(
-        vsync: this,
-        duration: const Duration(seconds: 3)
-      );
-
-      tracksController = AnimationController(
+    if (!syncing){
+      //Initializes animation controller for Sync Icon
+      syncController = AnimationController(
         vsync: this,
         duration: const Duration(seconds: 3)
       );
@@ -82,23 +62,21 @@ class SettingsViewState extends State<SettingsViewWidget> with TickerProviderSta
 
   }
 
-
-
   @override
   void dispose(){
-    //SpotifySync().stop();
-    allController.dispose();
-    playlistsController.dispose();
-    tracksController.dispose();
+    //Manually diposes the sync controller.
+    syncController.dispose();
     super.dispose();
   }
 
   @override
   void didChangeDependencies(){
     super.didChangeDependencies();
+    //Initializes the page ScaffoldMessenger before the page is loaded in the initial state.
     scaffoldMessenger = ScaffoldMessenger.of(context);
   }
 
+  ///Gets the saved user from the Secure storage and Navigates to the Start page on failure.
   Future<void> getUser()async{
     final response = await SecureStorage().getUser();
 
@@ -108,10 +86,23 @@ class SettingsViewState extends State<SettingsViewWidget> with TickerProviderSta
     else{
       bool reLogin = true;
       Navigator.of(context).pushReplacementNamed(StartViewWidget.routeName, arguments: reLogin);
-      storageCheck(context, CallbackModel.defaultCall(), response);
+      SecureStorage().errorCheck(const CallbackModel(), response, context: context);
     }
   }
 
+  ///Gets the name of the current theme, and returns it as a String.
+  String getThemeName(){
+    switch(widget.controller.themeMode){
+      case ThemeMode.system:
+        return 'System Theme';
+      case ThemeMode.dark:
+        return 'Dark Theme';
+      case ThemeMode.light:
+        return 'Light Theme';
+      default:
+        return 'Unknown Theme';
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -140,66 +131,69 @@ class SettingsViewState extends State<SettingsViewWidget> with TickerProviderSta
         // SettingsController is updated, which rebuilds the MaterialApp.
         child: Stack(
           children: [
+
             ListView(
               children: [
-                DropdownButton<ThemeMode>(
-                    style: Theme.of(context).textTheme.titleMedium,
-                    iconSize: 35,
-                    iconEnabledColor: spotHelperGreen,
-                    isExpanded: true,
-                    alignment: Alignment.center,
-                    // Read the selected themeMode from the controller
-                    value: widget.controller.themeMode,
-                    // Call the updateThemeMode method any time the user selects a theme.
-                    onChanged: widget.controller.updateThemeMode,
-                    items:  const [
-                      DropdownMenuItem(
-                        value: ThemeMode.system,
-                        child: Text(
+
+                //App Theme selection Popup button
+                PopupMenuButton(
+                  //Current Theme's name
+                  child: ListTile(
+                    title: Text(
+                      getThemeName(),
+                      textScaler: const TextScaler.linear(1.1),
+                    ),
+                  ),
+                  
+                  //Theme options for the User to choose from
+                  itemBuilder: (context) {
+                    return [
+                      PopupMenuItem(
+                        child: const Text(
                           'System Theme',
                           textScaler: TextScaler.linear(1.1),
                         ),
+                        onTap: () => widget.controller.updateThemeMode(ThemeMode.system),
                       ),
-                      DropdownMenuItem(
-                        value: ThemeMode.light,
-                        child: Text(
+                      PopupMenuItem(
+                        child: const Text(
                           'Light Theme',
                           textScaler: TextScaler.linear(1.1),
                         ),
+                        onTap: () => widget.controller.updateThemeMode(ThemeMode.light),
                       ),
-
-                      DropdownMenuItem(
-                        value: ThemeMode.dark,
-                        child: Text(
+                      PopupMenuItem(
+                        child: const Text(
                           'Dark Theme',
                           textScaler: TextScaler.linear(1.1),
                         ),
+                        onTap: () => widget.controller.updateThemeMode(ThemeMode.dark),
                       )
-                    ],
-                  ),
-
-                  const SizedBox(height: 10,),
+                    ];
+                  },
+                ),
+                customDivider(),
 
                 //Playlists & Tracks Sync Tile
                 ListTile(
-                  selected: syncingAll,
+                  selected: syncing,
                   selectedColor: Colors.blue,
-                  leading: rotatingSync(allController, allOption),
+                  leading: rotatingSync(syncController, allOption),
                   title: const Text(
                     'Sync All Tracks',
                     textScaler: TextScaler.linear(1.1),
                   ),
                   subtitle: const Text('Updates Paylist Images, Names, & gets missing Tracks and Playlists from Spotify.'),
                   onTap: () async{
-                    if (!syncingAll && !syncingPlaylists && !syncingPlaylists){
-                      if (mounted)  allController.repeat(); //Start animation
-                      syncingAll = true;
+                    if (!syncing){
+                      if (mounted)  syncController.repeat(); //Start animation
+                      syncing = true;
                       setState(() {});
 
-                      await SpotifySync().startAll(allOption, scaffoldMessenger);
+                      await SpotifySync().startSyncAllTracks(scaffoldMessenger);
 
-                      if (mounted) allController.reset(); //FInished Syncing
-                      syncingAll = false;
+                      if (mounted) syncController.reset(); //FInished Syncing
+                      syncing = false;
                       setState(() {});
 
                       scaffoldMessenger.showSnackBar(
@@ -214,8 +208,9 @@ class SettingsViewState extends State<SettingsViewWidget> with TickerProviderSta
 
                   },
                 ),
-                const Divider(color: Colors.grey),
+                customDivider(),
 
+                //Support email Tile
                 ListTile(
                   leading: const Text(
                     'Email:',
@@ -230,8 +225,9 @@ class SettingsViewState extends State<SettingsViewWidget> with TickerProviderSta
                     ),
                   ),
                 ),
-                const Divider(color: Colors.grey),
+                customDivider(),
 
+                //Discord link Tile
                 ListTile(
                   title: Link(
                     uri: Uri.parse('https://discord.gg/2nRRFtkrhd'), 
@@ -247,8 +243,9 @@ class SettingsViewState extends State<SettingsViewWidget> with TickerProviderSta
                     },
                   ),
                 ),
-                const Divider(color: Colors.grey),
+                customDivider(),
 
+                //Privacy Policy Tile
                 ListTile(
                   title: Link(
                     uri: Uri.parse('https://spot-helper-1688d.firebaseapp.com'), 
@@ -264,8 +261,9 @@ class SettingsViewState extends State<SettingsViewWidget> with TickerProviderSta
                     },
                   ),
                 ),
-                const Divider(color: Colors.grey),
+                customDivider(),
                 
+                //Remove User database data Tile
                 ListTile(
                   title: TextButton(
                     onPressed: () async => await confirmationBox(),
@@ -277,31 +275,7 @@ class SettingsViewState extends State<SettingsViewWidget> with TickerProviderSta
                     ),
                   ),
                 ),
-                const Divider(color: Colors.grey),
-
-                // if (user.subscribed)
-                //   ListTile(
-                //   leading: const Icon(Icons.monetization_on_rounded),
-                //   title: const Text(
-                //     'Cancel Subscription',
-                //     textScaler: TextScaler.linear(1.1),
-                //     ),
-                //   onTap: () {
-                //     debugPrint('Open purchase Menu');
-                //   },
-                // ),
-                //
-                // if(!user.subscribed)
-                //   ListTile(
-                //     leading: const Icon(Icons.monetization_on_rounded),
-                //     title: const Text(
-                //       '\$1 monthly subscription to remove adds',
-                //       textScaler: TextScaler.linear(1.1),
-                //       ),
-                //     onTap: () {
-                //       debugPrint('Open purchase Menu');
-                //     },
-                //   ),
+                customDivider(),
                 
                 const Padding(
                   padding: EdgeInsets.fromLTRB(10, 10, 10, 10),
@@ -309,13 +283,15 @@ class SettingsViewState extends State<SettingsViewWidget> with TickerProviderSta
               ]
             ),
             
-            settingsAdRow(context, user),
+            if (!user.subscribed)
+              Ads().setupAds(context, user),
           ]
         ),
       ),
     );
   }//Widget
 
+  ///Confirmation Popup box for deleting a users database data.
   Future<void> confirmationBox() async{
     bool confirmed = false;
     debugPrint('Remove data');
@@ -365,6 +341,7 @@ class SettingsViewState extends State<SettingsViewWidget> with TickerProviderSta
   }
 
 
+  ///Encode email creation parameters.
   String? encodeQueryParameters(Map<String, String> params) {
     return params.entries
         .map((MapEntry<String, String> e) =>
@@ -372,8 +349,7 @@ class SettingsViewState extends State<SettingsViewWidget> with TickerProviderSta
         .join('&');
   }
 
-  ///Opens the Users preferred email app to send and email
-  ///to the Support email
+  ///Opens the Users preferred email app to send an email to the Support email.
   Future<void> launchEmail() async{
     const supportEmail = 'spotmusicmover@gmail.com';
 
@@ -388,7 +364,7 @@ class SettingsViewState extends State<SettingsViewWidget> with TickerProviderSta
 
     await launchUrl(supportUri)
     .onError((error, stackTrace) {
-      throw Exception('Failed to launch email $error');
+      throw Exception( exceptionText('settings_view.dart', 'launchEmail', error, offset: 14) );
     });
 
   }
@@ -405,23 +381,16 @@ class SettingsViewState extends State<SettingsViewWidget> with TickerProviderSta
             icon: const Icon(Icons.sync),
             onPressed: () async {
 
-              if (!syncingPlaylists){
-                if (option == allOption && !syncingPlaylists && !syncingTracks) syncingAll = true;
-                if (option == playlistsOption && !syncingAll && !syncingTracks) syncingPlaylists = true;
-                if (option == tracksOption && !syncingPlaylists && !syncingAll) syncingTracks = true;
-                setState(() {}); //start rotating
+              setState(() {syncing = true;}); //Start rotating
 
-                if (mounted) controller.repeat(); //Start animation
-                
-                await SpotifySync().startPlaylists(option, scaffoldMessenger);
+              if (mounted) controller.repeat(); //Start animation
               
-                if (mounted) controller.reset(); // Stop animation Finished Syncing
+              await SpotifySync().startSyncAllTracks(scaffoldMessenger);
+            
+              if (mounted) controller.reset(); // Stop the animation when finished Syncing and app is on the same screen
 
-                if (option == allOption ) syncingAll = false;
-                if (option == playlistsOption) syncingPlaylists = false;
-                if (option == tracksOption) syncingTracks = false;
-                setState(() {}); //stop rotation
-              }
+              setState(() {syncing = false;}); //stop rotation
+              
             },
           ),
         );

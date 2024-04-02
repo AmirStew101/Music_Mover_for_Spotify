@@ -11,21 +11,16 @@ final userRepo = Get.put(UserRepository());
 
 class DatabaseStorage { 
 
-  ///Syncs the Users Spotify tracks with the tracks in database
+  ///Syncs a Users database tracks with tracks from Spotify.
   Future<void> syncTracks(String userId, Map<String, TrackModel> tracks, String playlistId) async{
-    try{
-      await userRepo.syncPlaylistTracks(userId, tracks, playlistId, devMode);
-    }
-    catch (e){
-      throw Exception('Error trying to Sync Playlist Tracks: $e');
-    }
+    await userRepo.syncPlaylistTracks(userId, tracks, playlistId, devMode)
+    .onError((error, stackTrace) => throw Exception( exceptionText('database_class.dart', 'syncTracks', error, offset: 1) ));
   }
 
-  ///Get a list of track names for a given playlits then get there details from
-  ///the tracks collection using the names
+  ///Get tracks from playlist with [playlistId] for user with [userId].
   Future<Map<String, TrackModel>> getDatabaseTracks(String userId, String playlistId, BuildContext context) async{
     final tracks = await userRepo.getTracks(userId, playlistId)
-    .catchError((error, stackTrace) {
+    .onError((error, stackTrace) {
       debugPrint('Error $error');
       Flushbar(
         duration: const Duration(seconds: 3),
@@ -33,21 +28,12 @@ class DatabaseStorage {
         title: 'Failed to get Tracks From Database',
         message: 'Trying Spotify',
       ).show(context);
-      throw Exception('In database_class.dart line: ${getCurrentLine()} : $error');
+      throw Exception( exceptionText('database_class.dart', 'getDatabaseTracks', error, offset: 9) );
     });
     return tracks;
   }
 
-  Future<void> removeDatabaseTracks(String userId, List<String> trackIds, String playlistId) async{
-      try{
-        await userRepo.removePlaylistTracks(userId, trackIds, playlistId);
-      }
-      catch (e){
-        throw Exception('Caught Error in universal_widgets.dart function removeDatabaseTracks: $e');
-      }
-  }
-
-  ///Add [selectedTracks] to the Users playlists. Given the Users id [userId] and List of playlist Ids [playlistIds]
+  ///Add given [selectedTracks] to the Users playlists. Given the User id [userId] and List of playlist Ids [playlistIds]
   Future<void> addTracks(String userId, Map<String, TrackModel> selectedTracks, List<String> playlistIds) async{
     try{
       List<TrackModel> tracksUpdate = [];
@@ -76,30 +62,46 @@ class DatabaseStorage {
       }
 
       for (var playId in playlistIds){
-        await userRepo.addTrackDocs(userId, tracksUpdate, playId);
+        await userRepo.updateTracks(userId, tracksUpdate, playId);
       }
     }
     catch (e){
-      throw Exception('database_class.dart ine: ${getCurrentLine()} CAught Error: $e');
+      throw Exception( exceptionText('database_class.dart', 'addTracks', e, offset: 32) );
     }
   }
 
+  ///Remove selected tracks with [selectedIds]. Given the User id [userId] and playlist with id [playlistId].
+  Future<void> removeTracks(String userId, String playlistId, List<String> selectedIds) async {
+    await userRepo.removePlaylistTracks(userId, selectedIds, playlistId)
+    .onError((error, stackTrace) => throw Exception( exceptionText('database_class.dart', 'removeTracks', error, offset: 1) ));
+ }
+
+
+  ///Syncs a Users database playlists with playlists from Spotify.
   Future<void> syncPlaylists(Map<String, PlaylistModel> playlists, String userId) async{
+    await userRepo.syncUserPlaylists(userId, playlists)
+    .onError((error, stackTrace) => throw Exception( exceptionText('database_class.dart', 'syncPlaylists', error, offset: 1) ));
+  }
+
+  ///Get playlist from database for user with [userId].
+  Future<Map<String, PlaylistModel>?> getDatabasePlaylists(String userId) async{
     try{
-      await userRepo.syncUserPlaylists(userId, playlists);
+      final hasPlaylists = await userRepo.hasPlaylistsColl(userId);
+
+      if (hasPlaylists){
+        Map<String, PlaylistModel> allPlaylists = await userRepo.getPlaylists(userId);
+        return allPlaylists;
+      }
+
+      return null;
     }
     catch (e){
-      throw Exception('Error trying to Sync Playlists: $e');
+      throw Exception( exceptionText('database_class.dart', 'getDatabasePlaylists', e, offset: 9) );
     }
   }
 
-  Future<Map<String, PlaylistModel>> getDatabasePlaylists(String userId) async{
-    Map<String, PlaylistModel> allPlaylists = await userRepo.getPlaylists(userId);
-    return allPlaylists;
-  }
 
-
-  ///Checks if user is already in the database and adds them if they are not.
+  ///Checks if [user] is already in the database and adds them if they are not.
   Future<UserModel> syncUserData(UserModel user) async {
     if (await userRepo.hasUser(user)){
       user = (await userRepo.getUser(user))!;
@@ -113,6 +115,7 @@ class DatabaseStorage {
     return user;
   }
 
+  ///Removes a [user] and all of their data from the database.
   Future<int> removeUser(UserModel user) async{
     try{
       if (await userRepo.hasUser(user)){
@@ -124,20 +127,9 @@ class DatabaseStorage {
       return 0;
     }
     catch (e){
-      throw Exception('database_classes.dart line: ${getCurrentLine(offset: 11)} Caught Error: $e');
+      throw Exception( exceptionText('database_class.dart', 'removeUser', e, offset: 11) );
     }
   }
 
-
-  ///Spotify removes all versions of a track from a playlist when an id is sent to be deleted
-  Future<void> removeTracks(PlaylistModel currentPlaylist, List<String> selectedIds, UserModel user) async {
-
-    String playlistId = currentPlaylist.id;
-
-    await userRepo.removePlaylistTracks(user.spotifyId, selectedIds, playlistId)
-    .onError((error, stackTrace) => throw Exception('database_class.dart line: ${getCurrentLine(offset: 1)} Caught Error: $error'));
-    
- }
-
-}//DatabaseStorage
+}
 

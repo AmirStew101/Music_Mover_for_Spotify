@@ -4,19 +4,25 @@ import 'package:spotify_music_helper/src/utils/object_models.dart';
 import 'package:spotify_music_helper/src/utils/global_classes/global_objects.dart';
 
 class TracksSearchDelegate extends SearchDelegate {
-  //Will have a key: track name & value: Artist & ID
+  ///Will have a key: track name & value: Artist & ID
   List<MapEntry<String, dynamic>> searchResults = [];
 
   bool artistFilter = false;
+  ValueNotifier<bool> selectAll = ValueNotifier<bool>(false);
   
-  //Tracks user has selected in Search or Body
-  //Key: Track Title, Value: {ID & bool if 'chosen'}
+  ///Tracks user has selected in Search or Body.
+  ///
+  ///Key: Track Title, Value: {ID & bool if 'chosen'}.
   List<MapEntry<String, dynamic>> chosenTracksList = [];
+  int numSelected = 0;
 
-  //Gets all the tracks for the playlist from tracks
-  //Gets all the selected Tracks from previous widget
+  late Map<String, TrackModel> tracks;
+
+  ///Gets all the tracks for the playlist from tracks, and
+  ///gets all the selected Tracks from previous widget.
   TracksSearchDelegate(Map<String, TrackModel> allTracks, Map<String, TrackModel> tracksSelectedMap) {
-
+    tracks = allTracks;
+    
     allTracks.forEach((key, value) {
       String trackTitle = value.title;
 
@@ -24,6 +30,7 @@ class TracksSearchDelegate extends SearchDelegate {
       searchResults.add(MapEntry(key, searchMap));
 
       bool chosen = tracksSelectedMap.containsKey(key);
+      if (chosen) numSelected++;
 
       Map<String, dynamic> selectedMap = {'chosen': chosen, 'title': trackTitle};
       chosenTracksList.add(MapEntry(key, selectedMap));
@@ -31,15 +38,22 @@ class TracksSearchDelegate extends SearchDelegate {
 
     searchResults.sort((a, b) => a.value['title'].compareTo(b.value['title']));
     chosenTracksList.sort((a, b) => a.value['title'].compareTo(b.value['title']));
+
+    if (numSelected == allTracks.length) selectAll.value = true;
   }
   
   @override
   Widget? buildLeading(BuildContext context) {
     //Close Search bar
     return IconButton(
-      icon: const Icon(Icons.arrow_back),
+      icon: const Icon(Icons.cancel),
       onPressed: () {
-        close(context, chosenTracksList);
+        if (query.isEmpty) {
+          close(context, chosenTracksList);
+        } 
+        else {
+          query = '';
+        }
       },
     );
   }
@@ -51,36 +65,44 @@ class TracksSearchDelegate extends SearchDelegate {
       StatefulBuilder(
         builder: (context, setState) {
           //Artist Filter checkbox functionality
-          return Column(
+          return Row(
             children: [
               FilterChip(
-                backgroundColor: artistFilter
-                    ? spotHelperGreen
-                    : Colors.grey,
-                label: const Text('Artist Filter'),
+                backgroundColor: Colors.grey,
+                label: const Text('By Artist'),
+
+                selected: artistFilter,
+                selectedColor: spotHelperGreen,
+
                 onSelected: (value) {
                   setState(() {
                     artistFilter = !artistFilter;
                   });
                 },
               ),
+              const SizedBox(width: 5,),
+
+              FilterChip(
+                backgroundColor: Colors.grey,
+                label: const Text('All'),
+
+                selected: selectAll.value,
+                selectedColor: spotHelperGreen,
+
+                onSelected: (value) {
+                  selectAll.value = !selectAll.value;
+                  for (var element in chosenTracksList) { 
+                    element.value['chosen'] = selectAll.value;
+                  }
+
+                  setState(() {});
+                },
+              ),
+
             ],
           );
         },
       ),
-      StatefulBuilder(builder: (context, setState) => 
-        //Cancel Button functionality
-        IconButton(
-          icon: const Icon(Icons.cancel),
-          onPressed: () {
-            if (query.isEmpty) {
-              close(context, chosenTracksList);
-            } else {
-              query = '';
-            }
-          },
-        )
-      )
     ];
   }
 
@@ -139,50 +161,59 @@ class TracksSearchDelegate extends SearchDelegate {
         builder: (context, setState) {
 
           //List of suggested tracks
-          return ListView.builder(
-            itemCount: trackSuggestions.length,
-            itemBuilder: (context, index) {
-              //Suggestion has key: Id Title & Values: Artist, Track title
-              final suggestion = trackSuggestions[index];
-              String trackId = suggestion.key;
+          return ValueListenableBuilder(
+            valueListenable: selectAll, 
+            builder: (context, value, child) => ListView.builder(
+              itemCount: trackSuggestions.length,
+              itemBuilder: (context, index) {
+                //Suggestion has key: Id Title & Values: Artist, Track title
+                final suggestion = trackSuggestions[index];
+                String trackId = suggestion.key;
+                String trackImage = tracks[trackId]!.imageUrl;
 
-              //Get the data and location of track that matches suggestion
-              MapEntry<String, dynamic> chosenTrack = chosenTracksList.firstWhere((track) => track.key == trackId);
-              int chosenIndex = chosenTracksList.indexWhere((track) => track.key == trackId);
+                //Get the data and location of track that matches suggestion
+                MapEntry<String, dynamic> chosenTrack = chosenTracksList.firstWhere((track) => track.key == trackId);
+                int chosenIndex = chosenTracksList.indexWhere((track) => track.key == trackId);
 
-              bool isSelected = chosenTrack.value['chosen'];
-              String trackTitle = suggestion.value['title'];
+                bool isSelected = chosenTrack.value['chosen'];
+                String trackTitle = suggestion.value['title'];
 
-              Map<String, dynamic> chosenMap = {'chosen': !isSelected, 'Title': trackTitle};
+                Map<String, dynamic> chosenMap = {'chosen': !isSelected, 'title': trackTitle};
 
-              return ListTile(
+                return ListTile(
 
-                //Checkbox for users Track
-                leading: Checkbox(
-                value: isSelected,
-                //Keeps track of tracks user selects
-                onChanged: (value) {
-                  setState(() {
-                    //Changes track that matches the suggestion
-                    chosenTracksList[chosenIndex] = MapEntry(trackId, chosenMap);
-                  });
-                },),
+                  //Checkbox for users Track
+                  leading: Checkbox(
+                  value: isSelected,
+                  //Keeps track of tracks user selects
+                  onChanged: (value) {
+                    setState(() {
+                      //Changes track that matches the suggestion
+                      chosenTracksList[chosenIndex] = MapEntry(trackId, chosenMap);
+                    });
+                  },),
 
-                //Track name and Artist
-                title: Text(
-                  suggestion.value['title'], 
-                  textScaler: const TextScaler.linear(1.2)),
+                  //Track name and Artist
+                  title: Text(
+                    suggestion.value['title'], 
+                    textScaler: const TextScaler.linear(1.2)
+                  ),
 
-                subtitle: Text('By: ${suggestion.value['artist']}',
-                    textScaler: const TextScaler.linear(0.8)),
-                //Keeps track of tracks user selected
-                onTap: () {
-                  setState(() {
-                    chosenTracksList[chosenIndex] = MapEntry(trackId, chosenMap);
-                  });
-                },
-              );
-            },
+                  subtitle: Text('By: ${suggestion.value['artist']}',
+                      textScaler: const TextScaler.linear(0.8)
+                  ),
+                  
+                  trailing: Image.network(trackImage),
+
+                  //Keeps track of tracks user selected
+                  onTap: () {
+                    setState(() {
+                      chosenTracksList[chosenIndex] = MapEntry(trackId, chosenMap);
+                    });
+                  },
+                );
+              },
+            )
           );
         },
       );
@@ -196,6 +227,7 @@ class TracksSearchDelegate extends SearchDelegate {
           itemBuilder: (context, index) {
             final suggestion = artistSuggestions[index];
             String trackId = suggestion.key;
+            String trackImage = tracks[trackId]!.imageUrl;
 
             MapEntry<String, dynamic> chosenTrack = chosenTracksList.firstWhere((track) => track.key == trackId);
             int chosenIndex = chosenTracksList.indexWhere((track) => track.key == trackId);
@@ -214,13 +246,18 @@ class TracksSearchDelegate extends SearchDelegate {
                   });
                 },
               ),
+
               title: Text(
                 suggestion.value['title'],
-                textScaler: const TextScaler.linear(1.2)),
+                textScaler: const TextScaler.linear(1.2)
+              ),
 
               subtitle: Text(
                 'By: ${suggestion.value['artist']}',
-                textScaler: const TextScaler.linear(0.8)),
+                textScaler: const TextScaler.linear(0.8)
+              ),
+
+              trailing: Image.network(trackImage),
 
               onTap: () {
                 setState((){

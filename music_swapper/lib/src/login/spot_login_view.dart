@@ -2,7 +2,6 @@
 
 import 'dart:convert';
 
-import 'package:another_flushbar/flushbar.dart';
 import 'package:flutter/material.dart';
 import 'package:spotify_music_helper/src/home/home_view.dart';
 import 'package:spotify_music_helper/src/login/start_screen.dart';
@@ -18,6 +17,8 @@ import 'package:spotify_music_helper/src/utils/global_classes/secure_storage.dar
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:http/http.dart' as http;
 
+
+///Handles Logging into a users Spotify Account and saving their info to the database.
 class SpotLoginWidget extends StatefulWidget {
   const SpotLoginWidget({super.key, required this.reLogin});
   final bool reLogin;
@@ -28,8 +29,10 @@ class SpotLoginWidget extends StatefulWidget {
   State<SpotLoginWidget> createState() => SpotLoginState();
 }
 
+///Implements Logging into a users Spotify Account and saving their info to the database.
 class SpotLoginState extends State<SpotLoginWidget> {
   bool reLogin = false;
+  late ScaffoldMessengerState _scaffoldMessengerState;
 
   @override
   void initState(){
@@ -37,15 +40,23 @@ class SpotLoginState extends State<SpotLoginWidget> {
     reLogin = widget.reLogin;
   }
 
-  //Spotify Login view
+  @override
+  void didChangeDependencies(){
+    super.didChangeDependencies();
+    //Initializes the page ScaffoldMessenger before the page is loaded in the initial state.
+    _scaffoldMessengerState = ScaffoldMessenger.of(context);
+  }
+
+  ///In app web view for logging into Spotify.
   Future<WebViewController> initiateLogin(BuildContext context, bool reLogin) async {
     late final String loginURL;
-    bool error = false;
 
     if (reLogin){
+      //Ask user if they are signed into the correct account.
       loginURL = '$hosted/get-auth-url-dialog';
     }
     else{
+      //Skip asking user if sign-in is correct.
       loginURL = '$hosted/get-auth-url-no-dialog';
     }
 
@@ -55,56 +66,51 @@ class SpotLoginState extends State<SpotLoginWidget> {
       final response = await http.get(Uri.parse(loginURL));
       
       if (response.statusCode != 200){
-        debugPrint('Login Response Fail:');
         await loginIssue();
       }
       responseDecode = json.decode(response.body);
     }
     catch (e){
-      debugPrint('Login Fail: $e');
       await loginIssue();
     }
 
-    final authUrl = responseDecode['data']; //The authorization url to get Spotify access
+    //The authorization url to get Spotify access.
+    final authUrl = responseDecode['data'];
 
-    // Makes a Web controller to login to Spotify and redirect back to app
+    // Makes a Web controller to login to Spotify and redirect back to app.
     if (responseDecode['status'] == 'Success') {
       final authUri = Uri.parse(authUrl);
 
-      Map callback = {'accessToken': '', 'refreshToken': '', 'expiresAt': ''};
+      //Stores the users callback tokens and expiration {'accessToken': '', 'refreshToken': '', 'expiresAt': ''}.
+      Map<String, dynamic> callback;
 
-      //Sets up parameters for the Web controller
+      //Sets up parameters for the Web controller.
       PlatformWebViewControllerCreationParams params = const PlatformWebViewControllerCreationParams();
 
-      //Creates controller to direct where the url goes and where the /callback from
-      //Spotify takes the user when using a mobile app
+      //Creates controller to direct where the url's redirect requests Navigate the user.
       final controller = WebViewController.fromPlatformCreationParams(params);
       
+      //Tries to Login a user through Spotify.
       try{
-        //Sets up the controller settings and what the user sees 
+        //Sets up the controller settings and what the user sees.
         controller
-          ..setJavaScriptMode(JavaScriptMode.unrestricted)
+          ..setJavaScriptMode(JavaScriptMode.unrestricted) //Allows Spotify JavaScript
           ..setNavigationDelegate(NavigationDelegate(
-            onPageStarted: (String url) {
-            },
-            onProgress: (int progress) {
-              debugPrint('Spotify Login Loading (progress: $progress%)');
-            },
             onNavigationRequest: (NavigationRequest request) async {
-              //Spotify sent the callback tokens
+              //Spotify sent the callback tokens.
               if (request.url.startsWith('$hosted/callback')) {
-                callback = await getCallback(request.url);
+                callback = await getTokens(request.url);
                 
                 //No errors in getting the callback
                 if (callback.isNotEmpty){
-                  UserModel? spotifyUser = await OtherRequests().getUser(callback['expiresAt'], callback['accessToken']);
+                  UserModel? spotifyUser = await SpotifyRequests().getUser(callback['expiresAt'], callback['accessToken']);
 
                   if (spotifyUser != null){
                     final getCustomTokenUrl = '$hosted/get-custom-token/${spotifyUser.spotifyId}';
                     final customResponse = await http.get(Uri.parse(getCustomTokenUrl));
 
                     if (customResponse.statusCode != 200){
-                      throw Exception('spot_login_view.dart line: ${getCurrentLine()} Caught Error: ${customResponse.body}');
+                      throw Exception( exceptionText('spot_login_view.dart', 'initiateLogin', customResponse.body, offset: 3));
                     }
 
                     await UserAuth().signInUser(customResponse.body);
@@ -119,26 +125,30 @@ class SpotLoginState extends State<SpotLoginWidget> {
                     Navigator.pushNamedAndRemoveUntil(context, HomeView.routeName, (route) => false);
                   }
                   else{
-                    debugPrint('Synced User Fail');
                     await loginIssue();
                   }
                 }
                 //Spotify was unable to send the callback
                 else{
-                  debugPrint('\nCallback Fail');
                   await loginIssue();
                 }
 
                 return NavigationDecision.prevent;
               }
               else{
-                if(request.url.contains('error')){
-                  error = true;
-                  loginIssue(error: error);
-                  NavigationDecision.prevent;
+                //Facebook does not support in app sign-in.
+                if(request.url.contains('facebook')){
+                  loginIssue(facebook: true);
+                  return NavigationDecision.prevent;
                 }
-                debugPrint('\nRequest URL: ${request.url.toString()}\n');
+                //Users Spotify account does not exist with Google sign-in.
+                else if(request.url.contains('error')){
+                  loginIssue(missingAccount: true);
+                  return NavigationDecision.prevent;
+                }
               }
+
+              //Navigate to Third-party sign-in options (Google, Facebook, Apple).
               return NavigationDecision.navigate;
             },
           ))
@@ -153,8 +163,8 @@ class SpotLoginState extends State<SpotLoginWidget> {
     throw Error();
   }
 
-//Function to decide what to do when /callback is called
-Future<Map> getCallback(String callRequest) async {
+///Decides what to do when /callback is called.
+Future<Map<String, dynamic>> getTokens(String callRequest) async {
 
   final response = await http.get(Uri.parse(callRequest));
 
@@ -175,28 +185,44 @@ Future<Map> getCallback(String callRequest) async {
   return {};
 }
 
-///Creates an error Notification for the User and Returns to the Start Screen
-Future<void> loginIssue({bool loginReset = true, bool hasUser = false, bool error = false}) async{
-  Navigator.pushNamedAndRemoveUntil(context, StartViewWidget.routeName, (route) => false, arguments: loginReset);
+///Creates an error Notification for the User and Returns to the Start Screen.
+Future<void> loginIssue({bool loginReset = true, bool missingAccount = false, bool facebook = false}) async{
+  if (!facebook && !missingAccount) Navigator.pushNamedAndRemoveUntil(context, StartViewWidget.routeName, (route) => false, arguments: loginReset);
 
-  if(!error){
-    Flushbar(
-      title: 'Error',
-      message: 'Problem with connecting to Spotify redirecting back to Start page',
-      titleColor: failedRed,
-      messageColor: failedRed,
-      duration: const Duration(seconds: 3),
-    ).show(context);
+  late String errorText;
+
+  if (!missingAccount && !facebook){
+    errorText = 'Problem with connecting to Spotify redirecting back to Start page.';
+  }
+  else if (facebook){
+    errorText = 'Use the Facebook app to login then try again.';
   }
   else{
-    Flushbar(
-      title: 'Error',
-      message: 'Spotify Account does not exist',
-      titleColor: failedRed,
-      messageColor: failedRed,
-      duration: const Duration(seconds: 3),
-    ).show(context);
+    errorText = 'Google Spotify Account does not exist.';
   }
+  
+  _scaffoldMessengerState.hideCurrentSnackBar();
+  _scaffoldMessengerState.showSnackBar(
+    SnackBar(
+      backgroundColor: snackBarGrey,
+      content: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Error',
+            textScaler: const TextScaler.linear(1.1),
+            style: TextStyle(color: failedRed),
+            textAlign: TextAlign.center,
+          ),
+          Text(
+            errorText,
+            textScaler: const TextScaler.linear(0.9),
+            style: const TextStyle(color: Colors.white),
+          )
+        ],
+      )
+    )
+  );
 
 }//loginIssue
 
@@ -207,11 +233,10 @@ Future<void> loginIssue({bool loginReset = true, bool hasUser = false, bool erro
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.done) {
           if (snapshot.hasError) {
-            // Handle error
-            return Center(child: Text('Error: ${snapshot.error}'));
+            return const Center(child: Text('Error Connecting to Spotify.'));
           }
 
-          // Extract WebViewController
+          //Extract WebViewController to be viewed by the user.
           final WebViewController controller = snapshot.data!;
 
           return Scaffold(
@@ -221,7 +246,7 @@ Future<void> loginIssue({bool loginReset = true, bool hasUser = false, bool erro
         } 
         else {
           return Scaffold(
-            appBar: AppBar(title: const Text('Spotify Login Loading')),
+            appBar: AppBar(title: const Text('Spotify Login')),
             body: const Center(child: CircularProgressIndicator()),
           );
         }

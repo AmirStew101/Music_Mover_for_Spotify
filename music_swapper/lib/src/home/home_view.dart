@@ -8,6 +8,7 @@ import 'package:spotify_music_helper/src/login/start_screen.dart';
 import 'package:spotify_music_helper/src/utils/analytics.dart';
 import 'package:spotify_music_helper/src/utils/ads.dart';
 import 'package:spotify_music_helper/src/utils/backend_calls/spotify_requests.dart';
+import 'package:spotify_music_helper/src/utils/global_classes/sync_services.dart';
 import 'package:spotify_music_helper/src/utils/globals.dart';
 import 'package:spotify_music_helper/src/utils/object_models.dart';
 import 'package:spotify_music_helper/src/home/home_body.dart';
@@ -31,7 +32,9 @@ class HomeView extends StatefulWidget {
 
 //State widget for the Home screen
 class HomeViewState extends State<HomeView> with SingleTickerProviderStateMixin{
-  CallbackModel receivedCall = CallbackModel(); //required passed callback variable
+  late ScaffoldMessengerState _scaffoldMessengerState;
+
+  CallbackModel receivedCall = const CallbackModel(); //required passed callback variable
   UserModel user = UserModel.defaultUser();
 
   Map<String, PlaylistModel> playlists = {}; //all the users playlists
@@ -48,10 +51,17 @@ class HomeViewState extends State<HomeView> with SingleTickerProviderStateMixin{
     tabController = TabController(length: 2, vsync: this);
   }
 
-  Future<void> checkLogin() async {
-    final refreshResponse = await OtherRequests().checkRefresh(receivedCall, false);
+  @override
+  void didChangeDependencies(){
+    super.didChangeDependencies();
+    //Initializes the page ScaffoldMessenger before the page is loaded in the initial state.
+    _scaffoldMessengerState = ScaffoldMessenger.of(context);
+  }
 
-    if (!checkedLogin || refreshResponse == null){
+  Future<void> _checkLogin() async {
+    final refreshResponse = await SpotifyRequests().checkRefresh(receivedCall);
+
+    if (mounted && !checkedLogin || refreshResponse == null){
       checkedLogin = true;
       
       //Make a function that returns a bool to check
@@ -66,7 +76,7 @@ class HomeViewState extends State<HomeView> with SingleTickerProviderStateMixin{
         Navigator.of(context).pushReplacementNamed(StartViewWidget.routeName, arguments: reLogin);
 
         if (!initial){
-          storageCheck(context, secureCall, secureUser);
+          SecureStorage().errorCheck(secureCall, secureUser, context: context);
         }
       }
       else{
@@ -82,7 +92,7 @@ class HomeViewState extends State<HomeView> with SingleTickerProviderStateMixin{
     }
 
     //Fetches Playlists if page is not loaded and on this Page
-    if (mounted && !loaded && checkedLogin){
+    if (mounted && !loaded){
       if (!refresh){
         await fetchDatabasePlaylists()
         .onError((error, stackTrace) {
@@ -102,10 +112,11 @@ class HomeViewState extends State<HomeView> with SingleTickerProviderStateMixin{
   }//checkLogin
 
   Future<void> fetchDatabasePlaylists() async{
-    playlists = await DatabaseStorage().getDatabasePlaylists(user.spotifyId);
+    Map<String, PlaylistModel>? databasePlaylists = await DatabaseStorage().getDatabasePlaylists(user.spotifyId);
 
     //More than just the Liked Songs playlist & not Refreshing the page
-    if (playlists.length > 1 && !refresh){
+    if (databasePlaylists != null && databasePlaylists.length > 1 && !refresh){
+      playlists = databasePlaylists;
       loaded = true;
     }
     else if (mounted){
@@ -119,26 +130,21 @@ class HomeViewState extends State<HomeView> with SingleTickerProviderStateMixin{
 
   //Gets all the Users Playlists and platform specific images
   Future<void> fetchSpotifyPlaylists() async {
-    try{
-      bool forceRefresh = false;
-      //Checks to make sure Tokens are up to date before making a Spotify request
-      CallbackModel? result = await OtherRequests().checkRefresh(receivedCall, forceRefresh);
 
-      if (result == null){
+      final playlistsSync = await SpotifySync().startPlaylistsSync(user, receivedCall, _scaffoldMessengerState)
+      .onError((error, stackTrace) {
         checkedLogin = false;
-        throw Exception('home_view.dart line: ${getCurrentLine(offset: 5)} Failed to get Refresh Tokens');
+        throw Exception( exceptionText('home_view.dart', 'fetchSpotifyPLaylists', error) );
+      });
+
+      if (playlistsSync.callback == null){
+        checkedLogin = false;
+        throw Exception( exceptionText('home_view.dart', 'fetchSpotifyPLaylists', error, offset: 8) );
       }
-      receivedCall = result;
 
-      playlists = await  PlaylistsRequests().getPlaylists(receivedCall.expiresAt, receivedCall.accessToken, user.spotifyId);
-
-      //Checks all playlists if they are in database
-      await DatabaseStorage().syncPlaylists(playlists, user.spotifyId);
+      playlists = playlistsSync.playlists;
+      receivedCall = playlistsSync.callback!;
       
-    }
-    catch (e){
-      throw Exception('home_view.dart Caught Error in fetchSpotifyPLaylists: $e');
-    }
     refresh = false;
     loaded = true; //Future methods have complete
   }//fetchSpotifyPlaylists
@@ -175,72 +181,80 @@ class HomeViewState extends State<HomeView> with SingleTickerProviderStateMixin{
 
         drawer: optionsMenu(context),
 
-        body: FutureBuilder<void>(
-          future: checkLogin(),
-          builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.done && loaded && !error) {
-              return Stack(
-                children: [
-                  ImageGridWidget(playlists: playlists, receivedCall: receivedCall, user: user),
-                  homeAdRow(context, user)
-                ],
-              );
-            }
-            else if(refresh) {
+        body: PopScope(
+          onPopInvoked: (didPop) => SpotifySync().stop(),
+          child: FutureBuilder<void>(
+            future: _checkLogin(),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.done && loaded && !error) {
                 return Stack(
                   children: [
-                    const Center(
-                      child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.center,
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            CircularProgressIndicator(strokeWidth: 6),
-                            Text(
-                              'Syncing Playlists',
-                              textScaler: TextScaler.linear(2)
-                            ),
-                          ]
-                      )
-                    ),
-                    homeAdRow(context, user),
-                  ],
-                ) ;
-              }
-            else if(error && loaded){
-              return Stack(
-                children: [
-                  const Center(
-                    child: Text(
-                      'Error retreiving Playlists from Spotify. Check connection and Refresh page.',
-                      textAlign: TextAlign.center,
-                      textScaler: TextScaler.linear(2),
-                    ),
-                  ),
-                  homeAdRow(context, user),
-                ],
-              );
-            }
-            else{
-                return const Stack(
-                  children: [
-                    Center(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          CircularProgressIndicator(strokeWidth: 6,),
-                          Text(
-                            'Loading Playlists',
-                            textScaler: TextScaler.linear(2)
-                          ),
-                        ]
-                      )
-                    ),
+                    ImageGridWidget(playlists: playlists, receivedCall: receivedCall, user: user),
+                    if (!user.subscribed)
+                      Ads().setupAds(context, user)
                   ],
                 );
               }
-          },
-        ),
+              else if(refresh) {
+                  return Stack(
+                    children: [
+                      const Center(
+                        child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.center,
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              CircularProgressIndicator(strokeWidth: 6),
+                              Text(
+                                'Syncing Playlists',
+                                textScaler: TextScaler.linear(2)
+                              ),
+                            ]
+                        )
+                      ),
+                      if (!user.subscribed)
+                        Ads().setupAds(context, user),
+                    ],
+                  ) ;
+                }
+              else if(error && loaded){
+                return Stack(
+                  children: [
+                    const Center(
+                      child: Text(
+                        'Error retreiving Playlists from Spotify. Check connection and Refresh page.',
+                        textAlign: TextAlign.center,
+                        textScaler: TextScaler.linear(2),
+                      ),
+                    ),
+                    if (!user.subscribed)
+                      Ads().setupAds(context, user),
+                  ],
+                );
+              }
+              else{
+                  return Stack(
+                    children: [
+                      const Center(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            CircularProgressIndicator(strokeWidth: 6,),
+                            Text(
+                              'Loading Playlists',
+                              textScaler: TextScaler.linear(2)
+                            ),
+                          ]
+                        )
+                      ),
+                      if (!user.subscribed)
+                        Ads().setupAds(context, user)
+                    ],
+                  );
+                }
+            },
+          ),
+        )
       );
   }//build
 

@@ -1,18 +1,13 @@
-
-
-import 'package:another_flushbar/flushbar.dart';
 import 'package:flutter/material.dart';
-import 'package:get/get.dart';
-import 'package:spotify_music_helper/src/utils/globals.dart';
-import 'package:spotify_music_helper/src/utils/object_models.dart';
-import 'package:spotify_music_helper/src/utils/backend_calls/databse_calls.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
-
-final userRepo = Get.put(UserRepository());
-AndroidOptions getAndroidOptions() => const AndroidOptions(encryptedSharedPreferences: true);
-final storage = FlutterSecureStorage(aOptions: getAndroidOptions());
-
+///Gets the current line number of the code. Given an offset it will subtract the offset from
+///the current line number if it would be a valid line number.
+///```dart
+///1
+///2 final response = getCurrentLine(); //response = 2
+///3 final responsePrev = getCurrentLine(offset: 1); //response = 2
+///4 final badOffset = getCurrentLine(offset: 10); //response = 4
+///```
 int getCurrentLine({int offset = 0}){
   StackTrace trace = StackTrace.current;
   final lines = trace.toString().split('\n');
@@ -20,13 +15,17 @@ int getCurrentLine({int offset = 0}){
   String lineStr = lines[1].split(':')[2];
   int lineNum = int.parse(lineStr);
 
-  if (offset > 0){
+  if (offset > 0 && (lineNum - offset) > 0){
     lineNum -= offset;
   }
 
    return lineNum;
 }//getCurrentLine
 
+///Removes the modified underscore and duplicate number from a track
+///```dart
+///final response = getTrackId("9s8fs8sd98_1"); //response = "9s8fs8sd98"
+///```
 String getTrackId(String trackId){
   int underScoreIndex = trackId.indexOf('_');
   String result = trackId;
@@ -38,21 +37,7 @@ String getTrackId(String trackId){
   return result;
 }//getTrackId
 
-void selectViewError(dynamic e, int line){
-  throw Exception('Caught error in select_view.dart line: $line error: $e');
-}
-
-Image spotifyHeart(){
-  return Image.asset(
-    unlikeHeart,
-    width: 21.0,
-    height: 21.0,
-    color: Colors.green,
-    fit: BoxFit.cover,
-  );
-}
-
-
+///Modifies the users input to remove any potentially problomatic charachters.
 String modifyBadQuery(String query){
   List badInput = ['\\', ';', '\'', '"', '@', '|'];
   String newQuery = '';
@@ -64,34 +49,14 @@ String modifyBadQuery(String query){
   return newQuery;
 }//modifyBadQuery
 
+///Standard grey divider
+Divider customDivider(){
+  return const Divider(
+    color: Colors.grey,
+  );
+}
 
-void storageCheck(BuildContext context, CallbackModel? secureCall, UserModel? secureUser){
-
-  if (secureUser == null && secureCall == null){
-    Flushbar(
-      backgroundColor: failedRed,
-      title: 'Error in connection',
-      duration: const Duration(seconds: 5),
-      flushbarPosition: FlushbarPosition.TOP,
-      message: 'Failed to connect to Spotify and get User data',
-    ).show(context);
-  }
-  else if (secureUser == null){
-    Flushbar(
-      backgroundColor: failedRed,
-      title: 'Error in connection',
-      duration: const Duration(seconds: 5),
-      flushbarPosition: FlushbarPosition.TOP,
-      message: 'Failed to get User data.',
-    ).show(context);
-  }
-  else if (secureCall == null){
-    Flushbar(
-      backgroundColor: failedRed,
-      title: 'Error in connection',
-      duration: const Duration(seconds: 5),
-      flushbarPosition: FlushbarPosition.TOP,
-      message: 'Failed to connect to Spotify',
-    ).show(context);
-  }
-}//storageCheck
+///The apps standard throw exception text.
+String exceptionText(String fileName, String functionName, Object? error, {int offset = 0}){
+  return '$fileName in function $functionName (${getCurrentLine(offset: offset)}) Caught Error: $error';
+}

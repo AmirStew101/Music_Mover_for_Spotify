@@ -5,10 +5,12 @@ import 'package:spotify_music_helper/src/utils/globals.dart';
 
 class SelectPopups{
 
+  ///Moved or Added tracks Successfully
   Future<bool> success(BuildContext context, String message) async{
     Flushbar(
       isDismissible: true,
-      backgroundColor: spotHelperGreen,
+      backgroundColor: snackBarGrey,
+      titleColor: spotHelperGreen,
       title: 'Success Message',
       duration: const Duration(seconds: 5),
       flushbarPosition: FlushbarPosition.TOP,
@@ -19,10 +21,12 @@ class SelectPopups{
     return false;
   }
 
+  ///Failed to Moved or Added tracks
   Future<bool> fail(BuildContext context) async{
     Flushbar(
       isDismissible: true,
-      backgroundColor: failedRed,
+      backgroundColor: snackBarGrey,
+      titleColor: failedRed,
       title: 'Fail Message',
       duration: const Duration(seconds: 5),
       flushbarPosition: FlushbarPosition.TOP,

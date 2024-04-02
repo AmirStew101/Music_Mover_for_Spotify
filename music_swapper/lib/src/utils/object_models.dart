@@ -1,6 +1,9 @@
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/material.dart';
+import 'package:spotify_music_helper/src/utils/global_classes/global_objects.dart';
 
+///Model for Spotify User object.
 class UserModel{
   String? username;
   final String spotifyId;
@@ -9,15 +12,17 @@ class UserModel{
   final int tier;
   final Timestamp expiration;
   
+  ///Model for a Spotify User object.
   UserModel({
     this.username,
     this.spotifyId = '',
     this.uri = '',
     this.subscribed = false,
     this.tier = 0,
-    required this.expiration,
-  });
+    Timestamp? expiration, // Change expiration to be nullable
+  }) : expiration = expiration ?? Timestamp.fromDate(DateTime.now());
 
+  ///Defaut Model for a Spotify User object with `expiration` set to the current time.
   UserModel.defaultUser() : 
     spotifyId = '', 
     uri = '',
@@ -25,7 +30,8 @@ class UserModel{
     tier = 0,
     expiration = Timestamp.now();
 
-  toJson(){
+  ///Firestore Json representation of this object.
+  Map<String, dynamic> toFirestoreJson(){
     return {
         'username': username,
         'uri': uri,
@@ -35,34 +41,65 @@ class UserModel{
       };
   }
 
-  toMap(){
+  ///Json representation of this object.
+  Map<String, dynamic> toJson(){
     return {
       'spotifyId': spotifyId,
       'username': username,
       'uri': uri,
       'subscribed': subscribed,
       'tier': tier,
-      'expiration': expiration,
+      'expiration': expiration.toString(),
     };
   }
 
+  ///Converts a given [Map<String, dynamic>] of a user into a [UserModel].
   UserModel toModel(Map<String, dynamic> userMap){
+    if (userMap.isEmpty){
+      return UserModel.defaultUser();
+    }
+    if (!userMap.keys.contains('spotifyId')){
+      Object error = "Map is missing the required key 'spotifyId'";
+      throw Exception( exceptionText('object_models.dart', 'toModel', error));
+    }
+    if (!userMap.keys.contains('subscribed')){
+      Object error = "Map is missing the required key 'subscribed'";
+      throw Exception( exceptionText('object_models.dart', 'toModel', error));
+    }
+    if (!userMap.keys.contains('tier')){
+      Object error = "Map is missing the required key 'tier'";
+      throw Exception( exceptionText('object_models.dart', 'toModel', error));
+    }
+    if (!userMap.keys.contains('uri')){
+      Object error = "Map is missing the required key 'uri'";
+      throw Exception( exceptionText('object_models.dart', 'toModel', error));
+    }
+    if (!userMap.keys.contains('username')){
+      Object error = "Map is missing the required key 'username'";
+      throw Exception( exceptionText('object_models.dart', 'toModel', error));
+    }
+    if (!userMap.keys.contains('expiration')){
+      Object error = "Map is missing the required key 'expiration'";
+      throw Exception( exceptionText('object_models.dart', 'toModel', error));
+    }
+
     return UserModel(
       spotifyId: userMap['spotifyId'],
       subscribed: userMap['subscribed'],
       tier: userMap['tier'],
       uri: userMap['uri'],
       username: userMap['username'],
-      expiration: userMap['expiration']
+      expiration: getTimestamp(userMap['expiration'])
     );
   }
 
-  //Returns the day for the Models expiration
+  ///Returns the day for the Subscription expiration.
   int get getDay{
     final day = expiration.toDate().day;
     return day;
   }
 
+  ///Converts a String of a time stamp into a Timestamp and returns it.
   Timestamp getTimestamp(String timeStampeStr){
     //Receives: Timestamp(seconds=1708192429, nanoseconds=179000000)
     final flush = timeStampeStr.split('seconds=');
@@ -81,6 +118,7 @@ class UserModel{
   }
 }
 
+///Model for Spotify Track object.
 class TrackModel{
   final String id;
   final String imageUrl;
@@ -90,6 +128,7 @@ class TrackModel{
   final int duplicates;
   final bool liked;
 
+  ///Model for a Spotify Track object.
   const TrackModel({
     this.id = '',
     this.imageUrl = '',
@@ -100,16 +139,8 @@ class TrackModel{
     this.liked = false,
   });
 
-  TrackModel.defaultTracks() : 
-    id = '', 
-    imageUrl = '',
-    previewUrl = '',
-    artist = '',
-    title = '',
-    duplicates = 0,
-    liked = false;
-
-  toJson(){
+  ///Firestore Json representation of this object.
+  Map<String, dynamic> toFirestoreJson(){
     return {
       'imageUrl': imageUrl,
       'previewUrl': previewUrl,
@@ -120,11 +151,7 @@ class TrackModel{
     };
   }
 
-  @override
-  String toString(){
-    return 'TrackModel(id: $id, title: $title, artist: $artist, duplicates: $duplicates, imageUrl: $imageUrl, liked: $liked)';
-  }
-
+  ///True if the track doesn't have values.
   bool get isEmpty{
     if (id == '' && imageUrl == '' && artist == '' && title == ''){
       return true;
@@ -132,13 +159,15 @@ class TrackModel{
     return false;
   }
 
+  ///True if the track does have values.
   bool get isNotEmpty{
-    if (id == '' && imageUrl == '' && artist == '' && title == ''){
-      return false;
+    if (id != '' && imageUrl != '' && artist != '' && title != ''){
+      return true;
     }
-    return true;
+    return false;
   }
 
+  ///Increments the Track's duplicate value by 1.
   TrackModel get incrementDuplicates{
     TrackModel newTrack = TrackModel(
       id: id,
@@ -154,7 +183,8 @@ class TrackModel{
 
   }
 
-  Map<String, TrackModel> toModel(Map<String, dynamic> tracks){
+  ///Converts a given [Map<String, dynamic>] of tracks to a [Map<String, TrackModel>] of tracks.
+  Map<String, TrackModel> toModelMap(Map<String, dynamic> tracks){
  
     Map<String, TrackModel> newTracks = {};
     for (var track in tracks.entries){
@@ -176,21 +206,8 @@ class TrackModel{
     return newTracks;
   }
 
-  MapEntry<String, dynamic> toMapEntry(MapEntry<String, dynamic> track){
-    track as MapEntry<String, TrackModel>; 
-
-    String id = track.key;
-    String title = track.value.title;
-    String artist = track.value.artist;
-    String imageUrl = track.value.imageUrl;
-    String previewUrl = track.value.previewUrl ?? '';
-    int duplicates = track.value.duplicates;
-    bool liked = track.value.liked;
-
-    return MapEntry(id, {'title': title, 'artist': artist, 'duplicates': duplicates, 'imageUrl': imageUrl, 'previewUrl': previewUrl, 'liked': liked});
-  }
-
-  Map<String, dynamic> toMap(Map<String, TrackModel> tracks){
+  ///Converts a given [Map<String, TrackModel>] of tracks to a [Map<String, dynamic>] of tracks.
+  Map<String, dynamic> toDynamicMap(Map<String, TrackModel> tracks){
     Map<String, dynamic> newTracks = {};
     
     for (var track in tracks.entries){
@@ -215,9 +232,15 @@ class TrackModel{
 
     return newTracks;
   }
+
+  @override
+  String toString(){
+    return 'TrackModel(id: $id, title: $title, artist: $artist, duplicates: $duplicates, imageUrl: $imageUrl, liked: $liked)';
+  }
   
 }
 
+///Model for Spotify Playlist object.
 class PlaylistModel {
   final String id;
   final String link;
@@ -225,6 +248,7 @@ class PlaylistModel {
   final String snapshotId;
   final String title;
 
+  ///Model for a Spotify Playlist object.
   const PlaylistModel({
     this.id = '',
     this.title = '',
@@ -233,14 +257,8 @@ class PlaylistModel {
     this.snapshotId = '',
   });
 
-  PlaylistModel.defaultPlaylist() : 
-    id = '',
-    title = '',
-    link = '',
-    imageUrl = '',
-    snapshotId = '';
-
-  toJsonFirestore(){
+  ///Firestore Json representation of this object.
+  Map<String, dynamic> toJsonFirestore(){
     return {
       'title': title,
       'link': link,
@@ -249,6 +267,7 @@ class PlaylistModel {
     };
   }
 
+  ///Json representation of this object.
   Map<String, dynamic> toJson(){
     return {
       id: {
@@ -260,6 +279,7 @@ class PlaylistModel {
     };
   }
 
+  ///Converts a given [Map<String, dynamic>] of a playlist into a [PlaylistModel].
   PlaylistModel toPlaylistModel(Map<String, dynamic> playlist){
     return PlaylistModel(
       id: playlist.entries.single.key,
@@ -270,64 +290,6 @@ class PlaylistModel {
     );
   }
 
-  Map<String, PlaylistModel> toPlaylistMap(Map<String, dynamic> playlists){
-    Map<String, PlaylistModel> newPlaylists = {};
-
-    for (var playlist in playlists.entries){
-      String id = playlist.key;
-      String? imageUrl = playlist.value['imageUrl'];
-
-      newPlaylists.putIfAbsent(id, () => PlaylistModel(
-        title: playlist.value['title'], 
-        id: id, 
-        link: playlist.value['link'], 
-        imageUrl: imageUrl ?? '', 
-        snapshotId: playlist.value['snapshotId']
-        )
-      );
-    }
-
-    return newPlaylists;
-  }
-
-  MapEntry<String, dynamic> toMapEntry(MapEntry<String, PlaylistModel> playlist){
-
-    String id = playlist.key;
-    String title = playlist.value.title;
-    String artist = playlist.value.imageUrl;
-    String link = playlist.value.link;
-    String snapshotId = playlist.value.snapshotId;
-
-    return MapEntry(id, {
-      'title': title, 
-      'artist': artist, 
-      'link': link, 
-      'snapshotId': snapshotId}
-    );
-  }
-
-  Map<String, dynamic> toMap(Map<String, dynamic> playlists){
-    playlists as Map<String, PlaylistModel>;
-    Map<String, dynamic> newPlaylists = {};
-
-    for (var playlist in playlists.entries){
-      String id = playlist.key;
-      String title = playlist.value.title;
-      String artist = playlist.value.imageUrl;
-      String link = playlist.value.link;
-      String snapshotId = playlist.value.snapshotId;
-
-      newPlaylists.putIfAbsent(id, () => {
-        'title': title, 
-        'artist': artist, 
-        'link': link, 
-        'snapshotId': snapshotId}
-      );
-    }
-
-    return newPlaylists;
-  }
-
   @override
   String toString(){
     return 'PlaylistModel(id: $id, title: $title, snapshotId: $snapshotId, link: $link, imageUrl: $imageUrl)';
@@ -335,47 +297,54 @@ class PlaylistModel {
 
 }
 
+///Model for Spotify API callback object.
+///
+///Stores the `accessToken`, `refreshToken`, and `expiresAt` (the time the access token expires).
 class CallbackModel{
-  double expiresAt;
-  String accessToken;
-  String refreshToken;
+  ///Access token expiration time.
+  final double expiresAt;
+  ///Used to interact with Spotify API.
+  final String accessToken;
+  ///Used to refresh the Access token.
+  final String refreshToken;
 
-  CallbackModel({
+  ///Model for a Spotify API callback object.
+  const CallbackModel({
     this.expiresAt = 0,
     this.accessToken = '',
     this.refreshToken = '',
   });
 
-  CallbackModel.defaultCall() : 
+  CallbackModel.defaultCall():
     expiresAt = 0,
     accessToken = '',
     refreshToken = '';
 
+  ///True if the callback doesn't have values.
   bool get isEmpty{
-    if (expiresAt > 0 || accessToken != '' || refreshToken != ''){
-      return false;
-    }
-    else{
+    if (expiresAt == 0 || accessToken == '' || refreshToken == ''){
       return true;
     }
+    return false;
   }
 
+  ///True if the callback does have values.
   bool get isNotEmpty{
-    if (expiresAt == 0 || accessToken == '' || refreshToken == ''){
-      return false;
-    }
-    else{
+    if (expiresAt > 0 || accessToken != '' || refreshToken != ''){
       return true;
     }
+    return false;
   }
 }
 
+///Model for app TrackArguments object. Used to pass tracks between pages.
 class TrackArguments{
   final Map<String, TrackModel> selectedTracks;
   final PlaylistModel currentPlaylist;
   final String option;
   final Map<String, TrackModel> allTracks;
 
+  ///Model for app TrackArguments object. Used to pass tracks between pages.
   const TrackArguments({
     this.selectedTracks = const {},
     this.currentPlaylist = const PlaylistModel(),
@@ -383,15 +352,10 @@ class TrackArguments{
     this.allTracks = const {},
   });
 
-  TrackArguments.defaultTrack() : 
-    selectedTracks = {},
-    currentPlaylist = PlaylistModel.defaultPlaylist(),
-    option = '',
-    allTracks = {};
-
+  ///Json representation of this object.
   Map<String, dynamic> toJson(){
-    Map<String, dynamic> newSelected = const TrackModel().toMap(selectedTracks);
-    Map<String, dynamic> newTracks = const TrackModel().toMap(allTracks);
+    Map<String, dynamic> newSelected = const TrackModel().toDynamicMap(selectedTracks);
+    Map<String, dynamic> newTracks = const TrackModel().toDynamicMap(allTracks);
 
     return {
       'selectedTracks': newSelected,
@@ -401,9 +365,10 @@ class TrackArguments{
     };
   }
 
+  ///Converts a given [Map<String, dynamic>] of track arguments into [TrackArguments].
   TrackArguments toTrackArgs(Map<String, dynamic> trackArgs){
-    Map<String, TrackModel> allTracks = const TrackModel().toModel(trackArgs['allTracks']);
-    Map<String, TrackModel> selectedTracks = const TrackModel().toModel(trackArgs['selectedTracks']);
+    Map<String, TrackModel> allTracks = const TrackModel().toModelMap(trackArgs['allTracks']);
+    Map<String, TrackModel> selectedTracks = const TrackModel().toModelMap(trackArgs['selectedTracks']);
 
     return TrackArguments(
       selectedTracks: selectedTracks, 
@@ -412,4 +377,18 @@ class TrackArguments{
       allTracks: allTracks
     );
   }
+}
+
+///Model for grouping Synced Playlists, Tracks, and Callback.
+class SyncGroupingModel{
+  final Map<String, PlaylistModel> playlists;
+  final Map<String, TrackModel> tracks;
+  final CallbackModel? callback;
+
+  ///Model for grouping Synced Playlists, Tracks, and Callback.
+  const SyncGroupingModel({
+    this.playlists = const {},
+    this.tracks = const {},
+    this.callback = const CallbackModel()
+  });
 }

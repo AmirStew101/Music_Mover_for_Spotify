@@ -2,127 +2,59 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/widgets.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:spotify_music_helper/src/utils/dev_global.dart';
 import 'package:spotify_music_helper/src/utils/object_models.dart';
 
+///Controls the Ad view for users.
+class Ads{
 
-//Banner Ad setup fr Playlist
-Widget playlistsAdRow(BuildContext context, UserModel user){
-  if (user.subscribed || devMode){
-    return Container();
+  ///Setup the type of ad to be displayed depending on the page route name received.
+  Widget setupAds(BuildContext context, UserModel user){
+    late final String adUnit;
+
+    if (Platform.isAndroid){
+      adUnit = androidBannerAd;
+    }
+    else if (Platform.isIOS){
+      adUnit = iosBannerAd;
+    }
+    else{
+      return Container();
+    }
+
+    return _bannerAdRow(context, user, adUnit);
+    
   }
   
-  late final String playlistsBannerAd;
-  if (Platform.isAndroid){
-    playlistsBannerAd = androidPlaylistsBannerAd;
+  //Banner Ad setup for Playlist
+  Widget _bannerAdRow(BuildContext context, UserModel user, String adUnit){
+    final width = MediaQuery.of(context).size.width;
+
+    final BannerAd bannerAd = BannerAd(
+      size: AdSize.banner, 
+      adUnitId: adUnit, 
+      listener: BannerAdListener(
+        onAdLoaded: (ad) => debugPrint('Ad Loaded\n'),
+        onAdClicked: (ad) => debugPrint('Ad Clicked\n'),), 
+      request: const AdRequest(),
+    );
+
+    bannerAd.load();
+    
+    return Positioned(
+      bottom: 5,
+      child: SizedBox(
+        width: width,
+        height: 70,
+        //Creates the ad banner
+        child: Center(
+          child: AdWidget(
+            ad: bannerAd,
+          ),
+        )
+      )
+    );
   }
-  if (Platform.isIOS){
-    playlistsBannerAd = iosPlaylistsBannerAd;
-  }
-
-  final width = MediaQuery.of(context).size.width;
-
-  final BannerAd bannerAd = BannerAd(
-    size: AdSize.fluid, 
-    adUnitId: playlistsBannerAd, 
-    listener: BannerAdListener(
-      onAdLoaded: (ad) => debugPrint('Ad Loaded\n'),
-      onAdClicked: (ad) => debugPrint('Ad Clicked\n'),), 
-    request: const AdRequest(),
-  );
-
-  bannerAd.load();
-  
-  return Positioned(
-    bottom: 5,
-    child: SizedBox(
-      width: width,
-      height: 70,
-      //Creates the ad banner
-      child: AdWidget(
-        ad: bannerAd,
-      ),
-    )
-  );
-}
-
-//Banner Ad setup
-Widget homeAdRow(BuildContext context, UserModel user){
-  if (user.subscribed || devMode){
-    return Container();
-  }
-
-  late final String homeBannerAd;
-  if (Platform.isAndroid){
-    homeBannerAd = androidHomeBannerAd;
-  }
-  if (Platform.isIOS){
-    homeBannerAd = iosHomeBannerAd;
-  }
-
-  final width = MediaQuery.of(context).size.width;
-
-  final BannerAd bannerAd = BannerAd(
-    size: AdSize.fluid, 
-    adUnitId: homeBannerAd, 
-    listener: BannerAdListener(
-      onAdLoaded: (ad) => debugPrint('Ad Loaded\n'),
-      onAdClicked: (ad) => debugPrint('Ad Clicked\n'),), 
-    request: const AdRequest(),
-  );
-
-  bannerAd.load();
-  
-  return Positioned(
-    bottom: 5,
-    child: SizedBox(
-      width: width,
-      height: 70,
-      //Creates the ad banner
-      child: AdWidget(
-        ad: bannerAd,
-      ),
-    )
-  );
-}
-
-//Banner Ad setup
-Widget settingsAdRow(BuildContext context, UserModel user){
-  if (user.subscribed || devMode){
-    return Container();
-  }
-  
-  late final String settingsNativeAd;
-  if (Platform.isAndroid){
-    settingsNativeAd = androidSettingsNativeAd;
-  }
-  if (Platform.isIOS){
-    settingsNativeAd = iosSettingsNativeAd;
-  }
-
-  final width = MediaQuery.of(context).size.width;
-
-  final BannerAd bannerAd = BannerAd(
-    size: AdSize.fluid, 
-    adUnitId: settingsNativeAd, 
-    listener: BannerAdListener(
-      onAdLoaded: (ad) => debugPrint('Ad Loaded\n'),
-      onAdClicked: (ad) => debugPrint('Ad Clicked\n'),), 
-    request: const AdRequest(),
-  );
-
-  bannerAd.load();
-  
-  return Positioned(
-    bottom: 2,
-    child: SizedBox(
-      width: width,
-      height: 60,
-      //Creates the ad banner
-      child: AdWidget(
-        ad: bannerAd,
-      ),
-    )
-  );
 }

@@ -10,7 +10,9 @@ import 'package:spotify_music_helper/src/login/start_screen.dart';
 import 'package:spotify_music_helper/src/settings/settings_view.dart';
 import 'package:spotify_music_helper/src/utils/auth.dart';
 import 'package:spotify_music_helper/src/utils/globals.dart';
+import 'package:spotify_music_helper/src/utils/object_models.dart';
 
+///Side menu for Navigating the app's pages.
 Drawer optionsMenu(BuildContext context){
   return Drawer(
     elevation: 16,
@@ -19,6 +21,8 @@ Drawer optionsMenu(BuildContext context){
       alignment: Alignment.bottomLeft,
       child: ListView(
         children: [
+
+          //Top Space for the side menu with the menu's title.
           DrawerHeader(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
             margin: const EdgeInsets.only(bottom: 5),
@@ -29,6 +33,8 @@ Drawer optionsMenu(BuildContext context){
               textAlign: TextAlign.center,
             )
           ),
+
+          //Navigate to Playlists page.
           ListTile(
             leading: const Icon(Icons.album),
             title: const Text('Playlists'),
@@ -38,15 +44,27 @@ Drawer optionsMenu(BuildContext context){
               }
             },
           ),
+
+          //Navigate to Info page.
           ListTile(
             leading: const Icon(Icons.question_mark),
             title: const Text('Info'),
-            onTap: () {
+            onTap: () async{
               if (ModalRoute.of(context)?.settings.name != InfoView.routeName){
-                Navigator.restorablePushNamed(context, InfoView.routeName);
+                UserModel? user = await SecureStorage().getUser();
+                if (user != null){
+                  Map<String, dynamic> userMap = user.toJson();
+                  Navigator.restorablePushNamed(context, InfoView.routeName, arguments: userMap);
+                }
+                else{
+                  bool reLogin = true;
+                  Navigator.of(context).pushReplacementNamed(StartViewWidget.routeName, arguments: reLogin);
+                }
               }
             },
           ),
+
+          //Navigate to Settings page.
           ListTile(
             leading: const Icon(Icons.settings),
             title: const Text('Settings'),
@@ -56,6 +74,8 @@ Drawer optionsMenu(BuildContext context){
               }
             },
           ),
+
+          //Sign out user and navigate to Start page.
           ListTile(
             leading: const Icon(Icons.switch_account),
             title: const Text('Sign Out'),
@@ -68,6 +88,8 @@ Drawer optionsMenu(BuildContext context){
               Navigator.pushNamedAndRemoveUntil(context, StartViewWidget.routeName, (route) => false, arguments: reLogin);
             },
           ),
+
+          //Exit app after user confirmation.
           ListTile(
             leading: const Icon(Icons.exit_to_app),
             title: const Text('Exit App'),

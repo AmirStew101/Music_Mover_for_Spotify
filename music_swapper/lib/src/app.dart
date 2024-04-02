@@ -11,7 +11,7 @@ import 'package:spotify_music_helper/src/login/start_screen.dart';
 import 'settings/settings_controller.dart';
 import 'settings/settings_view.dart';
 
-/// The Widget that configures your application.
+/// The Widget that configures the application.
 class MyApp extends StatelessWidget {
   const MyApp({
     super.key,
@@ -31,8 +31,8 @@ class MyApp extends StatelessWidget {
       builder: (BuildContext context, Widget? child) {
         return MaterialApp(
           debugShowCheckedModeBanner: false,
-          // Providing a restorationScopeId allows the Navigator built by the
-          // MaterialApp to restore the navigation stack when a user leaves and
+
+          // Providing a restorationScopeId to restore the navigation stack when a user leaves and
           // returns to the app after it has been killed while running in the
           // background.
           restorationScopeId: 'app',
@@ -65,8 +65,7 @@ class MyApp extends StatelessWidget {
           darkTheme: ThemeData.dark(),
           themeMode: settingsController.themeMode,
 
-          // Define a function to handle named routes in order to support
-          // Flutter web url navigation and deep linking.
+          // Define a function to handle named routes
           onGenerateRoute: (RouteSettings routeSettings) {
             return MaterialPageRoute<void>(
               settings: routeSettings,
@@ -93,7 +92,8 @@ class MyApp extends StatelessWidget {
 
                   //The Apps details page
                   case InfoView.routeName:
-                    return const InfoView();
+                    final user = routeSettings.arguments as Map<String, dynamic>;
+                    return InfoView(user: user);
 
                   //Select playlists to move/add tracks to
                   case SelectPlaylistsViewWidget.routeName:

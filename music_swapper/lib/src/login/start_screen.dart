@@ -49,7 +49,7 @@ class StartViewState extends State<StartViewWidget> {
               scale: 0.1,
             ),
             const Text(
-              'Login to start modifing your playlists faster. Move, Add, Remove multiple Tracks to multiple Playlists at once.',
+              'Login to start modifing your playlists faster. Move or Add multiple Tracks to multiple Playlists at once.',
               textScaler: TextScaler.linear(1.6),
               textAlign: TextAlign.center,
             ),
@@ -57,6 +57,8 @@ class StartViewState extends State<StartViewWidget> {
             ButtonBar(
               alignment: MainAxisAlignment.center,
               children: [
+
+                //Login to Spotify.
                 TextButton.icon(
                   icon: Icon(
                     color: spotHelperGreen,
@@ -71,7 +73,8 @@ class StartViewState extends State<StartViewWidget> {
                     Navigator.of(context).pushNamed(SpotLoginWidget.routeName, arguments: reLogin);
                   },
                 ),
-                //Close the App
+
+                //Close the App.
                 TextButton.icon(
                   icon: Icon(
                     Icons.close,

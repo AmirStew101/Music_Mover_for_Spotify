@@ -2,7 +2,6 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:spotify_music_helper/src/utils/dev_global.dart';
 import 'package:spotify_music_helper/src/utils/global_classes/secure_storage.dart';
@@ -10,34 +9,31 @@ import 'package:spotify_music_helper/src/utils/globals.dart';
 import 'package:spotify_music_helper/src/utils/object_models.dart';
 import 'package:spotify_music_helper/src/utils/global_classes/global_objects.dart';
 
-class TracksRequests{
-
+class SpotifyRequests{
+  ///Get the total amount of tracks in a playlist to assist in retreiving all of that playlists tracks.
   Future<int> getTracksTotal(String playlistId, double expiresAt, String accessToken) async{
     try{
-      dynamic responseDecoded;
-
       final getTotalUrl = '$hosted/get-tracks-total/$playlistId/$expiresAt/$accessToken';
       final response = await http.get(Uri.parse(getTotalUrl));
 
       if (response.statusCode != 200){
-        throw Exception('Failed to get Spotify Total Tracks : ${responseDecoded['message']}');
+        throw Exception( exceptionText('spotify_requests.dart', 'getTracksTotal', response.body, offset: 3) );
       }
-      responseDecoded = json.decode(response.body);
 
+      final responseDecoded = json.decode(response.body);
       return responseDecoded['totalTracks'];
     }
     catch (e){
-      throw Exception('Line ${getCurrentLine()} : $e');
+      throw Exception( exceptionText('spotify_requests.dart', 'getTracksTotal', e, offset: 14));
     }
 
-  }
+  }//getTracksTotal
 
-
+  ///Make the Spotify request for the users tracks in a playlist.
   Future<Map<String, TrackModel>> getPlaylistTracks(String playlistId, double expiresAt, String accessToken, int totalTracks) async {
     try{
       Map<String, dynamic> checkTracks = {};
       Map<String, dynamic> receivedTracks = {};
-      dynamic responseDecoded;
 
       //Gets Tracks 50 at a time because of Spotify's limit
       for (var offset = 0; offset < totalTracks; offset +=50){
@@ -45,10 +41,10 @@ class TracksRequests{
         final response = await http.get(Uri.parse(getTracksUrl));
 
         if (response.statusCode != 200){
-          throw Exception('line ${getCurrentLine()}; Failed to get Spotify Tracks : ${responseDecoded['message']}');
+          throw Exception( exceptionText('spotify_requests.dart', 'getPlaylistTracks', response.body, offset: 3));
         }
 
-        responseDecoded = json.decode(response.body);
+        final responseDecoded = json.decode(response.body);
 
         //Don't check if a song is in Liked Songs if the playlist is Liked Songs
         if (playlistId == 'Liked_Songs'){
@@ -82,7 +78,7 @@ class TracksRequests{
         Map<String, TrackModel> newTracks = getPlatformTrackImages(receivedTracks);
         return newTracks;
       }
-      //Returns a PLaylist's tracks and checks if they are in liked
+      //Returns a Playlist's tracks and checks if they are in liked
       else{
         final checkResponse = await checkLiked(checkTracks, expiresAt, accessToken);
         Map<String, TrackModel> newTracks = getPlatformTrackImages(checkResponse);
@@ -90,13 +86,14 @@ class TracksRequests{
       }
     }
     catch (e){
-      throw Exception('Line: ${getCurrentLine()} : $e');
+      throw Exception( exceptionText('spotify_requests.dart', 'getPlaylistTracks', e) );
     }
     
-  }
+  }//getPlaylistTracks
 
-
+  ///Gets the images of the tracks.
   Map<String, TrackModel> getPlatformTrackImages(Map<String, dynamic> tracks) {
+    try{
     //The chosen image url
     String imageUrl = '';
     Map<String, TrackModel> newTracks = {};
@@ -127,11 +124,16 @@ class TracksRequests{
 
       return newTracks;
     } 
+    }
+    catch (e){
+      throw Exception( exceptionText('spotify_requests.dart', 'getPlatformTrackImages', e) );
+    }
 
-    throw Exception("Failed Platform is not supported");
-  }
+    Object error = "Platform is not supported!";
+    throw Exception( exceptionText('spotify_requests.dart', 'getPlatformTrackImages', error) );
+  }//getPlatformTrackImages
 
-
+  ///Check if a Song is in the Liked Songs playlist.
   Future<Map<String, dynamic>> checkLiked(Map<String, dynamic> tracksMap, double expiresAt, String accessToken) async{
     List<String> trackIds = [];
     List<dynamic> boolList = [];
@@ -158,7 +160,7 @@ class TracksRequests{
 
             //Not able to receive the checked result from Spotify
             if (response.statusCode != 200){
-              throw Exception('In tracks_requests.dart line: ${getCurrentLine(offset: 8)} : ${response.body}');
+              throw Exception( exceptionText('spotify_requests.dart', 'checkLiked', response.body, offset: 9) );
             }
 
             final responseDecoded = jsonDecode(response.body);
@@ -183,41 +185,43 @@ class TracksRequests{
       return tracksMap;
     }
     catch (e){
-      throw Exception('line: ${getCurrentLine()}; $e');
+      throw Exception( exceptionText('spotify_requests.dart', '', e) );
     }
-  }
+  }//checkLiked
 
-
+  ///Add tracks to a Sotify playlist.
   Future<void> addTracks(List<String> tracks, List<String> playlistIds, double expiresAt, String accessToken) async {
     final addTracksUrl ='$hosted/add-to-playlists/$expiresAt/$accessToken';
     try{
       List<String> sendAdd = [];
-      dynamic response;
 
       for (var i = 0; i < playlistIds.length; i++){
         sendAdd.add(playlistIds[i]);
 
         if (((i % 50) == 0 && i != 0) || i == playlistIds.length-1){
-          response = await http.post(
+          final response = await http.post(
             Uri.parse(addTracksUrl),
               headers: {
               'Content-Type': 'application/json'
               },
               body: jsonEncode({'trackIds': tracks, 'playlistIds': sendAdd})
           );
+
+          if (response.statusCode != 200){
+            Object error = '${response.statusCode} ${response.body}';
+            throw Exception( exceptionText('spotify_requests.dart', 'addTracks', error, offset: 12) );
+          }
         }
       }
 
-      if (response.statusCode != 200){
-        throw Exception('tracks_requests.dart line ${getCurrentLine(offset: 9)} : ${response.statusCode} ${response.body}');
-      }
+      
     }
     catch (e){
-      throw Exception('tracks_requests.dart line ${getCurrentLine(offset: 12)} : $e');
+      throw Exception( exceptionText('spotify_requests.dart', 'addTracks', e) );
     }
-  }
+  }//addTracks
 
-
+  ///Removes the received tracks from the Spotify playlist using its snapshot.
   Future<void> removeTracks(List<String> selectedIds, String originId, String snapshotId, double expiresAt, String accessToken) async{
     final removeTracksUrl ='$hosted/remove-tracks/$originId/$snapshotId/$expiresAt/$accessToken';
 
@@ -230,11 +234,13 @@ class TracksRequests{
     );
 
     if (response.statusCode != 200){
-      throw Exception('tracks_requests.dart line ${getCurrentLine()} Response: ${response.statusCode} ${response.body}');
+      Object error = '${response.statusCode} ${response.body}';
+      throw Exception( exceptionText('spotify_requests.dart', 'removeTracks', error, offset: 10) );
     }
     
   }//removeTracks
 
+  ///Makes duplicates of tracks that are marked to have a duplicate.
   Map<String, TrackModel> makeDuplicates(Map<String, TrackModel> allTracks){
     Map<String, TrackModel> newAllTracks = {};
     int trackDupes;
@@ -258,9 +264,9 @@ class TracksRequests{
     }
 
     return newAllTracks;
-  }
+  }//makeDuplicates
 
-  ///Returns a List of the unmodified track Ids
+  ///Returns a `List` of the unmodified track Ids. Removing the '_modified number' from the end of the id.
   List<String> getUnmodifiedIds(Map<String, TrackModel> selectedTracks){
 
     List<String> unmodifiedIds = [];
@@ -271,8 +277,10 @@ class TracksRequests{
     }
 
     return unmodifiedIds;
-  }
+  }//getUnmodifiedIds
 
+  ///Returns the `List` of track ids to be added back to Spotify after removal.
+  ///Used for when a track is duplicated.
   List<String> getAddBackIds(Map<String, TrackModel> selectedTracks){
     Map<String, TrackModel> selectedNoDupes = {};
     List<String> removeIds = getUnmodifiedIds(selectedTracks);
@@ -308,19 +316,17 @@ class TracksRequests{
     }
 
     return addBackIds;
-  }
+  }//getAddBackIds
 
-}
 
-class PlaylistsRequests{
-
+  ///Get a users Spotify playlists from a Spotify API request.
   Future<Map<String, PlaylistModel>> getPlaylists(double expiresAt, String accessToken, String userId) async {
     try {
       final getPlaylistsUrl = '$hosted/get-playlists/$expiresAt/$accessToken';
 
       final response = await http.get(Uri.parse(getPlaylistsUrl));
       if (response.statusCode != 200){
-        throw Exception('Line ${getCurrentLine(offset: 2)} Failed to get Spotify Playlists: ${response.body}');
+        throw Exception( exceptionText('spotify_requests.dart', 'getPlaylists', response.body, offset: 2) );
       }
 
       final responseDecode = json.decode(response.body);
@@ -334,11 +340,11 @@ class PlaylistsRequests{
       return newPlaylists;
     }
     catch (e){
-      throw Exception('Line ${getCurrentLine()} : $e');
+      throw Exception( exceptionText('spotify_requests.dart', 'getPlaylists', e) );
     }
-  }
+  }//getPlaylists
 
-  //Gives each playlist the image size based on current platform
+  ///Gives each playlist the image size based on current platform
   Map<String, PlaylistModel> getPlaylistImages(Map<String, dynamic> playlists) {
 
     //The chosen image url
@@ -351,11 +357,11 @@ class PlaylistsRequests{
         for (var item in playlists.entries) {
           //Item is a Playlist and not Liked Songs
           if (item.key != 'Liked_Songs'){
-            List<dynamic> imagesList = item.value['imageUrl']; //The Image list for the current Playlist
+            List<dynamic>? imagesList = item.value['imageUrl']; //The Image list for the current Playlist
 
             //Playlist has an image
-            if (imagesList.isNotEmpty) {
-              imageUrl = item.value['imageUrl'][0]['url'];         
+            if (imagesList != null && imagesList.isNotEmpty) {
+              imageUrl = item.value['imageUrl'][0]['url'];
             }
             //Playlist is missing an image so use default blank
             else {
@@ -383,16 +389,14 @@ class PlaylistsRequests{
       
     }
     catch (e){
-      throw Exception('Line: ${getCurrentLine()} : $e');
+      throw Exception( exceptionText('spotify_requests.dart', 'getPlaylistImages', e));
     }
-    throw Exception("Failed Platform is not supported");
-  }
+    Object error = "Failed Platform is not supported";
+    throw Exception( exceptionText('spotify_requests.dart', 'getPlaylistImages', error) );
+  }//getPlaylistImages
+ 
 
-  
-}
-
-class OtherRequests{
-
+  ///Makes the Spotify request to refresh the Access Token.
   Future<CallbackModel?> spotRefreshToken(double expiresAt, String refreshToken) async {
     try{
       final refreshUrl = '$hosted/refresh-token/$expiresAt/$refreshToken';
@@ -412,12 +416,12 @@ class OtherRequests{
       }
     }
     catch (e){
-      throw Exception('Line: ${getCurrentLine()} : $e');
+      throw Exception( exceptionText('spotify_requests.dart', 'spotRefreshToken', e) );
     }
-  }
+  }//spotRefreshToken
 
-  ///Checks if the Spotify Token has expired
-  Future<CallbackModel?> checkRefresh(CallbackModel checkCall, bool forceRefresh) async {
+  ///Checks the expiration time of the Access token and returns the updated Token or the received token.
+  Future<CallbackModel?> checkRefresh(CallbackModel checkCall) async {
     try{
       if (checkCall.isEmpty){
         return null;
@@ -427,7 +431,7 @@ class OtherRequests{
       double currentTime = DateTime.now().millisecondsSinceEpoch.toDouble() / 1000;
 
       //Checks if the token is expired and gets a new one if so
-      if (currentTime > checkCall.expiresAt || forceRefresh) {
+      if (currentTime > checkCall.expiresAt) {
         final response = await spotRefreshToken(checkCall.expiresAt, checkCall.refreshToken);
 
         //The function deals with the status if response has a status token is still good
@@ -443,18 +447,18 @@ class OtherRequests{
       return checkCall;
     }
     catch (e){
-      throw Exception('playlists_requests.dart line: ${getCurrentLine()} Caught Error: $e');
+      throw Exception( exceptionText('spotify_requests.dart', 'checkRefresh', e) );
     }
-  }
+  }//checkRefresh
 
 
+  ///Make a Spotify request to get the required Spotify User information.
   Future<UserModel?> getUser(double expiresAt, String accessToken ) async{
     final getUserInfo = '$hosted/get-user-info/$expiresAt/$accessToken';
     final response = await http.get(Uri.parse(getUserInfo));
     Map<String, dynamic> userInfo = {};
 
     if (response.statusCode != 200){
-      debugPrint('spotify_requests.dart line: ${getCurrentLine()} Failed to get Spotify User: ${response.body}');
       return null;
     }
 
@@ -465,6 +469,6 @@ class OtherRequests{
     UserModel user = UserModel(username: userInfo['user_name'] , spotifyId: userInfo['id'], uri: userInfo['uri'], expiration: Timestamp.now());
     return user;
 
-  }
+  }//getUser
 
 }

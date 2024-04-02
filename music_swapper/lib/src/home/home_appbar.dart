@@ -3,15 +3,19 @@ import 'package:spotify_music_helper/src/utils/object_models.dart';
 import 'package:spotify_music_helper/src/utils/global_classes/global_objects.dart';
 
 class PlaylistSearchDelegate extends SearchDelegate {
-  List<String> searchResults = [];
+  List<MapEntry<String, String>> searchResults = [];
+  late Map<String, PlaylistModel> allplaylists;
 
-  //Search Constructor setting the search results to the Playlist image names and
-  //setting playlistImages variable
+
+  ///Search Constructor setting the search results to the Playlist image names and
+  ///setting playlistImages variable
   PlaylistSearchDelegate(Map<String, PlaylistModel> playlists) {
+    allplaylists = playlists;
+
     playlists.forEach((key, value) {
-      searchResults.add(value.title);
+      searchResults.add(MapEntry(key, value.title));
     });
-    searchResults.sort((a, b) => a.compareTo(b));
+    searchResults.sort((a, b) => a.value.compareTo(b.value));
   }
 
   //What Icons on the Left side of the Search Bar
@@ -42,7 +46,7 @@ class PlaylistSearchDelegate extends SearchDelegate {
   @override
   Widget buildResults(BuildContext context) {
     query = modifyBadQuery(query);
-    if (searchResults.contains(query)) {
+    if (searchResults.any((element) => element.value.contains(query))) {
       close(context, query);
     }
     return const Center(
@@ -54,10 +58,10 @@ class PlaylistSearchDelegate extends SearchDelegate {
 
     //Creates a list of suggestions based on users Playlist names
     //& compares it to the users input
-    List<String> suggestions = searchResults.where((searchResult) {
-      final result = searchResult.toLowerCase();
+    List<MapEntry<String, dynamic>> suggestions = searchResults.where((searchResult) {
+      String result = searchResult.value.toLowerCase();
       query = modifyBadQuery(query);
-      final input = query.toLowerCase();
+      String input = query.toLowerCase();
 
       return result.contains(input);
     }).toList();
@@ -74,10 +78,16 @@ class PlaylistSearchDelegate extends SearchDelegate {
     return ListView.builder(
       itemCount: suggestions.length, //Shows a max of 6 suggestions
       itemBuilder: (context, index) {
-        final suggestion = suggestions[index];
+        final suggestion = suggestions[index].value;
+        final playId = suggestions[index].key;
+        String playImage = allplaylists[playId]!.imageUrl;
 
         return ListTile(
           title: Text(suggestion, textScaler: const TextScaler.linear(1.2)),
+          trailing: playImage.contains('asset')
+          ?Image.asset(playImage)
+          :Image.network(playImage),
+
           onTap: () {
             close(context, suggestion);
           },

@@ -9,10 +9,10 @@ const assetLikedSongs = 'assets/images/spotify_liked_songs.jpg';
 const assetNoImage = 'assets/images/no_image.png';
 const unlikeHeart = 'assets/images/unlike_heart-64.png';
 
-Color spotHelperGrey = const Color.fromRGBO(25, 20, 20, 1);
 Color spotHelperGreen = const Color.fromARGB(255, 3, 153, 8);
-Color failedRed = const Color.fromARGB(255, 199, 27, 15);
+Color failedRed = const Color.fromARGB(255, 219, 26, 12);
 Color linkBlue = const Color.fromARGB(255, 17, 134, 230);
+Color snackBarGrey = const Color.fromARGB(255, 65, 64, 64);
 
 class SpotifyIcons{
   final blackCMYK = 'assets/images/Spotify_Icon_CMYK_Black.png';

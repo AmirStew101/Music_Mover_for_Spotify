@@ -6,7 +6,10 @@ final FirebaseAnalytics analytics = FirebaseAnalytics.instance;
 final FirebaseAnalyticsObserver observer = FirebaseAnalyticsObserver(analytics: analytics);
 final FirebaseAnalyticsAndroid android = FirebaseAnalyticsAndroid();
 
+///Controls the Analytics for the app.
 class AppAnalytics{
+
+  ///Track a user logging into Spotify.
   Future<void> trackSpotifyLogin(UserModel user) async{
     await analytics.logEvent(
       name: 'spotify_login',
@@ -20,6 +23,7 @@ class AppAnalytics{
     .onError((error, stackTrace) => debugPrint('Failed to Log Login Event: $error\n'));
   }
 
+  ///Track saving a new user to the database.
   Future<void> trackSavedLogin(UserModel user) async{
     await analytics.logEvent(
       name: 'saved_login',
@@ -33,7 +37,7 @@ class AppAnalytics{
     .onError((error, stackTrace) => debugPrint('Failed to Log Login Event: $error\n'));
   }
 
-
+  ///Track going to the liked Songs page.
   Future<void> trackLikedSongs() async{
     analytics.setAnalyticsCollectionEnabled(true);
     
@@ -43,4 +47,4 @@ class AppAnalytics{
     );
   }
 
-}//AppAnalytics
+}
