@@ -11,6 +11,7 @@ class UserModel{
   final bool subscribed;
   final int tier;
   final Timestamp expiration;
+  late final DocumentSnapshot<Map<String, dynamic>> userDoc;
   
   ///Model for a Spotify User object.
   UserModel({
@@ -127,9 +128,10 @@ class TrackModel{
   final String title;
   final int duplicates;
   final bool liked;
+  late final DocumentSnapshot<Map<String, dynamic>> trackDoc;
 
   ///Model for a Spotify Track object.
-  const TrackModel({
+  TrackModel({
     this.id = '',
     this.imageUrl = '',
     this.previewUrl = '',
@@ -354,8 +356,8 @@ class TrackArguments{
 
   ///Json representation of this object.
   Map<String, dynamic> toJson(){
-    Map<String, dynamic> newSelected = const TrackModel().toDynamicMap(selectedTracks);
-    Map<String, dynamic> newTracks = const TrackModel().toDynamicMap(allTracks);
+    Map<String, dynamic> newSelected = TrackModel().toDynamicMap(selectedTracks);
+    Map<String, dynamic> newTracks = TrackModel().toDynamicMap(allTracks);
 
     return {
       'selectedTracks': newSelected,
@@ -367,8 +369,8 @@ class TrackArguments{
 
   ///Converts a given [Map<String, dynamic>] of track arguments into [TrackArguments].
   TrackArguments toTrackArgs(Map<String, dynamic> trackArgs){
-    Map<String, TrackModel> allTracks = const TrackModel().toModelMap(trackArgs['allTracks']);
-    Map<String, TrackModel> selectedTracks = const TrackModel().toModelMap(trackArgs['selectedTracks']);
+    Map<String, TrackModel> allTracks = TrackModel().toModelMap(trackArgs['allTracks']);
+    Map<String, TrackModel> selectedTracks = TrackModel().toModelMap(trackArgs['selectedTracks']);
 
     return TrackArguments(
       selectedTracks: selectedTracks, 

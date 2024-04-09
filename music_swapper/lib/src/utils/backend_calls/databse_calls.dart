@@ -10,7 +10,6 @@ final db = FirebaseFirestore.instance;
 
 ///Repository for the Users database interaction.
 class UserRepository extends GetxController {
-  static UserRepository get instance => Get.find();
   
   ///Reference to Users collection.
   final usersRef = db.collection('Users');
@@ -19,7 +18,13 @@ class UserRepository extends GetxController {
   ///Collection name for users Tracks.
   final tracksColl = 'PlaylistTracks';
 
+  Map<String, PlaylistModel> allPlaylists = {};
+  Map<String, TrackModel> allTracks = {};
+
   final CacheManager cacheManager = DefaultCacheManager();
+
+  ///Get the instance of the User Repository.
+  static UserRepository get instance => Get.find();
 
   ///Checks if the user is in the database. 
   ///Returns ture or false.

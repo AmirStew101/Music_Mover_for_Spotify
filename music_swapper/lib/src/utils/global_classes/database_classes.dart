@@ -40,7 +40,7 @@ class DatabaseStorage {
 
       for (var track in selectedTracks.entries){
         String trueId = getTrackId(track.key);
-        TrackModel newTrack = tracksUpdate.firstWhere((element) => element.id == trueId, orElse: () => const TrackModel());
+        TrackModel newTrack = tracksUpdate.firstWhere((element) => element.id == trueId, orElse: () => TrackModel());
         
         if (newTrack.isEmpty){
 
