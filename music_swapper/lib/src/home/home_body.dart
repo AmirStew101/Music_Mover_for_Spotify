@@ -1,18 +1,17 @@
 
-import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 import 'package:spotify_music_helper/src/tracks/tracks_view.dart';
 import 'package:spotify_music_helper/src/utils/analytics.dart';
-import 'package:spotify_music_helper/src/utils/dev_global.dart';
+import 'package:spotify_music_helper/src/utils/backend_calls/spotify_requests.dart';
 import 'package:spotify_music_helper/src/utils/globals.dart';
-import 'package:spotify_music_helper/src/utils/object_models.dart';
+import 'package:spotify_music_helper/src/utils/playlist_model.dart';
 
 class ImageGridWidget extends StatefulWidget{
   ///Playlists View.
-  const ImageGridWidget({required this.receivedCall, required this.playlists, required this.user, super.key});
-  final CallbackModel receivedCall;
+  const ImageGridWidget({required this.playlists, required this.spotifyRequests,super.key});
   final Map<String, PlaylistModel> playlists;
-  final UserModel user;
+  final SpotifyRequests spotifyRequests;
 
   @override
   State<ImageGridWidget> createState() => ImageGridState();
@@ -20,20 +19,29 @@ class ImageGridWidget extends StatefulWidget{
 
 ///State view for the users Playlists showing each playlists image with its name under it.
 class ImageGridState extends State<ImageGridWidget> {
-  CallbackModel receivedCall = const CallbackModel();
-  Map<String, PlaylistModel> playlists = {};
-  UserModel user = UserModel.defaultUser();
-  FirebaseAnalytics analytics = FirebaseAnalytics.instance;
-  List<PlaylistModel> playlistsList = [];
+  Map<String, PlaylistModel> playlists = <String, PlaylistModel>{};
+  List<PlaylistModel> playlistsList = <PlaylistModel>[];
+  late final SpotifyRequests _spotifyRequests;
 
   @override
   void initState(){
     super.initState();
-    receivedCall = widget.receivedCall;
+    _spotifyRequests = widget.spotifyRequests;
     playlists = widget.playlists;
-    user = widget.user;
-    playlistsList = List.generate(playlists.length, (index) => playlists.entries.elementAt(index).value);
-    playlistsList.sort((a, b) => a.title.compareTo(b.title));
+    playlistsList = List.generate(playlists.length, (int index) => playlists.entries.elementAt(index).value);
+    playlistsList.sort((PlaylistModel a, PlaylistModel b) => a.title.compareTo(b.title));
+  }
+
+  String imageText(String id, String playlistName){
+    if(_spotifyRequests.loadedIds.contains(id)){
+      return playlistName;
+    }
+    else if(!_spotifyRequests.errorIds.contains(id)){
+      return 'Loading $playlistName';
+    }
+    else{
+      return 'Error Loading $playlistName';
+    }
   }
 
 
@@ -41,102 +49,120 @@ class ImageGridState extends State<ImageGridWidget> {
   Widget build(BuildContext context) {
     //Builds the Grid of Images with Playlist Names
     return Stack(
-      children: [
-        Column(
-          children: [
-            Expanded(
-              child: GridView.builder(
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 2, //Number of Col in the grid
-                  crossAxisSpacing: 8, //Spacing between Col
-                  mainAxisSpacing: 10, //Spacing between rows
-                ),
-                  itemCount: playlistsList.length+1,
-                  itemBuilder: (context, index) {
-                    
-                    if(index >= playlistsList.length){
-                      return const SizedBox(
-                        height: 10,
-                      );
-                    }
-                    else{
-                      //Gets the Map items by index with the extra item in mind
-                      final item = playlistsList[index];
-                      final String imageName = item.title;
-                      String imageUrl = item.imageUrl;
-                      
-                      return Column(
-                        children: [
-                          //Displays Images that can be clicked
-                          InkWell(
-                            onTap: () async {
-                              Map<String, dynamic> currPlaylist = item.toJson();
+      children: <Widget>[
+        GridView.builder(
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 2, //Number of Col in the grid
+            crossAxisSpacing: 8, //Spacing between Col
+            mainAxisSpacing: 10, //Spacing between rows
+          ),
+          itemCount: playlistsList.length+1,
+          itemBuilder: (_, int index) {
+            
+            if(index >= playlistsList.length){
+              return const SizedBox(
+                height: 10,
+              );
+            }
+            else{
+              //Gets the Map items by index with the extra item in mind
+              final PlaylistModel currPlaylist = playlistsList[index];
+              final String imageName = currPlaylist.title;
+              String imageUrl = currPlaylist.imageUrl;
+              
+              return Obx(() => Column(
+                children: <Widget>[
+                  // Displays Images that can be clicked
+                  InkWell(
+                    onTap: () async {
+                      if(_spotifyRequests.loadedIds.contains(currPlaylist.id)){
+                        if (currPlaylist.title == 'Liked_Songs'){
+                          await AppAnalytics().trackLikedSongs();
+                        }
 
-                              if (item.title == 'Liked_Songs'){
-                                await AppAnalytics().trackLikedSongs();
-                              }
+                        PlaylistModel failedPlaylist = await Get.to(const TracksView(), arguments: currPlaylist);
+                        _spotifyRequests.requestTracks(failedPlaylist.id);
+                      }
+                    },
+                    // Aligns the image over its title
+                    child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: <Widget>[
+                          if(_spotifyRequests.errorIds.contains(currPlaylist.id))
+                          ...<Widget>[
+                            SizedBox(
+                              height: 154,
+                              width: 155,
+                              child: IconButton(
+                                onPressed: () {
+                                  _spotifyRequests.requestTracks(currPlaylist.id);
+                                }, 
+                                icon: const Icon(Icons.refresh)
+                              )
+                            ),
+                            const Text('Retry')
+                          ],
 
-                              // ignore: use_build_context_synchronously
-                              Navigator.restorablePushNamed(context, TracksView.routeName, arguments: currPlaylist);
-                            },
-                            //Aligns the image over its title
-                            child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.center,
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  imageUrl.contains('asset')
-                                  //Playlist doesn't have an image from Spotify
-                                  ? Image(
-                                      image: AssetImage(imageUrl),
-                                      fit: BoxFit.cover,
-                                      height: 154,
-                                      width: 155,
-                                  )
-                                  //Playlist has an image from Spotify
-                                  : Image.network(
-                                      imageUrl,
-                                      fit: BoxFit.cover,
-                                      height: 154,
-                                      width: 155,
-                                      //Error connecting to the images URL
-                                      //Use the No image asset
-                                      errorBuilder: (context, error, stackTrace) => const Image(
-                                        image: AssetImage(assetNoImage),
-                                        fit: BoxFit.cover,
-                                        height: 154,
-                                        width: 155,
-                                      ),
-                                  ),
+                          if(!_spotifyRequests.errorIds.contains(currPlaylist.id))
+                          ColorFiltered(
+                              colorFilter: _spotifyRequests.loadedIds.contains(currPlaylist.id)
+                              ? const ColorFilter.mode(Colors.transparent, BlendMode.srcOver)
+                              : const ColorFilter.mode(Colors.grey, BlendMode.saturation),
 
-                                  //Playlist Name
-                                  Text(
-                                    imageName,
-                                    style: const TextStyle(
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                    overflow: TextOverflow.ellipsis, //Displays (...) when oveflowed
-                                  ),
-                                ],
-                              ),
+                              child: imageUrl.contains('asset')
+                              //Playlist doesn't have an image from Spotify
+                          ?  Image(
+                                image: AssetImage(imageUrl),
+                                fit: BoxFit.cover,
+                                height: 154,
+                                width: 155,
+                              )
+                          
+                          // Playlist has an image from Spotify.
+                          // Grey image when not loaded
+                          : Image.network(
+                                imageUrl,
+                                fit: BoxFit.cover,
+                                height: 154,
+                                width: 155,
+
+                                // Error connecting to the images URL
+                                // Use the No image asset
+                                errorBuilder: (_, __, ___) => const Image(
+                                  image: AssetImage(assetNoImage),
+                                  fit: BoxFit.cover,
+                                  height: 154,
+                                  width: 155,
+                                ),
+                            ),
                           ),
-                        
-                          //Playlist Divider underlining the Name
-                          const Divider(
-                            height: 1,
-                            color: Colors.grey,
+                          
+                          // Playlist Name
+                          Text(
+                            imageText(currPlaylist.id, imageName),
+                            style: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                            ),
+                            overflow: TextOverflow.ellipsis, //Displays (...) when oveflowed
                           ),
-
-                        ]
-                      );
-                    }
-                  }
-              ),
-            ),
-          ],
+                        ],
+                      ),
+                  ),
+                
+                  //Playlist Divider underlining the Name
+                  const Divider(
+                    height: 1,
+                    color: Colors.grey,
+                  ),
+                ]
+              ));
+            }
+          }
         ),
       ],
     );
-  }
+  }// build Widget
 
-}
+}// ImageGridState

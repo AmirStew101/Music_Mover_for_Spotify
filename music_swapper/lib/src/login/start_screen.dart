@@ -1,32 +1,19 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 import 'package:spotify_music_helper/src/login/spot_login_view.dart';
-import 'package:spotify_music_helper/src/utils/global_classes/sync_services.dart';
 import 'package:spotify_music_helper/src/utils/globals.dart';
 
 class StartViewWidget extends StatefulWidget{
-  const StartViewWidget({
-    super.key, 
-    required this.reLogin}
-  );
-
-  final bool reLogin;
-
-  static const routeName = '/Start_Screen';
+  const StartViewWidget({super.key});
 
   @override
   State<StatefulWidget> createState() => StartViewState();
 }
 
 class StartViewState extends State<StartViewWidget> {
-  bool reLogin = false;
-
-  @override
-  void initState(){
-    super.initState();
-    reLogin = widget.reLogin;
-  }
+  bool reLogin = Get.arguments;
 
   @override
   Widget build(BuildContext context) {
@@ -42,7 +29,7 @@ class StartViewState extends State<StartViewWidget> {
       body: Column(
           crossAxisAlignment: CrossAxisAlignment.center,
           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-          children: [
+          children: <Widget>[
             Image.asset(
               SpotifyLogos().greenRGB,
               fit: BoxFit.scaleDown,
@@ -56,7 +43,7 @@ class StartViewState extends State<StartViewWidget> {
 
             ButtonBar(
               alignment: MainAxisAlignment.center,
-              children: [
+              children: <Widget>[
 
                 //Login to Spotify.
                 TextButton.icon(
@@ -69,9 +56,7 @@ class StartViewState extends State<StartViewWidget> {
                     'Spotify Login',
                     textScaler: const TextScaler.linear(1.5),
                   ),
-                  onPressed: () {
-                    Navigator.of(context).pushNamed(SpotLoginWidget.routeName, arguments: reLogin);
-                  },
+                  onPressed: () => Get.to(const SpotLoginWidget(), arguments: reLogin),
                 ),
 
                 //Close the App.

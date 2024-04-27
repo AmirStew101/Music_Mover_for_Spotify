@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:spotify_music_helper/src/utils/object_models.dart';
 import 'package:spotify_music_helper/src/utils/global_classes/global_objects.dart';
+import 'package:spotify_music_helper/src/utils/playlist_model.dart';
 
 class PlaylistSearchDelegate extends SearchDelegate {
-  List<MapEntry<String, String>> searchResults = [];
+  List<MapEntry<String, String>> searchResults = <MapEntry<String, String>>[];
   late Map<String, PlaylistModel> allplaylists;
 
 
@@ -12,10 +12,10 @@ class PlaylistSearchDelegate extends SearchDelegate {
   PlaylistSearchDelegate(Map<String, PlaylistModel> playlists) {
     allplaylists = playlists;
 
-    playlists.forEach((key, value) {
+    playlists.forEach((String key, PlaylistModel value) {
       searchResults.add(MapEntry(key, value.title));
     });
-    searchResults.sort((a, b) => a.value.compareTo(b.value));
+    searchResults.sort((MapEntry<String, String> a, MapEntry<String, String> b) => a.value.compareTo(b.value));
   }
 
   //What Icons on the Left side of the Search Bar
@@ -29,7 +29,7 @@ class PlaylistSearchDelegate extends SearchDelegate {
 
   //Icons on the Right side of the Search Bar
   @override
-  List<Widget>? buildActions(BuildContext context) => [
+  List<Widget>? buildActions(BuildContext context) => <Widget>[
         IconButton(
             icon: const Icon(Icons.cancel),
             onPressed: () {
@@ -46,7 +46,7 @@ class PlaylistSearchDelegate extends SearchDelegate {
   @override
   Widget buildResults(BuildContext context) {
     query = modifyBadQuery(query);
-    if (searchResults.any((element) => element.value.contains(query))) {
+    if (searchResults.any((MapEntry<String, String> element) => element.value.contains(query))) {
       close(context, query);
     }
     return const Center(
@@ -58,7 +58,7 @@ class PlaylistSearchDelegate extends SearchDelegate {
 
     //Creates a list of suggestions based on users Playlist names
     //& compares it to the users input
-    List<MapEntry<String, dynamic>> suggestions = searchResults.where((searchResult) {
+    List<MapEntry<String, dynamic>> suggestions = searchResults.where((MapEntry<String, String> searchResult) {
       String result = searchResult.value.toLowerCase();
       query = modifyBadQuery(query);
       String input = query.toLowerCase();
@@ -70,16 +70,15 @@ class PlaylistSearchDelegate extends SearchDelegate {
     if (suggestions.isEmpty) {
       return const Align(
           alignment: Alignment.topCenter,
-          child:
-              Text('No Matching Results', textScaler: TextScaler.linear(1.2)));
+          child: Text('No Matching Results', textScaler: TextScaler.linear(1.2)));
     }
 
     //Creates the list of Suggestions for the user
     return ListView.builder(
       itemCount: suggestions.length, //Shows a max of 6 suggestions
-      itemBuilder: (context, index) {
+      itemBuilder: (BuildContext context, int index) {
         final suggestion = suggestions[index].value;
-        final playId = suggestions[index].key;
+        final String playId = suggestions[index].key;
         String playImage = allplaylists[playId]!.imageUrl;
 
         return ListTile(

@@ -2,102 +2,119 @@ import 'package:another_flushbar/flushbar.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:get/get.dart';
+import 'package:spotify_music_helper/src/utils/exceptions.dart';
 import 'package:spotify_music_helper/src/utils/globals.dart';
-import 'package:spotify_music_helper/src/utils/object_models.dart';
-import 'package:spotify_music_helper/src/utils/global_classes/global_objects.dart';
+import 'package:spotify_music_helper/src/utils/callback_model.dart';
+import 'package:spotify_music_helper/src/utils/user_model.dart';
 
-///Encrypt Android options to make the storage secure.
+const String _fileName = 'secure_storage.dart';
+
+/// Encrypt Android options to make the storage secure.
 AndroidOptions getAndroidOptions() => const AndroidOptions(encryptedSharedPreferences: true);
-///Unlock the IOS secure storage so values can still be retreived in the background.
+/// Unlock the IOS secure storage so values can still be retreived in the background.
 IOSOptions getIOSOptions() => const IOSOptions(accessibility: KeychainAccessibility.first_unlock);
-///Secure Storage access variable.
-final storage = FlutterSecureStorage(aOptions: getAndroidOptions(), iOptions: getIOSOptions());
+/// Secure Storage access variable.
+final FlutterSecureStorage _storage = FlutterSecureStorage(aOptions: getAndroidOptions(), iOptions: getIOSOptions());
 
-///Handles app storage of important User and Spotify information.
+/// Handles app storage of important User and Spotify information.
 ///
-///Stores the Spotify access token, refresh token, access token expiration time, and the users UserModel information.
-class SecureStorage {
+/// Stores the Spotify access token, refresh token, access token expiration time, and the users UserModel information.
+class SecureStorage extends GetxController{
+  CallbackModel? _secureCall; 
+  UserModel? _secureUser;
 
-  //Storage for Spotify callback info
-  final _accessTokenKey = 'access_token';
-  final _refreshTokenKey = 'refresh_token';
-  final _expiresAtKey = 'expires_at';
-
-  ///Save the Spotify tokens info.
-  Future<void> saveTokens(CallbackModel tokensModel) async {
-    await storage.write(key: _accessTokenKey, value: tokensModel.accessToken);
-    await storage.write(key: _refreshTokenKey, value: tokensModel.refreshToken);
-    await storage.write(key: _expiresAtKey, value: tokensModel.expiresAt.toString());
+  CallbackModel? get secureCallback{
+    return _secureCall;
   }
 
-  ///Retreives the Spotify tokens info from secure storage.
-  Future<CallbackModel?> getTokens() async {
-    try{
-      final accessToken = await storage.read(key: _accessTokenKey);
-      final refreshToken = await storage.read(key: _refreshTokenKey);
+  UserModel? get secureUser{
+    return _secureUser;
+  }
 
-      final expiresAtStr = await storage.read(key: _expiresAtKey);
+  static SecureStorage get instance => Get.find();
+
+  // Storage for Spotify callback info
+
+  final String _accessTokenKey = 'access_token';
+  final String _refreshTokenKey = 'refresh_token';
+  final String _expiresAtKey = 'expires_at';
+
+  /// Save the Spotify tokens info.
+  Future<void> saveTokens(CallbackModel tokensModel) async {
+    await _storage.write(key: _accessTokenKey, value: tokensModel.accessToken);
+    await _storage.write(key: _refreshTokenKey, value: tokensModel.refreshToken);
+    await _storage.write(key: _expiresAtKey, value: tokensModel.expiresAt.toString());
+    _secureCall = tokensModel;
+  }
+
+  /// Retreives the Spotify tokens info from secure _storage.
+  Future<void> getTokens() async {
+    try{
+      final String? accessToken = await _storage.read(key: _accessTokenKey);
+      final String? refreshToken = await _storage.read(key: _refreshTokenKey);
+      final String? expiresAtStr = await _storage.read(key: _expiresAtKey);
 
       if (accessToken != null && refreshToken != null && expiresAtStr != null) {
         double expiresAt = double.parse(expiresAtStr);
-        CallbackModel callbackModel = CallbackModel(expiresAt: expiresAt, accessToken: accessToken, refreshToken: refreshToken);
-
-        return callbackModel;
+        _secureCall = CallbackModel(expiresAt: expiresAt, accessToken: accessToken, refreshToken: refreshToken);
       } 
       else {
-        return null;
+        errorCheck();
       }
     }
     catch (e){
-      debugPrint('Error in secure_storage line ${getCurrentLine(offset: 18)}: $e');
-      return null;
+      throw CustomException(stack: StackTrace.current, fileName: _fileName, functionName: 'getTokens',  error: e);
     }
   }
 
-  ///Remove Spotify tokens info from secure storage.
+  /// Remove Spotify tokens info from secure _storage.
   Future<void> removeTokens() async{
-    await storage.delete(key: _accessTokenKey);
-    await storage.delete(key: _expiresAtKey);
-    await storage.delete(key: _refreshTokenKey);
+    await _storage.delete(key: _accessTokenKey);
+    await _storage.delete(key: _expiresAtKey);
+    await _storage.delete(key: _refreshTokenKey);
+    _secureCall = null;
   }
 
-  //Storage for user info
-  final _userIdKey = 'userId';
-  final _userNameKey = 'userName';
-  final _userUriKey = 'userUri';
-  final _subscribedKey = 'subscribed';
-  final _tierKey = 'tier';
-  final _expirationKey = 'expiration';
+  // Storage for user info
 
-  ///Save the Apps user info.
+  final String _userIdKey = 'userId';
+  final String _userNameKey = 'userName';
+  final String _userUriKey = 'userUri';
+  final String _subscribedKey = 'subscribed';
+  final String _tierKey = 'tier';
+  final String _expirationKey = 'expiration';
+
+  /// Save the Apps user info.
   Future<void> saveUser(UserModel user) async{
-    await storage.write(key: _userIdKey, value: user.spotifyId);
-    await storage.write(key: _userUriKey, value: user.uri);
-    await storage.write(key: _subscribedKey, value: user.subscribed.toString());
-    await storage.write(key: _tierKey, value: user.tier.toString());
-    await storage.write(key: _expirationKey, value: user.expiration.toString());
+    await _storage.write(key: _userIdKey, value: user.spotifyId);
+    await _storage.write(key: _userUriKey, value: user.uri);
+    await _storage.write(key: _subscribedKey, value: user.subscribed.toString());
+    await _storage.write(key: _tierKey, value: user.tier.toString());
+    await _storage.write(key: _expirationKey, value: user.expiration.toString());
 
     if (user.username != null){
-      await storage.write(key: _userNameKey, value: user.username);
+      await _storage.write(key: _userNameKey, value: user.username);
     }
+    _secureUser = user;
   }
 
-  ///Retreives the Apps user info from secure storage.
-  Future<UserModel?> getUser() async{
+  /// Retreives the Apps user info from secure _storage.
+  Future<void> getUser() async{
     try{
-      final userId = await storage.read(key: _userIdKey);
-      final userName = await storage.read(key: _userNameKey);
-      final userUri = await storage.read(key: _userUriKey);
-      final subscribed = await storage.read(key: _subscribedKey);
-      final tier = await storage.read(key: _tierKey);
-      final expiration = await storage.read(key: _expirationKey);
+      final String? userId = await _storage.read(key: _userIdKey);
+      final String? userName = await _storage.read(key: _userNameKey);
+      final String? userUri = await _storage.read(key: _userUriKey);
+      final String? subscribed = await _storage.read(key: _subscribedKey);
+      final String? tier = await _storage.read(key: _tierKey);
+      final String? expiration = await _storage.read(key: _expirationKey);
     
 
       if (userId != null && userUri != null && subscribed != null && tier != null && expiration != null){
         Timestamp expTime = UserModel(expiration: Timestamp.now()).getTimestamp(expiration);
 
         if (userName != null){
-          UserModel userModel = UserModel(
+          _secureUser = UserModel(
             spotifyId: userId, 
             uri: userUri, 
             username: userName, 
@@ -105,44 +122,39 @@ class SecureStorage {
             tier: int.parse(tier),
             expiration: expTime,
           );
-
-          return userModel;
         }
         else{
-          UserModel userModel = UserModel(
+          _secureUser = UserModel(
             spotifyId: userId, 
             uri: userUri, 
             subscribed: bool.parse(subscribed), 
             tier: int.parse(tier),
             expiration: expTime,
           );
-
-          return userModel;
         }
       }
     }
     catch (e){
-      debugPrint('Error in secure_storage line ${getCurrentLine(offset: 40)}: $e');
-      return null;
+      throw CustomException(stack: StackTrace.current, fileName: _fileName, functionName: 'getUser',  error: e);
     }
-
-    return null;
   }
 
-  ///Remove the Apps user info from secure storage.
+  ///Remove the Apps user info from secure _storage.
   Future<void> removeUser() async{
-    await storage.delete(key: _userIdKey);
-    await storage.delete(key: _userNameKey);
-    await storage.delete(key: _userUriKey);
-    await storage.delete(key: _subscribedKey);
-    await storage.delete(key: _tierKey);
-    await storage.delete(key: _expirationKey);
+    await _storage.delete(key: _userIdKey);
+    await _storage.delete(key: _userNameKey);
+    await _storage.delete(key: _userUriKey);
+    await _storage.delete(key: _subscribedKey);
+    await _storage.delete(key: _tierKey);
+    await _storage.delete(key: _expirationKey);
+    _secureUser = null;
   }
 
   ///Shows an error message to the user depending on what type of error was incountered if any was incountered at all.
-  void errorCheck(CallbackModel? secureCall, UserModel? secureUser, {BuildContext? context, ScaffoldMessengerState? scaffoldMessengerState}){
+  void errorCheck({ScaffoldMessengerState? scaffoldMessengerState}){
+    final BuildContext? context = Get.context;
 
-    if (secureUser == null && secureCall == null && context != null){
+    if (_secureUser == null && _secureCall == null && context != null){
       Flushbar(
         backgroundColor: Colors.grey,
         titleColor: failedRed,
@@ -152,7 +164,7 @@ class SecureStorage {
         message: 'Failed to connect to Spotify and get User data',
       ).show(context);
     }
-    else if (secureUser == null && context != null){
+    else if (_secureUser == null && context != null){
       Flushbar(
         backgroundColor: Colors.grey,
         titleColor: failedRed,
@@ -162,7 +174,7 @@ class SecureStorage {
         message: 'Failed to get User data.',
       ).show(context);
     }
-    else if (secureCall == null && context != null){
+    else if (_secureCall == null && context != null){
       Flushbar(
         backgroundColor: Colors.grey,
         titleColor: failedRed,
@@ -172,13 +184,13 @@ class SecureStorage {
         message: 'Failed to connect to Spotify',
       ).show(context);
     }
-    else if(secureUser == null && secureCall == null && scaffoldMessengerState != null){
+    else if(_secureUser == null && _secureCall == null && scaffoldMessengerState != null){
       scaffoldMessengerState.hideCurrentSnackBar();
 
       scaffoldMessengerState.showSnackBar(
         SnackBar(
           content: Column(
-            children: [
+            children: <Widget>[
               Text(
                 'Error in connection',
                 style: TextStyle(color: failedRed),
@@ -193,13 +205,13 @@ class SecureStorage {
           backgroundColor: Colors.grey,
         ));
     }
-    else if (secureUser == null && scaffoldMessengerState != null){
+    else if (_secureUser == null && scaffoldMessengerState != null){
       scaffoldMessengerState.hideCurrentSnackBar();
 
       scaffoldMessengerState.showSnackBar(
         SnackBar(
           content: Column(
-            children: [
+            children: <Widget>[
               Text(
                 'Error in connection',
                 style: TextStyle(color: failedRed),
@@ -214,13 +226,13 @@ class SecureStorage {
           backgroundColor: Colors.grey,
         ));
     }
-    else if (secureCall == null && scaffoldMessengerState != null){
+    else if (_secureCall == null && scaffoldMessengerState != null){
       scaffoldMessengerState.hideCurrentSnackBar();
 
       scaffoldMessengerState.showSnackBar(
         SnackBar(
           content: Column(
-            children: [
+            children: <Widget>[
               Text(
                 'Error in connection',
                 style: TextStyle(color: failedRed),

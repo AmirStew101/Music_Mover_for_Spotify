@@ -3,27 +3,24 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
-import 'package:spotify_music_helper/src/home/home_view.dart';
-import 'package:spotify_music_helper/src/login/start_screen.dart';
+import 'package:get/get.dart';
 import 'package:spotify_music_helper/src/utils/analytics.dart';
 import 'package:spotify_music_helper/src/utils/auth.dart';
 import 'package:spotify_music_helper/src/utils/backend_calls/spotify_requests.dart';
 import 'package:spotify_music_helper/src/utils/dev_global.dart';
-import 'package:spotify_music_helper/src/utils/global_classes/global_objects.dart';
-import 'package:spotify_music_helper/src/utils/object_models.dart';
+import 'package:spotify_music_helper/src/utils/exceptions.dart';
+import 'package:spotify_music_helper/src/utils/callback_model.dart';
 import 'package:spotify_music_helper/src/utils/globals.dart';
-import 'package:spotify_music_helper/src/utils/global_classes/database_classes.dart';
+import 'package:spotify_music_helper/src/utils/backend_calls/database_classes.dart';
 import 'package:spotify_music_helper/src/utils/global_classes/secure_storage.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:http/http.dart' as http;
 
+const String _fileName = 'spot_login_view.dart';
 
 ///Handles Logging into a users Spotify Account and saving their info to the database.
 class SpotLoginWidget extends StatefulWidget {
-  const SpotLoginWidget({super.key, required this.reLogin});
-  final bool reLogin;
-
-  static const routeName = '/SpotLogin';
+  const SpotLoginWidget({super.key});
 
   @override
   State<SpotLoginWidget> createState() => SpotLoginState();
@@ -31,13 +28,25 @@ class SpotLoginWidget extends StatefulWidget {
 
 ///Implements Logging into a users Spotify Account and saving their info to the database.
 class SpotLoginState extends State<SpotLoginWidget> {
-  bool reLogin = false;
+  bool reLogin = Get.arguments;
   late ScaffoldMessengerState _scaffoldMessengerState;
+  late SpotifyRequests _spotifyRequests;
+  late DatabaseStorage _databaseStorage;
+  late SecureStorage _secureStorage;
 
   @override
   void initState(){
     super.initState();
-    reLogin = widget.reLogin;
+    try{
+      _spotifyRequests = SpotifyRequests.instance;
+      _databaseStorage = DatabaseStorage.instance;
+      _secureStorage = SecureStorage.instance;
+    }
+    catch (e){
+      _spotifyRequests = Get.put(SpotifyRequests());
+      _databaseStorage = Get.put(DatabaseStorage());
+      _secureStorage = Get.put(SecureStorage());
+    }
   }
 
   @override
@@ -63,7 +72,7 @@ class SpotLoginState extends State<SpotLoginWidget> {
     late final dynamic responseDecode;
 
     try{
-      final response = await http.get(Uri.parse(loginURL));
+      final http.Response response = await http.get(Uri.parse(loginURL));
       
       if (response.statusCode != 200){
         await loginIssue();
@@ -79,16 +88,16 @@ class SpotLoginState extends State<SpotLoginWidget> {
 
     // Makes a Web controller to login to Spotify and redirect back to app.
     if (responseDecode['status'] == 'Success') {
-      final authUri = Uri.parse(authUrl);
+      final Uri authUri = Uri.parse(authUrl);
 
       //Stores the users callback tokens and expiration {'accessToken': '', 'refreshToken': '', 'expiresAt': ''}.
-      Map<String, dynamic> callback;
+      //Map<String, dynamic> callback;
 
       //Sets up parameters for the Web controller.
       PlatformWebViewControllerCreationParams params = const PlatformWebViewControllerCreationParams();
 
       //Creates controller to direct where the url's redirect requests Navigate the user.
-      final controller = WebViewController.fromPlatformCreationParams(params);
+      final WebViewController controller = WebViewController.fromPlatformCreationParams(params);
       
       //Tries to Login a user through Spotify.
       try{
@@ -99,34 +108,31 @@ class SpotLoginState extends State<SpotLoginWidget> {
             onNavigationRequest: (NavigationRequest request) async {
               //Spotify sent the callback tokens.
               if (request.url.startsWith('$hosted/callback')) {
-                callback = await getTokens(request.url);
+                Map<String, dynamic>? callback = await getTokens(request.url);
                 
                 //No errors in getting the callback
-                if (callback.isNotEmpty){
-                  UserModel? spotifyUser = await SpotifyRequests().getUser(callback['expiresAt'], callback['accessToken']);
-
-                  if (spotifyUser != null){
-                    final getCustomTokenUrl = '$hosted/get-custom-token/${spotifyUser.spotifyId}';
-                    final customResponse = await http.get(Uri.parse(getCustomTokenUrl));
-
-                    if (customResponse.statusCode != 200){
-                      throw Exception( exceptionText('spot_login_view.dart', 'initiateLogin', customResponse.body, offset: 3));
-                    }
-
-                    await UserAuth().signInUser(customResponse.body);
-                    spotifyUser = await DatabaseStorage().syncUserData(spotifyUser);
-                    
-                    final CallbackModel callbackModel = CallbackModel(expiresAt: callback['expiresAt'], accessToken: callback['accessToken'], refreshToken: callback['refreshToken']);
-
-                    await SecureStorage().saveTokens(callbackModel);
-                    await SecureStorage().saveUser(spotifyUser);
-
-                    await AppAnalytics().trackSpotifyLogin(spotifyUser);
-                    Navigator.pushNamedAndRemoveUntil(context, HomeView.routeName, (route) => false);
-                  }
-                  else{
+                if (callback != null){
+                  
+                  await _spotifyRequests.initializeRequests(
+                    CallbackModel(expiresAt: callback['expiresAt'], accessToken: callback['accessToken'], refreshToken: callback['refreshToken'])
+                  )
+                  .onError((Object? error, StackTrace stackTrace) async { 
                     await loginIssue();
-                  }
+                    throw CustomException(stack: StackTrace.current, fileName: _fileName, functionName: 'initiateLogin', 
+                    error: error);
+                  });
+
+                  await UserAuth().signInUser(_spotifyRequests.user.spotifyId);
+
+                  _databaseStorage.initializeDatabase(_spotifyRequests.user);
+
+                  await _secureStorage.saveTokens(_spotifyRequests.callback);
+                  await _secureStorage.saveUser(_spotifyRequests.user);
+
+                  await AppAnalytics().trackSpotifyLogin(_spotifyRequests.user);
+                  
+                  // Navigate to Home and remove previous routes
+                  Get.offAllNamed('/');
                 }
                 //Spotify was unable to send the callback
                 else{
@@ -155,7 +161,7 @@ class SpotLoginState extends State<SpotLoginWidget> {
           ..loadRequest(authUri, method: LoadRequestMethod.get);
       }
       catch (e){
-        throw Exception('Caught Error while trying to login to Spotify $e');
+        throw CustomException(stack: StackTrace.current, fileName: _fileName, functionName: 'initiateLogin', error: e);
       }
 
       return controller;
@@ -163,74 +169,74 @@ class SpotLoginState extends State<SpotLoginWidget> {
     throw Error();
   }
 
-///Decides what to do when /callback is called.
-Future<Map<String, dynamic>> getTokens(String callRequest) async {
+  /// Decides what to do when /callback is called.
+  Future<Map<String, dynamic>?> getTokens(String callRequest) async {
 
-  final response = await http.get(Uri.parse(callRequest));
+    final http.Response response = await http.get(Uri.parse(callRequest));
 
-  if (response.statusCode == 200){
-    final Map<String, dynamic> responseDecode = jsonDecode(response.body);
-  
-    if (responseDecode.containsKey('status') && responseDecode['status'] == 'Success'){
-      final Map<String, dynamic> info = responseDecode['data']; //This is a Map
+    if (response.statusCode == 200){
+      final Map<String, dynamic> responseDecode = jsonDecode(response.body);
+    
+      if (responseDecode.containsKey('status') && responseDecode['status'] == 'Success'){
+        final Map<String, dynamic> info = responseDecode['data']; //This is a Map
+        return info;
+      }
 
-      return info;
+    }
+    else {
+      throw CustomException(stack: StackTrace.current, fileName: _fileName, functionName: 'getTokens', error: 'Response: ${response.body.toString()}');
     }
 
-  }
-  else {
-    throw Exception('Response: ${response.body.toString()}');
+    return null;
   }
 
-  return {};
-}
+  /// Creates an error Notification for the User and Returns to the Start Screen.
+  Future<void> loginIssue({bool loginReset = true, bool missingAccount = false, bool facebook = false}) async{
+    /// Returns to start screen when not a Fascebook or Missing account error.
+    if (!facebook && !missingAccount) Get.back();
 
-///Creates an error Notification for the User and Returns to the Start Screen.
-Future<void> loginIssue({bool loginReset = true, bool missingAccount = false, bool facebook = false}) async{
-  if (!facebook && !missingAccount) Navigator.pushNamedAndRemoveUntil(context, StartViewWidget.routeName, (route) => false, arguments: loginReset);
+    late String errorText;
 
-  late String errorText;
-
-  if (!missingAccount && !facebook){
-    errorText = 'Problem with connecting to Spotify redirecting back to Start page.';
-  }
-  else if (facebook){
-    errorText = 'Use the Facebook app to login then try again.';
-  }
-  else{
-    errorText = 'Google Spotify Account does not exist.';
-  }
-  
-  _scaffoldMessengerState.hideCurrentSnackBar();
-  _scaffoldMessengerState.showSnackBar(
-    SnackBar(
-      backgroundColor: snackBarGrey,
-      content: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Error',
-            textScaler: const TextScaler.linear(1.1),
-            style: TextStyle(color: failedRed),
-            textAlign: TextAlign.center,
-          ),
-          Text(
-            errorText,
-            textScaler: const TextScaler.linear(0.9),
-            style: const TextStyle(color: Colors.white),
-          )
-        ],
+    if (!missingAccount && !facebook){
+      errorText = 'Problem with connecting to Spotify redirecting back to Start page.';
+    }
+    else if (facebook){
+      errorText = 'Use the Facebook app to login then try again.';
+    }
+    else{
+      errorText = 'Google Spotify Account does not exist.';
+    }
+    
+    _scaffoldMessengerState.hideCurrentSnackBar();
+    _scaffoldMessengerState.showSnackBar(
+      SnackBar(
+        backgroundColor: snackBarGrey,
+        content: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Text(
+              'Error',
+              textScaler: const TextScaler.linear(1.1),
+              style: TextStyle(color: failedRed),
+              textAlign: TextAlign.center,
+            ),
+            Text(
+              errorText,
+              textScaler: const TextScaler.linear(0.9),
+              style: const TextStyle(color: Colors.white),
+            )
+          ],
+        )
       )
-    )
-  );
+    );
 
-}//loginIssue
+  }//loginIssue
 
   @override
   Widget build(BuildContext context) {
     return FutureBuilder<WebViewController>(
       future: initiateLogin(context, reLogin),
-      builder: (context, snapshot) {
+      builder: (BuildContext context, AsyncSnapshot<WebViewController> snapshot) {
         if (snapshot.connectionState == ConnectionState.done) {
           if (snapshot.hasError) {
             return const Center(child: Text('Error Connecting to Spotify.'));
