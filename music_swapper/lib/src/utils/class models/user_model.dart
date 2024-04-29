@@ -1,21 +1,21 @@
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-///Model for Spotify User object.
+/// Model for Spotify User object.
 class UserModel{
   final String? username;
   final String spotifyId;
-  final String uri;
+  final String url;
   final bool subscribed;
   final int tier;
   final Timestamp expiration;
   late final DocumentReference<Map<String, dynamic>> userDoc;
   
-  ///Model for a Spotify User object.
+  /// Model for a Spotify User object.
   UserModel({
     this.username,
     this.spotifyId = '',
-    this.uri = '',
+    this.url = '',
     this.subscribed = false,
     this.tier = 0,
     Timestamp? expiration,
@@ -26,26 +26,26 @@ class UserModel{
     }
   }
 
-  ///Firestore Json representation of this object.
+  /// Firestore Json representation of this object.
   Map<String, dynamic> toFirestoreJson(){
     return <String, dynamic>{
         'username': username,
-        'uri': uri,
+        'url': url,
         'subscribed': subscribed,
         'tier': tier,
         'expiration': expiration,
       };
   }
 
-  ///Returns the day for the Subscription expiration.
+  /// Returns the day for the Subscription expiration.
   int get getDay{
     final int day = expiration.toDate().day;
     return day;
   }
 
-  ///Converts a String of a time stamp into a Timestamp and returns it.
+  /// Converts a String of a time stamp into a Timestamp and returns it.
   Timestamp getTimestamp(String timeStampeStr){
-    //Receives: Timestamp(seconds=1708192429, nanoseconds=179000000)
+    // Receives: Timestamp(seconds=1708192429, nanoseconds=179000000)
     final List<String> flush = timeStampeStr.split('seconds=');
 
     final int seconds = int.parse(flush[1].split(',')[0]);
@@ -58,6 +58,6 @@ class UserModel{
 
   @override
   String toString(){
-    return 'UserModel(spotifyId: $spotifyId, username: $username, uri: $uri, subscribed: $subscribed, tier: $tier, expiration: $expiration)';
+    return 'UserModel(spotifyId: $spotifyId, username: $username, url: $url, subscribed: $subscribed, tier: $tier, expiration: $expiration)';
   }
 }

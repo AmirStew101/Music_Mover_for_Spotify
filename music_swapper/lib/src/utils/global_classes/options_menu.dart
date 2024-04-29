@@ -4,7 +4,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:spotify_music_helper/src/utils/global_classes/secure_storage.dart';
+import 'package:spotify_music_helper/src/utils/backend_calls/secure_storage.dart';
 import 'package:spotify_music_helper/src/info/info_page.dart';
 import 'package:spotify_music_helper/src/home/home_view.dart';
 import 'package:spotify_music_helper/src/settings/settings_view.dart';

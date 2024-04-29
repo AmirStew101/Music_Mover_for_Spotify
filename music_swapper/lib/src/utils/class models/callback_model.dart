@@ -17,11 +17,6 @@ class CallbackModel{
     this.refreshToken = '',
   });
 
-  CallbackModel.defaultCall():
-    expiresAt = 0,
-    accessToken = '',
-    refreshToken = '';
-
   ///True if the callback doesn't have values.
   bool get isEmpty{
     if (expiresAt == 0 || accessToken == '' || refreshToken == ''){

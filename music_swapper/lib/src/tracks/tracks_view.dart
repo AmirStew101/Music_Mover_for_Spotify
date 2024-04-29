@@ -7,15 +7,16 @@ import 'package:get/get.dart';
 import 'package:spotify_music_helper/src/select_playlists/select_view.dart';
 import 'package:spotify_music_helper/src/utils/ads.dart';
 import 'package:spotify_music_helper/src/tracks/tracks_popups.dart';
+import 'package:spotify_music_helper/src/utils/class%20models/custom_sort.dart';
 import 'package:spotify_music_helper/src/utils/exceptions.dart';
 import 'package:spotify_music_helper/src/utils/global_classes/global_objects.dart';
 import 'package:spotify_music_helper/src/utils/globals.dart';
 import 'package:spotify_music_helper/src/utils/backend_calls/spotify_requests.dart';
 import 'package:spotify_music_helper/src/tracks/tracks_search.dart';
 import 'package:spotify_music_helper/src/utils/global_classes/options_menu.dart';
-import 'package:spotify_music_helper/src/utils/playlist_model.dart';
-import 'package:spotify_music_helper/src/utils/track_model.dart';
-import 'package:spotify_music_helper/src/utils/user_model.dart';
+import 'package:spotify_music_helper/src/utils/class%20models/playlist_model.dart';
+import 'package:spotify_music_helper/src/utils/class%20models/track_model.dart';
+import 'package:spotify_music_helper/src/utils/class%20models/user_model.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 const String _fileName = 'tracks_view.dart';
@@ -43,28 +44,19 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
   late UserModel user;
 
   /// All of a playlists tracks as a list that can be sorted to have different views.
-  List<TrackModel> allTracksList = <TrackModel>[];
+  List<TrackModel> sortedTracks = <TrackModel>[];
 
   /// All of the selected tracks.
   /// 
   /// key: Track ID
   /// 
   /// values: TrackModel {Id, Track Title, Artist, Image Url, PreviewUrl}
-  Map<String, TrackModel> selectedTracksMap = <String, TrackModel>{};
+  RxMap<String, TrackModel> selectedTracksMap = <String, TrackModel>{}.obs;
 
-  /// List of all tracks with 
-  /// 
-  /// Key: ID 
-  /// 
-  /// Value: if Chosen & Title
-  List<MapEntry<String, dynamic>> selectedTracksList = <MapEntry<String, dynamic>>[];
-
-  final ValueNotifier _tracksNotifier = ValueNotifier({});
+  final ValueNotifier loaded = ValueNotifier(false);
 
   bool refresh = false;
-  bool loaded = false; //Tracks loaded status
-  bool selectAll = false;
-  bool selectingAll = false;
+  Rx<bool> selectAll = false.obs;
   bool error = false;
   bool removing = false;
   
@@ -72,6 +64,8 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
 
   bool showing = false;
 
+  String sortType = Sort().title;
+  bool ascending = true;
 
   @override
   void initState(){
@@ -80,14 +74,14 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
       //_databaseStorage = DatabaseStorage.instance;
       _spotifyRequests = SpotifyRequests.instance;
       //_spotifySync = SpotifySync.instance;
-      currentPlaylist = Get.arguments;
+      currentPlaylist = _spotifyRequests.currentPlaylist;
     }
-    catch (e, stack){
-      print('Error $e $stack');
-      Get.back(result: Get.arguments);
+    catch (e){
+      Get.back(result: false);
     }
 
     user = _spotifyRequests.user;
+    sortUpdate();
     tabController = TabController(length: 2, vsync: this);
     _checkTracks();
   }
@@ -98,55 +92,43 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
     super.dispose();
   }
 
-  ///Creates a new [selectedTracksList] out of the old list
-  void selectListUpdate() {
-    //Sorts the tracks by their title
-    allTracksList = List.generate(_spotifyRequests.tracksDupes.length, (int index) => _spotifyRequests.tracksDupes.entries.elementAt(index).value);
-    allTracksList.sort((TrackModel a, TrackModel b) => a.title.compareTo(b.title));
+  /// Updates how the tracks are sorted.
+  void sortUpdate() {
 
-    //Initializes the selected playlists
-    selectedTracksList = List.generate(allTracksList.length, (int index) {
-      TrackModel currTrack = allTracksList[index];
-      //MapEntry<String, dynamic>? prevTrack = prevMap[currTrack.key];
-
-      String trackTitle = currTrack.title;
-      String trackId = currTrack.id;
-      bool selected = false;
-
-      //If the track is already selected from past widget
-      if (selectedTracksMap.containsKey(trackId) || selectAll) {
-        selected = true;
-      }
-
-      Map<String, dynamic> selectMap = <String, dynamic>{
-        'chosen': selected,
-        'title': trackTitle
-      };
-
-      return MapEntry(trackId, selectMap);
-    });
-
-    selectingAll = false;
+    //Sorts the tracks based on the current sort type.
+    if(sortType == Sort().title){
+      sortedTracks = Sort().tracksListSort(currentPlaylist, ascending: ascending);
+    }
+    else if(sortType == Sort().artist){
+      sortedTracks = Sort().tracksListSort(currentPlaylist, artist: true, ascending: ascending);
+    }
+    else if(sortType == Sort().type){
+      sortedTracks = Sort().tracksListSort(currentPlaylist, type: true, ascending: ascending);
+    }
+    else{
+      sortedTracks = Sort().tracksListSort(currentPlaylist, addedAt: true, ascending: ascending);
+    }
+    
   }
 
   ///Page state setup Function to setup the page.
   Future<void> _checkTracks() async{
 
     // Keeps from repeating functions
-    if(!loaded && !selectingAll){
+    if(!loaded.value){
       try{
 
-        if (mounted && _spotifyRequests.allPlaylists[currentPlaylist.id]!.tracks.isEmpty || refresh){
+        if (mounted && currentPlaylist.tracks.isEmpty || refresh){
           await fetchSpotifyTracks();
         }
         else if(mounted){
-          _tracksNotifier.value = _spotifyRequests.allPlaylists[currentPlaylist.id]!.tracks;
-          loaded = true;
+          sortUpdate();
+          loaded.value = true;
         }
       }
       catch (e, stack){
         error = true;
-        _tracksNotifier.value = {};
+        loaded.value = true;
         await FileErrors.logError(e, stack);
       }
     }
@@ -156,14 +138,13 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
   Future<void> fetchSpotifyTracks() async {
     try{
       await _spotifyRequests.requestTracks(currentPlaylist.id);
-
-      if (mounted) selectListUpdate();
+      currentPlaylist = _spotifyRequests.currentPlaylist;
+      sortUpdate();
 
       if (mounted) {
-        loaded = true; //Tracks if the tracks are loaded to be shown
+        loaded.value = true;
         refresh = false;
         error = false;
-        _tracksNotifier.value = _spotifyRequests.playlistTracks;
       }
     }
     catch (e){
@@ -171,56 +152,40 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
     }
   }
 
+  void handleSelectAll(){
+    selectAll.value = !selectAll.value;
+    if (selectAll.value){
+      selectedTracksMap.addAll(currentPlaylist.tracksDupes);
+    }
+    else{
+      selectedTracksMap.clear();
+    }
+  }
+
 
   ///Refreshes the page with function constraints to skip unnecessary steps on page refresh after deleteing tracks.
   ///
   ///Clears the selected tracks to realign the view.
-  Future<void> deleteRefresh() async{
-    loaded = false;
-    selectingAll = false;
+  Future<void> handleDeleteRefresh() async{
+    loaded.value = false;
     error = false;
     removing = false;
-    selectAll = false;
+    selectAll.value = false;
     refresh = true;
 
     selectedTracksMap.clear();
-    _tracksNotifier.value = {};
     _checkTracks();
   }
 
   ///Refreshes the page with function constraints to skip unnecessary steps on page refresh.
-  Future<void> refreshTracks() async{
-    selectingAll = false;
+  Future<void> handleRefresh() async{
     refresh = true;
-    loaded = false;
+    loaded.value = false;
     error = false;
+    selectAll.value = false;
 
     selectedTracksMap.clear();
-    _tracksNotifier.value = {};
     _checkTracks();
-  }
-
-
-  /// Selects all of the Tracks and updates the users view.
-  void handleSelectAll(){
-    // Updates checkbox
-    selectAll = !selectAll;
-
-    // Prevents Calls to Database and Spotify while selecting all
-    selectingAll = true;
-  
-    // Selects all the check boxes
-    if(selectAll) { 
-      selectedTracksMap.addAll(_spotifyRequests.tracksDupes); 
-    }
-    else { 
-      selectedTracksMap.clear(); 
-    }
-
-    selectListUpdate();
-    
-    // Updates selected tracks
-    if(mounted) setState(() {});
   }
 
   @override
@@ -233,15 +198,15 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
         // Loads the users tracks and its associated images after fetching them for user viewing
         body: PopScope(
           child: ValueListenableBuilder<dynamic>(
-            valueListenable: _tracksNotifier, 
+            valueListenable: loaded, 
             builder: (_, __, ___) {
-              if (!loaded && !error){
+              if (!loaded.value && !error){
                 return Center(
                     child: CircularProgressIndicator(color: spotHelperGreen,)
                 );
               }
               // Playlist has tracks and Tracks finished loading
-              else if (loaded && _spotifyRequests.tracksTotal > 0) {
+              else if (loaded.value && _spotifyRequests.tracksTotal > 0) {
                 return Stack(
                   children: <Widget>[
                     tracksViewBody(),
@@ -294,34 +259,26 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
       actions: <Widget>[
         //Search Button
         IconButton(
-            icon: const Icon(Icons.search),
+          icon: const Icon(Icons.search),
 
-            onPressed: () async {
-              if (loaded){
-                final queryResult = await showSearch(
-                    context: context,
-                    delegate: TracksSearchDelegate(_spotifyRequests.tracksDupes, selectedTracksMap)
-                );
-                
-                if (queryResult != null){
-                  for (var result in queryResult){
-                    String trackId = result.key;
-                    if (result.value['chosen']){
-                      selectedTracksMap[trackId] = _spotifyRequests.tracksDupes[trackId]!;
-                    }
-                    else{
-                      selectedTracksMap.remove(trackId);
-                    }
-                  }
-                }
-
-                if (selectedTracksMap.length == _spotifyRequests.tracksDupes.length) selectAll = true;
-                if (selectedTracksMap.isEmpty) selectAll = false;
-
-                selectListUpdate();
-                if(mounted) setState(() {});
+          onPressed: () async {
+            if (loaded.value){
+              final queryResult = await showSearch(
+                  context: context,
+                  delegate: TracksSearchDelegate(currentPlaylist, selectedTracksMap)
+              );
+              
+              if (queryResult != null){
+                selectedTracksMap = queryResult;
               }
-            }),
+
+              if (selectedTracksMap.length == currentPlaylist.tracksDupes.length) selectAll.value = true;
+              if (selectedTracksMap.isEmpty) selectAll.value = false;
+
+              if(mounted) setState(() {});
+            }
+          }
+        ),
       ],
 
       bottom: TabBar(
@@ -331,22 +288,18 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
         indicatorSize: TabBarIndicatorSize.tab,
         dividerColor: Colors.grey,
         tabs: <Widget>[
-          //Smart Sync tracks for PLaylist
+          //Refresh tracks for the current Paylist
           Tab(
             child: InkWell(
               onTap: () async{
-                if (!selectingAll && loaded || error){
-                  await refreshTracks();
-                }
+                handleRefresh();
               },
               child: Row(
                 children: <Widget>[ 
                   IconButton(
                     icon: const Icon(Icons.sync_sharp),
                     onPressed: () async{
-                      if (!selectingAll && loaded || error){
-                        await refreshTracks();
-                      }
+                      handleRefresh();
                     },
                   ),
                   const Text('Refresh'),
@@ -359,25 +312,21 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
           Tab(
             child: InkWell(
               onTap: () {
-                if (!selectingAll && loaded){
-                  handleSelectAll();
-                }
+                handleSelectAll();
               },
-              child: Row(
+              child: Obx(() => Row(
                 children: <Widget>[
-                  Checkbox(
+                   Checkbox(
                     materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                     shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
-                    value: selectAll,
-                    onChanged: (bool? value) {
-                      if (!selectingAll&& loaded){
-                        handleSelectAll();
-                      }
+                    value: selectAll.value,
+                    onChanged: (_) {
+                      handleSelectAll();
                     },
                   ),
                   const Text('Select All'),
                 ],
-              ),
+              )),
             )
           ),
         ]),
@@ -393,21 +342,12 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
             Expanded(
               child: 
               ListView.builder(
-                itemCount: allTracksList.length,
+                itemCount: sortedTracks.length,
                 itemBuilder: (_, int index) {
-                  final TrackModel trackModel = allTracksList[index];
-
-                  //Used for displaying track information
-                  final String trackTitle = trackModel.title;
-                  final String trackImage = trackModel.imageUrl;
-
-                  final Map<String, dynamic> artists = trackModel.artists;
-                  final bool liked = trackModel.liked;
+                  final TrackModel currTrack = sortedTracks[index];
 
                   //Used to update Selected Tracks
-                  bool chosen = selectedTracksList[index].value['chosen'];
-                  final String trackId = selectedTracksList[index].key;
-                  final Map<String, dynamic> selectMap = <String, dynamic>{'chosen': !chosen, 'title': trackTitle};
+                  bool chosen = selectedTracksMap.containsKey(currTrack.dupeId);
 
                   //Alligns the songs as a Column
                   return Column(
@@ -415,17 +355,16 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
                       //Lets the entire left section with checkbox and Title be selected
                       InkWell(
                         onTap: () {
-                          selectedTracksList[index] = MapEntry<String, Map<String, dynamic>>(trackId, selectMap);
-
-                          if (!chosen){
-                            selectedTracksMap[trackId] = _spotifyRequests.tracksDupes[trackId]!;
+                          chosen = !chosen;
+                          if (chosen){
+                            selectedTracksMap.putIfAbsent(currTrack.dupeId, () => currTrack);
                           }
                           else{
-                            selectedTracksMap.remove(trackId);
+                            selectedTracksMap.remove(currTrack.dupeId);
                           }
                           
                           // Updates selected Tracks List & Map
-                          if(mounted) setState(() {});
+                          // if(mounted) setState(() {});
                         },
                         //Container puts the Tracks image in the background
                         child: Container(
@@ -434,7 +373,7 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
                             // Album Image for Track
                             image: DecorationImage(
                               alignment: Alignment.centerRight,
-                              image: NetworkImage(trackImage),
+                              image: NetworkImage(currTrack.imageUrl),
                               fit: BoxFit.contain,
                             ),
                             shape: BoxShape.rectangle
@@ -445,12 +384,12 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             mainAxisSize: MainAxisSize.max,
                             children: <Widget>[
-                              trackRows(index, trackModel),
+                              trackRows(index, currTrack, chosen),
 
                               // The Liked Songs icon and Track link
                               Row(
                                 children: <Widget>[
-                                  if(liked)
+                                  if(currTrack.liked)
                                   Padding(
                                     padding: const EdgeInsets.only(right: 10),
                                     child: Image.asset(
@@ -467,7 +406,7 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
                                     child: InkWell(
                                       onTap: () async{
                                         try{
-                                          final bool response = await launchUrl(Uri.parse(trackModel.albumLink));
+                                          final bool response = await launchUrl(Uri.parse(currTrack.albumLink));
 
                                           if(!response) _errorLink('Track');
                                         }
@@ -495,7 +434,7 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
                       ),
 
                       //Makes space so last item isn't behind ad
-                      if (index == allTracksList.length-1)
+                      if (index == sortedTracks.length-1)
                         const SizedBox(
                           height: 90,
                         ),
@@ -510,15 +449,15 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
     ] );
   }
 
-  //Creates the State for each Tracks Row
-  Widget trackRows(int index, TrackModel track) {
+  /// Creates the State for each Tracks Row
+  Widget trackRows(int index, TrackModel track, bool chosen) {
     String artistText = '';
 
     if(track.artists.length > 1){
-      artistText = 'By: ${track.artistName[0]}...';
+      artistText = 'By: ${track.artistNames[0]}...';
     }
     else{
-      artistText = 'By: ${track.artistName[0]}';
+      artistText = 'By: ${track.artistNames[0]}';
     }
 
     return Row(
@@ -526,30 +465,21 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
       mainAxisAlignment: MainAxisAlignment.start,
       children: <Widget>[
         //Design & Functinoality for the checkbox button when selected and not
-        Checkbox(
+        Obx(() => Checkbox(
           shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
-          value: selectedTracksList[index].value['chosen'],
-          onChanged: (bool? value) {
-            
-            bool chosen = selectedTracksList[index].value['chosen'];
-            String trackId = selectedTracksList[index].key;
-            Map<String, dynamic> selectMap = <String, dynamic>{
-              'chosen': !chosen,
-              'title': track.title
-            };
-
-            selectedTracksList[index] = MapEntry(trackId, selectMap);
-            if (!chosen){
-              selectedTracksMap[trackId] = _spotifyRequests.tracksDupes[trackId]!;
+          value: selectedTracksMap.containsKey(track.dupeId),
+          onChanged: (_) {
+            if (chosen){
+              selectedTracksMap.putIfAbsent(track.dupeId, () => track);
             }
             else{
-              selectedTracksMap.remove(trackId);
+              selectedTracksMap.remove(track.dupeId);
             }
 
             // Updates selected track List & Map
             if(mounted) setState(() {});
           },
-        ),
+        )),
 
         //Track Names & Artist Names design and Functionality
         Column(
@@ -571,14 +501,25 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
                 Get.bottomSheet(
                   backgroundColor: Get.theme.canvasColor,
                   ListView.builder(
-                    itemCount: track.artists.length,
+                    itemCount: track.artists.length+1,
                     itemBuilder: (_, int index) {
+                      if(index == 0){
+                        return Column(
+                          children: [
+                            const Text(
+                              'Artists Links',
+                              textScaler: TextScaler.linear(1.2),
+                            ),
+                            customDivider()
+                          ]
+                        );
+                      }
                       return Column(
                         children: <Widget>[
                           TextButton(
                             onPressed: () async{
                               try{
-                                final bool response = await launchUrl(Uri.parse(track.artistLink[index]));
+                                final bool response = await launchUrl(Uri.parse(track.artistLinks[index-1]));
 
                                 if(!response) _errorLink('Artists');
                               }
@@ -587,7 +528,7 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
                               }
                             }, 
                             child: Text(
-                              track.artistName[index],
+                              track.artistNames[index-1],
                               style: TextStyle(
                                 color: linkBlue,
                               ),
@@ -637,21 +578,21 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
         ],
         onTap: (int value) async {
           // Move to playlist(s) Index
-          if (value == 0 && selectedTracksMap.isNotEmpty && !selectingAll && loaded) {
-            TrackArguments trackArgs = TrackArguments(selectedTracks: selectedTracksMap, currentPlaylist: currentPlaylist, option: 'move', allTracks: _spotifyRequests.tracksDupes);
+          if (value == 0 && selectedTracksMap.isNotEmpty && loaded.value) {
+            TrackArguments trackArgs = TrackArguments(selectedTracks: selectedTracksMap, option: 'move');
 
             await Get.to(const SelectPlaylistsViewWidget(), arguments: trackArgs);
-            await deleteRefresh();
+            await handleDeleteRefresh();
           }
           // Add to playlist(s) index
-          else if (value == 1 && selectedTracksMap.isNotEmpty && !selectingAll && loaded) {
-            TrackArguments trackArgs = TrackArguments(selectedTracks: selectedTracksMap, currentPlaylist: currentPlaylist, option: 'add', allTracks: _spotifyRequests.tracksDupes);
+          else if (value == 1 && selectedTracksMap.isNotEmpty && loaded.value) {
+            TrackArguments trackArgs = TrackArguments(selectedTracks: selectedTracksMap, option: 'add');
 
             await Get.to(const SelectPlaylistsViewWidget(), arguments: trackArgs);
-            await refreshTracks();
+            await handleRefresh();
           } 
           //Removes track(s) from current playlist
-          else if (value == 2 && selectedTracksMap.isNotEmpty && !selectingAll && loaded){
+          else if (value == 2 && selectedTracksMap.isNotEmpty && loaded.value){
             bool confirmed = false;
 
             await showDialog(
@@ -686,11 +627,11 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
 
             if (confirmed){
               removing = true;
-              _tracksNotifier.value = {};
 
               int tracksDeleted = selectedTracksMap.length;
-              await _spotifyRequests.removeTracks(selectedTracksMap, currentPlaylist.id, currentPlaylist.snapshotId);
-              await deleteRefresh();
+              loaded.value = false;
+              await _spotifyRequests.removeTracks(selectedTracksMap, currentPlaylist, currentPlaylist.snapshotId);
+              await handleDeleteRefresh();
 
               if (!showing){
                 showing = true;

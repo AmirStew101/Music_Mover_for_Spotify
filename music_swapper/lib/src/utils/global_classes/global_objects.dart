@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:spotify_music_helper/src/utils/playlist_model.dart';
-import 'package:spotify_music_helper/src/utils/track_model.dart';
+import 'package:spotify_music_helper/src/utils/class%20models/playlist_model.dart';
+import 'package:spotify_music_helper/src/utils/class%20models/track_model.dart';
 
 /// Removes the modified underscore and duplicate number from a track
 /// ```dart
@@ -39,16 +39,12 @@ Divider customDivider(){
 ///Model for app TrackArguments object. Used to pass tracks between pages.
 class TrackArguments{
   final Map<String, TrackModel> selectedTracks;
-  final PlaylistModel currentPlaylist;
   final String option;
-  final Map<String, TrackModel> allTracks;
 
   ///Model for app TrackArguments object. Used to pass tracks between pages.
   TrackArguments({
     this.selectedTracks = const <String, TrackModel>{},
-    PlaylistModel? currentPlaylist,
     this.option = '',
-    this.allTracks = const <String, TrackModel>{},
-  }) : currentPlaylist = currentPlaylist ?? PlaylistModel();
+  });
 
 }

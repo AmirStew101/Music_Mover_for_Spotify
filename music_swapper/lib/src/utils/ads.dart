@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/widgets.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:spotify_music_helper/src/utils/dev_global.dart';
-import 'package:spotify_music_helper/src/utils/user_model.dart';
+import 'package:spotify_music_helper/src/utils/class%20models/user_model.dart';
 
 /// Controls the Ad view for users.
 class Ads{

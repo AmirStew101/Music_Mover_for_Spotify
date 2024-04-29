@@ -9,7 +9,7 @@ import 'package:path_provider/path_provider.dart';
 ///3 final responsePrev = getCurrentLine(offset: 1); //response = 2
 ///4 final badOffset = getCurrentLine(offset: 10); //response = 4
 ///```
-int getCurrentLine(StackTrace trace, {int offset = 0}){
+int _getCurrentLine(StackTrace trace, {int offset = 0}){
   if (trace == StackTrace.empty) trace = StackTrace.current;
   final List<String> lines = trace.toString().split('\n');
 
@@ -31,10 +31,10 @@ class CustomException implements Exception{
   late final StackTrace _stackTrace;
 
   ///Custom exception Constructor to get custom exceptions for user and developer error messages.
-  CustomException({StackTrace stack = StackTrace.empty, String code = 'Failure', String fileName = '', String functionName = '', Object? error = '', int offset = 0, String userMessage = 'Network Connection Issue.'}){
+  CustomException({StackTrace stack = StackTrace.empty, String code = 'Failure', String fileName = '', String functionName = '', Object? error = '', String userMessage = 'Network Connection Issue.'}){
     _code = code;
     _stackTrace = stack;
-    _exceptionText(fileName, functionName, error, offset: offset, stack: _stackTrace);
+    _exceptionText(fileName, functionName, error, stack: _stackTrace);
     _userMessage = userMessage;
   }
 
@@ -55,8 +55,8 @@ class CustomException implements Exception{
   //Private
 
   ///The apps standard throw exception text.
-  void _exceptionText(String fileName, String functionName, Object? error, {int offset = 0, StackTrace stack = StackTrace.empty}){
-    print('\nError in $fileName in function $functionName() line (${getCurrentLine(stack ,offset: offset)}) \n$error\n $stack\n');
+  void _exceptionText(String fileName, String functionName, Object? error, {StackTrace stack = StackTrace.empty}){
+    print('\nError in $fileName in function $functionName() \n$error\n $stack\n');
   }//exceptionText
 
 }

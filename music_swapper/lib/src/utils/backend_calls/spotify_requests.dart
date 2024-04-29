@@ -5,14 +5,14 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:http/http.dart' as http;
 import 'package:spotify_music_helper/src/utils/dev_global.dart';
 import 'package:spotify_music_helper/src/utils/exceptions.dart';
-import 'package:spotify_music_helper/src/utils/global_classes/secure_storage.dart';
+import 'package:spotify_music_helper/src/utils/backend_calls/secure_storage.dart';
 import 'package:spotify_music_helper/src/utils/globals.dart';
-import 'package:spotify_music_helper/src/utils/callback_model.dart';
+import 'package:spotify_music_helper/src/utils/class%20models/callback_model.dart';
 import 'package:spotify_music_helper/src/utils/global_classes/global_objects.dart';
 import 'package:get/get.dart';
-import 'package:spotify_music_helper/src/utils/playlist_model.dart';
-import 'package:spotify_music_helper/src/utils/track_model.dart';
-import 'package:spotify_music_helper/src/utils/user_model.dart';
+import 'package:spotify_music_helper/src/utils/class%20models/playlist_model.dart';
+import 'package:spotify_music_helper/src/utils/class%20models/track_model.dart';
+import 'package:spotify_music_helper/src/utils/class%20models/user_model.dart';
 
 const String _fileName = 'spotify_requests.dart';
 
@@ -34,7 +34,7 @@ class SpotifyRequests extends GetxController{
   /// Key: Playlist id
   /// 
   /// Value: Playlist model with stored tracks.
-  final Map<String , PlaylistModel> _allPlaylists = <String, PlaylistModel>{};
+  final List<PlaylistModel> _allPlaylists = <PlaylistModel>[];
 
   /// Listenable List of playlists that have finished loading tracks.
   final RxList<String> _loadedIds = <String>[].obs;
@@ -45,25 +45,30 @@ class SpotifyRequests extends GetxController{
 
   /// The Id for the currently active playlist.
   late String _playlistId;
+  late PlaylistModel currentPlaylist;
 
   /// Tracks for the currently active playlist from playlistId. 
-  Map<String, TrackModel> _playlistTracks = <String, TrackModel>{};
+  List<TrackModel> _playlistTracks = [];
 
   /// Total number of Tracks in a playlist.
   int tracksTotal = 0;
 
-  ///Tracks with an underscore and their duplicate number.
-  Map<String, TrackModel> tracksDupes = <String, TrackModel>{};
-  int dupesTotal = 0;
+  /// List of Tracks to be added back after removing a track id from PLaylist.
+  final List<TrackModel> _addBackTracks = [];
 
-  /// Ids of tracks to be added back after removing a track id from PLaylist.
-  final List<String> _addBackIds = <String>[];
-
-  /// An unmodified List of Ids to be removed from a playlist.
+  /// A List of unmodified Ids to be removed from a playlist.
   List<String> _removeIds = <String>[];
+
+  /// A List of unmodified Tracks to be added to a playlist.
+  List<String> _addIds = <String>[];
   
   /// The callback url with expiresAt and accessToken for API url calls.
   String _urlExpireAccess = '';
+
+  /// Store tracks that are recently added to liked songs
+  Map<String, TrackModel> _newLiked = {};
+
+  static const likedSongs = 'Liked_Songs';
 
   /// Makes requests to Spotify for a User, refreshing their callback Tokens, editting their Playlists, & editting their Tracks.
   /// 
@@ -92,12 +97,17 @@ class SpotifyRequests extends GetxController{
   /// Key: Playlist id
   /// 
   /// Value: Playlist model with stored tracks.
-  Map<String, PlaylistModel> get allPlaylists{
+  List<PlaylistModel> get allPlaylists{
     return _allPlaylists;
   }
 
+  set allPlaylists(List<PlaylistModel> playlists){
+    _allPlaylists.clear();
+    _allPlaylists.addAll(playlists);
+  }
+
   /// Tracks for the currently active playlist from playlistId.
-  Map<String, TrackModel> get playlistTracks{
+  List<TrackModel> get playlistTracks{
     return _playlistTracks;
   }
 
@@ -117,9 +127,19 @@ class SpotifyRequests extends GetxController{
 
   /// Must initialize the requests with a Spotify [CallbackModel] before calling any other functions.
   /// This sets the callback for requests and gets the User associated with callback tokens.
-  Future<void> initializeRequests(CallbackModel newCallback, {UserModel? savedUser}) async{
-    _callback = newCallback;
+  Future<void> initializeRequests({CallbackModel? callback, UserModel? savedUser, String? callRequest}) async{
+    if(callRequest != null){
+      await _getTokens(callRequest);
+    }
+    else if (callback != null){
+      _callback = callback;
+    }
+    else{
+      throw CustomException(error: 'Error a ''callback\' or \'callRequest\' is needed');
+    }
+
     _urlExpireAccess = '${_callback.expiresAt}/${_callback.accessToken}';
+    
     if(savedUser == null){
       await _getUser();
     }
@@ -139,7 +159,8 @@ class SpotifyRequests extends GetxController{
     _errorLoading.remove(playlistId);
 
     _playlistId = playlistId;
-    _playlistTracks = _allPlaylists[_playlistId]!.tracks;
+    _playlistTracks = _allPlaylists.firstWhere((_) => _.id == _playlistId).tracks;
+    currentPlaylist = _allPlaylists.firstWhere((_) => _.id == _playlistId);
 
     await _getTracks()
     .onError((_, __) => _errorLoading.add(_playlistId));
@@ -162,11 +183,10 @@ class SpotifyRequests extends GetxController{
     }
 
     try{
-      for (MapEntry<String, PlaylistModel> playlist in _allPlaylists.entries){
-        _playlistId = playlist.key;
+      for (PlaylistModel playlist in _allPlaylists){
+        _playlistId = playlist.id;
 
         if(refresh || !_loadedIds.contains(_playlistId) || _errorLoading.contains(_playlistId)){
-          _playlistId = playlist.key;
           await _getTracks(singleRequest: false)
           .onError((_, __) => _errorLoading.add(_playlistId));
 
@@ -182,23 +202,17 @@ class SpotifyRequests extends GetxController{
     }
   }
 
-  /// Add tracks to each playlist in the List.
+  /// Make a SPotify request to Add tracks to each playlist in the List.
   ///
   /// Must initialize Requests before calling function.
-  Future<void> addTracks(List<String> playlistIds,{Map<String, TrackModel>? tracksMap, List<String>? addIds}) async {
+  Future<void> addTracks(List<PlaylistModel> playlists, {Map<String, TrackModel>? tracksMap, List<TrackModel>? tracksList}) async {
     await _checkInitialized();
 
-    final List<String> tracks;
+    if(tracksMap == null && tracksList == null){
+      throw CustomException(error: 'Missing Tracks Map or List');
+    }
 
-    if(tracksMap != null){
-      tracks = _getUnmodifiedIds(tracksMap);
-    }
-    else if(addIds != null){
-      tracks = addIds;
-    }
-    else{
-      throw CustomException(stack: StackTrace.current, fileName: _fileName, functionName: 'addTracks', error: 'Map or List not given for adding tracks');
-    }
+    _addIds = _getUnmodifiedIds(modifiedTracks: tracksMap, tracksList: tracksList);
 
     final String addTracksUrl ='$hosted/add-to-playlists/$_urlExpireAccess';
 
@@ -206,16 +220,16 @@ class SpotifyRequests extends GetxController{
       List<String> sendAdd = <String>[];
       http.Response response;
 
-      for (int i = 0; i < playlistIds.length; i++){
-        sendAdd.add(playlistIds[i]);
+      for (int i = 0; i < playlists.length; i++){
+        sendAdd.add(playlists[i].id);
 
-        if (((i % 50) == 0 && i != 0) || i == playlistIds.length-1){
+        if (((i % 50) == 0 && i != 0) || i == playlists.length-1){
           response = await http.post(
             Uri.parse(addTracksUrl),
               headers: <String, String>{
               'Content-Type': 'application/json'
               },
-              body: jsonEncode(<String, List<String>>{'trackIds': tracks, 'playlistIds': sendAdd})
+              body: jsonEncode(<String, List<String>>{'trackIds': _addIds, 'playlistIds': sendAdd})
           );
           if (response.statusCode != 200) {
             throw CustomException(stack: StackTrace.current, fileName: _fileName, functionName: 'addTracks', error: '${response.statusCode} ${response.body}') ;
@@ -226,18 +240,19 @@ class SpotifyRequests extends GetxController{
     catch (e, stack){
       throw CustomException(stack: stack, fileName: _fileName, functionName: 'addTracks', error: e);
     }
+
+    _addTracksToApp(playlists ,tracksMap: tracksMap, tracksList: tracksList);
   }
 
   /// Remove tracks from a Spotify Playlist, and add back tracks that had duplicates that were not removed.
   /// 
   /// Must initialize Requests before calling function.
-  Future<void> removeTracks(Map<String, TrackModel> selectedTracks, String playlistId, String snapshotId) async{
+  Future<void> removeTracks(Map<String, TrackModel> selectedTracks, PlaylistModel playlist, String snapshotId) async{
     await _checkInitialized();
 
-    _removeIds = _getUnmodifiedIds(selectedTracks);
-    _getAddBackIds(selectedTracks);
+    _removeIds = _getUnmodifiedIds(modifiedTracks: selectedTracks);
 
-    final String removeTracksUrl ='$hosted/remove-tracks/$playlistId/$snapshotId/$_urlExpireAccess';
+    final String removeTracksUrl ='$hosted/remove-tracks/${playlist.id}/$snapshotId/$_urlExpireAccess';
 
     final http.Response response = await http.post(
       Uri.parse(removeTracksUrl),
@@ -248,26 +263,18 @@ class SpotifyRequests extends GetxController{
     );
 
     if (response.statusCode != 200){
-      throw CustomException(stack: StackTrace.current, fileName: _fileName, functionName: 'removeTracks', error: '${response.statusCode} ${response.body}', offset: 10);
+      throw CustomException(stack: StackTrace.current, fileName: _fileName, functionName: 'removeTracks', error: '${response.statusCode} ${response.body}');
     }
 
-    // Remove the tracks from the apps Tracks.
-    for(String id in _removeIds){
-      _allPlaylists[playlistId]!.tracks[id]!.duplicates--;
-      
-      // Remove the track when it is completely removed from a playlist.
-      if (_allPlaylists[playlistId]!.tracks[id]!.duplicates < 0){
-        _allPlaylists[playlistId]!.tracks.remove(id);
-      }
-    }
+    _removeTracksFromApp(playlist);
 
-    if(_addBackIds.isNotEmpty){
-      await addTracks(<String>[playlistId], addIds: _addBackIds);
-      _addBackIds.clear();
+    _getAddBackTracks(selectedTracks);
+    if(_addBackTracks.isNotEmpty){
+      await addTracks([playlist], tracksList: _addBackTracks);
+      _addBackTracks.clear();
     }
     
   }//removeTracks
-
 
   /// Get a users Spotify playlists from a Spotify API request.
   /// 
@@ -284,12 +291,10 @@ class SpotifyRequests extends GetxController{
         throw CustomException(stack: StackTrace.current, fileName: _fileName, functionName: 'requestPlaylists', error: response.body);
       }
 
-      final dynamic responseDecode = json.decode(response.body);
-
-      Map<String, dynamic> responsePlay = responseDecode['data'];
+      Map<String, dynamic> responsePlay = jsonDecode(response.body);
 
       //Removes all playlists not made by the User
-      responsePlay.removeWhere((String key, dynamic value) => value['owner'] != user.spotifyId && key != 'Liked_Songs');
+      responsePlay.removeWhere((String key, dynamic value) => value['owner'] != user.spotifyId && key != likedSongs);
 
       _getPlaylistImages(responsePlay);
 
@@ -319,6 +324,20 @@ class SpotifyRequests extends GetxController{
       error:  'Requests not Initialized. Must call the [initializeRequests] function before calling on other functions.');
     }
     await _checkRefresh();
+  }
+
+  /// Decides what to do when /callback is called.
+  Future<void> _getTokens(String callRequest) async {
+
+    final http.Response response = await http.get(Uri.parse(callRequest));
+
+    if (response.statusCode != 200){
+      throw CustomException(stack: StackTrace.current, fileName: _fileName, functionName: 'getTokens', error: 'Response: ${response.body.toString()}');
+    }
+
+    Map<String, dynamic> responseDecoded = jsonDecode(response.body);
+
+    _callback = CallbackModel(expiresAt: responseDecoded['expiresAt'], accessToken: responseDecoded['accessToken'], refreshToken: responseDecoded['refreshToken']);
   }
 
   /// Checks if the Spotify Token has expired. Updates the Token if its expired or [forceRefresh] is true.
@@ -356,7 +375,7 @@ class SpotifyRequests extends GetxController{
       }
       final Map<String, dynamic> responseDecode = json.decode(response.body);
 
-      _callback = CallbackModel(expiresAt: responseDecode['data']['expiresAt'], accessToken: responseDecode['data']['accessToken'], refreshToken: responseDecode['data']['refreshToken']);
+      _callback = CallbackModel(expiresAt: responseDecode['expiresAt'], accessToken: responseDecode['accessToken'], refreshToken: responseDecode['refreshToken']);
       _urlExpireAccess = '${_callback.expiresAt}/${_callback.accessToken}';
       await _secureStorage.saveTokens(_callback);
     }
@@ -375,11 +394,10 @@ class SpotifyRequests extends GetxController{
       throw CustomException(stack: StackTrace.current, fileName: _fileName, functionName: 'getUser', error: 'Failed to get Spotify User: ${response.body}');
     }
 
-    final dynamic responseDecoded = json.decode(response.body);
-    Map<String, dynamic> userInfo = responseDecoded['data'];
+    Map<String, dynamic> userInfo = jsonDecode(response.body);
 
     //Converts user from Spotify to Firestore user
-    user = UserModel(username: userInfo['user_name'] , spotifyId: userInfo['id'], uri: userInfo['uri'], expiration: Timestamp.now());
+    user = UserModel(username: userInfo['user_name'] , spotifyId: userInfo['id'], url: userInfo['url']);
   }//getUser
 
 
@@ -395,7 +413,7 @@ class SpotifyRequests extends GetxController{
         //Goes through each Playlist and takes the Image size based on current users platform
         for (MapEntry<String, dynamic> item in playlists.entries) {
           //Item is a Playlist and not Liked Songs
-          if (item.key != 'Liked_Songs'){
+          if (item.key != likedSongs){
             List<dynamic> imagesList = item.value['imageUrl']; //The Image list for the current Playlist
 
             //Playlist has an image
@@ -420,7 +438,7 @@ class SpotifyRequests extends GetxController{
             snapshotId: item.value['snapshotId']
           );
 
-          _allPlaylists[newPlaylist.id] = newPlaylist;
+          _allPlaylists.add(newPlaylist);
         }
       } 
       
@@ -441,9 +459,8 @@ class SpotifyRequests extends GetxController{
       if (response.statusCode != 200){
         throw CustomException(stack: StackTrace.current, fileName: _fileName, functionName: 'getTracksTotal',  error:response.body);
       }
-      final responseDecoded = json.decode(response.body);
 
-      tracksTotal = responseDecoded['totalTracks'];
+      tracksTotal = jsonDecode(response.body);
     }
     catch (e, stack){
       throw CustomException(stack: stack, fileName: _fileName, functionName: 'getTracksTotal',  error: e);
@@ -467,8 +484,7 @@ class SpotifyRequests extends GetxController{
           throw CustomException(stack: StackTrace.current, fileName: _fileName, functionName: 'getTracks',  error: response.body);
         }
 
-        final Map<String,dynamic>  responseDecoded = json.decode(response.body);
-        checkTracks.addAll(responseDecoded['data']);
+        checkTracks.addAll(jsonDecode(response.body));
 
         //Adds to the duplicate values if a track has duplicates.
         if (_playlistId != 'Liked_Songs'){
@@ -490,7 +506,7 @@ class SpotifyRequests extends GetxController{
           }
 
           //Clears temp tracks map for next received tracks
-          checkTracks.clear();
+          checkTracks = {};
         }
     
       }
@@ -499,10 +515,11 @@ class SpotifyRequests extends GetxController{
       //Returns a PLaylist's tracks and checks if they are in liked.
       if (_playlistId != 'Liked_Songs'){
         await _checkLiked();
-
-        if(singleRequest) _makeDuplicates();
       }
-      _allPlaylists[_playlistId]!.tracks = _playlistTracks;
+
+      int index = _allPlaylists.indexWhere((_) => _.id == _playlistId);
+      _allPlaylists[index].tracks = _playlistTracks;
+      currentPlaylist = _allPlaylists[index];
       _loadedIds.addIf(!_loadedIds.contains(_playlistId), _playlistId);
     }
     catch (e, stack){
@@ -512,8 +529,10 @@ class SpotifyRequests extends GetxController{
   }
 
   /// Get the medium sized image for the track or the smallest sized image when there is only two extremes.
+  /// 
+  /// Adds each track to '_playlistsTracks' variable as a new track.
   void _getTrackImages(Map<String, dynamic> responseTracks) {
-    _playlistTracks.clear();
+    _playlistTracks = [];
 
     try{
       //The chosen image url
@@ -532,15 +551,17 @@ class SpotifyRequests extends GetxController{
 
           imageUrl = item.value['imageUrl'][middleIndex]['url'];
 
-          _playlistTracks[item.key] = TrackModel(
+          _playlistTracks.add(TrackModel(
             id: item.key, 
             imageUrl: imageUrl, 
             artists: item.value['artists'], 
             title: item.value['title'], 
             duplicates: item.value['duplicates'],
             liked: item.value['liked'],
-            album: item.value['album']
-          );
+            album: item.value['album'],
+            addedAt: DateTime.tryParse(item.value['addedAt']),
+            type: item.value['type']
+          ));
         }
       } 
     }
@@ -552,18 +573,18 @@ class SpotifyRequests extends GetxController{
   /// Check if a Track is in the Liked Songs playlist.
   Future<void> _checkLiked() async{
     List<String> trackIds = <String>[];
-    List<bool> boolList = <bool>[];
+    List<dynamic> boolList = [];
 
     List<String> sendingIds = <String>[];
-    MapEntry<String, dynamic> track;
+    TrackModel track;
     
     final String checkUrl = '$hosted/check-liked/$_urlExpireAccess';
 
     try{
       for (int i = 0; i < _playlistTracks.length; i++){
-        track = _playlistTracks.entries.elementAt(i);
-        trackIds.add(track.key);
-        sendingIds.add(track.key);
+        track = _playlistTracks[i];
+        trackIds.add(track.id);
+        sendingIds.add(track.id);
         
           if ( (i % 50) == 0 || i == _playlistTracks.length-1){
             //Check the Ids of up to 50 tracks
@@ -579,23 +600,19 @@ class SpotifyRequests extends GetxController{
               throw CustomException(stack: StackTrace.current, fileName: _fileName, functionName: 'checkLiked',  error:response.body);
             }
 
-            final Map<String, dynamic> responseDecoded = jsonDecode(response.body);
-            boolList.addAll(responseDecoded['boolArray']);
-            sendingIds.clear();
+            boolList.addAll(jsonDecode(response.body));
+            sendingIds = [];
           }
       }
 
-      MapEntry<String, TrackModel> currTrack;
+      TrackModel currTrack;
       
       for (int i = 0; i < _playlistTracks.length; i++){
-        currTrack = _playlistTracks.entries.elementAt(i);
+        currTrack = _playlistTracks[i];
 
         if (boolList[i]){
           //Updates each Track in the Map of tracks.
-          _playlistTracks.update(currTrack.key, (TrackModel value) {
-            value.liked = true; 
-            return value;
-          });
+          _playlistTracks[i] = currTrack.copyWith(liked: true);
         }
         
       }
@@ -605,87 +622,130 @@ class SpotifyRequests extends GetxController{
     }
   }
 
-  /// Make duplicates of tracks that have duplicates.
-  void _makeDuplicates(){
-    // Reset the duplicates track to be reset
-    tracksDupes.clear();
+  /// Get the track ids to add back to Spotify.
+  void _getAddBackTracks(Map<String, TrackModel> selectedTracks){
+    _addBackTracks.clear();
 
-    int duplicates;
-    String dupeId;
-
-    for (MapEntry<String, TrackModel> track in _playlistTracks.entries){
-      duplicates = track.value.duplicates;
-
-      //Make duplicates of a track with duplicates.
-      if (duplicates > 0){
-        for (int i = 0; i <= duplicates; i++){
-          dupeId = i == 0
-          ? track.key
-          : '${track.key}_$i';
-
-          tracksDupes.addAll(<String, TrackModel>{dupeId: track.value});
+    for(TrackModel track in selectedTracks.values){
+      // Only add tracks that haven't been dupicated yet.
+      if(!_addBackTracks.contains(track)){
+        for(int i = 0; i <= track.duplicates; i++){
+          _addBackTracks.add(track);
         }
-      }
-      else{
-        tracksDupes.addAll(<String, TrackModel>{track.key: track.value});
       }
     }
 
-    dupesTotal = tracksDupes.length;
-  }
-
-  /// Get the track ids to add back to Spotify.
-  void _getAddBackIds(Map<String, TrackModel> selectedTracks){
-    _addBackIds.clear();
-
-    /// Map of tracks with their unmodified Ids and tracks stored as TrackModels
-    Map<String, TrackModel> selectedNoDupes = <String, TrackModel>{};
-
-    /// List of Ids to be removed
-    List<String> removeIds = _getUnmodifiedIds(selectedTracks);
-
-    for(MapEntry<String, TrackModel> track in selectedTracks.entries){
-      String trueId = getTrackId(track.key);
-
-      selectedNoDupes.putIfAbsent(trueId, () => track.value);
+    for(TrackModel removeTrack in selectedTracks.values){
+      _addBackTracks.remove(removeTrack);
     }
 
     // Dupes is 0 if its only one track
     // First item in a list is at location 0
-    removeIds.sort();
-    for (MapEntry<String, TrackModel> track in selectedNoDupes.entries){
-      int dupes = track.value.duplicates;
+    // removeIds.sort();
+    // for (TrackModel track in selectedNoDupes.values){
+    //   int dupes = track.duplicates;
 
-      // Gets location of element in sorted list
-      final int removeTotal = removeIds.lastIndexOf(track.key);
-      final int removeStart = removeIds.indexOf(track.key);
+    //   // Gets location of element in the sorted list of remove ids
+    //   final int removeTotal = removeIds.lastIndexOf(track.id);
+    //   final int removeStart = removeIds.indexOf(track.id);
 
-      //Gets the difference between the deleted tracks and its duplicates
-      int diff = dupes - removeTotal;
+    //   //Gets the difference between the deleted tracks and its duplicates
+    //   int diff = dupes - removeTotal;
 
-      //There is no difference and you are deleting them all
-      if (diff > 0){
-        for (int i = 0; i < diff; i++){
-          _addBackIds.add(track.key);
-        }
-      }
-      //Removes the tracks that have been checked
-      removeIds.removeRange(removeStart, removeTotal+1);
-    }
+    //   //There is no difference and you are deleting them all
+    //   if (diff > 0){
+    //     for (int i = 0; i < diff; i++){
+    //       _addBackTracks.add(track);
+    //     }
+    //   }
+    //   //Removes the tracks that have been checked
+    //   removeIds.removeRange(removeStart, removeTotal+1);
+    // }
 
-  }//getAddBackIds
+  }// getAddBackIds
 
   /// Returns a List of the unmodified track Ids.
-  List<String> _getUnmodifiedIds(Map<String, TrackModel> modifiedTracks){
-
+  List<String> _getUnmodifiedIds({Map<String, TrackModel>? modifiedTracks, List<TrackModel>? tracksList}){
     List<String> unmodifiedIds = <String>[];
 
-    for (MapEntry<String, TrackModel> track in modifiedTracks.entries){
-      String trueId = getTrackId(track.key);
-      unmodifiedIds.addIf(!unmodifiedIds.contains(trueId), trueId);
+    if(modifiedTracks != null){
+      for (MapEntry<String, TrackModel> track in modifiedTracks.entries){
+        String trueId = getTrackId(track.key);
+        unmodifiedIds.addIf(!unmodifiedIds.contains(trueId), trueId);
+      }
+    }
+    else if(tracksList != null){
+      for(TrackModel track in tracksList){
+        unmodifiedIds.add(track.id);
+      }
+    }
+    else{
+      throw CustomException(error: 'Missing Tracks Map or List');
     }
 
     return unmodifiedIds;
+  }
+
+  /// Add tracks to multiple playlists in the app.
+  void _addTracksToApp(List<PlaylistModel> playlists, {Map<String, TrackModel>? tracksMap, List<TrackModel>? tracksList}){
+
+    if(tracksMap != null){
+      // Add tracks to each Playlist stored in the app.
+      for(PlaylistModel playlist in playlists){
+        for(TrackModel tracksM in tracksMap.values){
+
+          if(playlist.title == likedSongs){
+            // Add track to liked Songs if it doesn't exist. Liked Songs can't have duplicates.
+            if(!playlist.tracks.contains(tracksM)) playlist.addTrack(tracksM);
+          }
+          else{
+            playlist.addTrack(tracksM);
+          }
+        }
+
+        int index = _allPlaylists.indexWhere((_) => _.id == _playlistId);
+        // Set the apps playlist to the new playlist.
+        _allPlaylists[index] = playlist;
+      }
+    }
+    else if(tracksList != null){
+      // Add tracks to each Playlist stored in the app.
+      for(PlaylistModel playlist in playlists){
+        for(TrackModel tracksM in tracksList){
+
+          if(playlist.title == likedSongs){
+            // Add track to liked Songs if it doesn't exist. Liked Songs can't have duplicates.
+            if(!playlist.tracks.contains(tracksM)) playlist.addTrack(tracksM);
+          }
+          else{
+            playlist.addTrack(tracksM);
+          }
+        }
+        int index = _allPlaylists.indexWhere((_) => _.id == _playlistId);
+        _allPlaylists[index] = playlist;
+      }
+    }
+    else{
+      throw CustomException(error: 'Missing Tracks Map or List');
+    }
+  }
+
+  /// Remove tracks from a playlist in the app.
+  void _removeTracksFromApp(PlaylistModel playlist){
+    // Remove the tracks from the apps Tracks.
+    for(String trackId in _removeIds){
+      int index = playlist.tracks.indexWhere((_) => _.id == trackId);
+      playlist.tracks[index]!.duplicates--;
+      
+      // Remove the track when it is completely removed from a playlist.
+      if (playlist.tracks[index].duplicates < 0){
+        playlist.tracks.remove(playlist.tracks[index]);
+      }
+    }
+
+    int index = _allPlaylists.indexWhere((_) => _.id == _playlistId);
+    _allPlaylists[index] = playlist;
+    _removeIds = [];
   }
 
 }

@@ -13,10 +13,10 @@ import 'package:spotify_music_helper/src/utils/globals.dart';
 import 'package:spotify_music_helper/src/home/home_body.dart';
 import 'package:spotify_music_helper/src/tracks/tracks_view.dart';
 import 'package:spotify_music_helper/src/utils/backend_calls/database_classes.dart';
-import 'package:spotify_music_helper/src/utils/global_classes/secure_storage.dart';
+import 'package:spotify_music_helper/src/utils/backend_calls/secure_storage.dart';
 import 'package:spotify_music_helper/src/utils/global_classes/options_menu.dart';
-import 'package:spotify_music_helper/src/utils/playlist_model.dart';
-import 'package:spotify_music_helper/src/utils/user_model.dart';
+import 'package:spotify_music_helper/src/utils/class%20models/playlist_model.dart';
+import 'package:spotify_music_helper/src/utils/class%20models/user_model.dart';
 
 const String _fileName = 'home_view.dart';
 
@@ -43,6 +43,7 @@ class HomeViewState extends State<HomeView> with SingleTickerProviderStateMixin{
   late SpotifyRequests _spotifyRequests;
   late DatabaseStorage _databaseStorage;
   late SecureStorage _secureStorage;
+  late CacheManager _cacheManager;
 
   UserModel user = UserModel(subscribed: true);
 
@@ -62,11 +63,13 @@ class HomeViewState extends State<HomeView> with SingleTickerProviderStateMixin{
     );
 
     try{
+      _cacheManager = CacheManager.instance;
       _spotifyRequests = SpotifyRequests.instance;
       _databaseStorage = DatabaseStorage.instance;
       _secureStorage = SecureStorage.instance;
     }
     catch (e){
+      _cacheManager = Get.put(CacheManager());
       _spotifyRequests = Get.put(SpotifyRequests());
       _databaseStorage = Get.put(DatabaseStorage());
       _secureStorage = Get.put(SecureStorage());
@@ -87,6 +90,10 @@ class HomeViewState extends State<HomeView> with SingleTickerProviderStateMixin{
       if(!checkLogin){
         await _secureStorage.getUser();
         await _secureStorage.getTokens();
+
+        if(_cacheManager.storedPlaylists.isEmpty){
+          await _cacheManager.getCachedPlaylists();
+        }
         
         // The saved User and Tokens are not corrupted.
         // Initialize the users database connection & spotify requests connection.
@@ -94,7 +101,7 @@ class HomeViewState extends State<HomeView> with SingleTickerProviderStateMixin{
           user = _secureStorage.secureUser!;
 
           await _databaseStorage.initializeDatabase(user);
-          await _spotifyRequests.initializeRequests(_secureStorage.secureCallback!, savedUser: _databaseStorage.user);
+          await _spotifyRequests.initializeRequests(callback: _secureStorage.secureCallback!, savedUser: _databaseStorage.user);
           await _secureStorage.saveUser(_databaseStorage.user);
 
           user = _spotifyRequests.user;
@@ -108,7 +115,10 @@ class HomeViewState extends State<HomeView> with SingleTickerProviderStateMixin{
 
       //Fetches Playlists if page is not loaded and on this Page
       if (mounted && !_loaded.value){
-
+        if(mounted && _cacheManager.storedPlaylists.isNotEmpty){
+          _spotifyRequests.allPlaylists = _cacheManager.storedPlaylists;
+          _loaded.value = true;
+        }
         if(mounted && (_spotifyRequests.loadedIds.isEmpty || _spotifyRequests.errorIds.isNotEmpty) && !refresh){
           await _spotifyRequests.requestPlaylists();
           _loaded.value = true;
@@ -132,12 +142,11 @@ class HomeViewState extends State<HomeView> with SingleTickerProviderStateMixin{
   }//checkLogin
 
   /// Navigate to Tracks page for chosen Playlist
-  void navigateToTracks(String playlistName){
+  void navigateToTracks(PlaylistModel playlist){
     try{
-      MapEntry<String, PlaylistModel> currEntry = _databaseStorage.allPlaylists.entries.firstWhere((MapEntry<String, PlaylistModel> element) => element.value.title == playlistName);
-
+      _spotifyRequests.currentPlaylist = playlist;
       // Navigate to the tracks page sending the chosen playlist.
-      Get.to(const TracksView(), arguments: currEntry.value);
+      Get.to(const TracksView());
     }
     catch (e){
       throw CustomException(stack: StackTrace.current, fileName: _fileName, functionName: 'navigateToTracks',  error: e);
@@ -219,40 +228,7 @@ class HomeViewState extends State<HomeView> with SingleTickerProviderStateMixin{
       centerTitle: true,
 
       // Refresh animated Icon under Appbar
-      bottom: Tab( 
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: <Widget>[
-            IconButton(
-              color: Colors.black,
-              icon:  AnimatedBuilder(
-                animation: _animationController, 
-                builder: (_, __) => Transform.rotate(
-                  angle: _animationController.value * 2 * 3.14,
-                  child: const Icon(Icons.sync),
-                ),
-              ),
-              onPressed: () async {
-                if (_loaded.value && !_spotifyRequests.loading.value){
-                  if(mounted) _animationController.repeat();
-                  await refreshPage();
-                  if(mounted) _animationController.reset();
-                }
-              },
-            ),
-            InkWell(
-              onTap: () async{
-                if (_loaded.value && !_spotifyRequests.loading.value){
-                  if(mounted) _animationController.repeat();
-                  await refreshPage();
-                  if(mounted) _animationController.reset();
-                }
-              },
-              child: const Text('Refresh'),
-            ),
-          ],
-        )
-      ),
+      bottom: tabRefresh(),
 
       //The Options Menu containing other navigation options
       leading: Builder(
@@ -276,7 +252,7 @@ class HomeViewState extends State<HomeView> with SingleTickerProviderStateMixin{
                 //Gets search result to user selected playlist
                 final result = await showSearch(
                     context: context,
-                    delegate: PlaylistSearchDelegate(_databaseStorage.allPlaylists));
+                    delegate: PlaylistSearchDelegate(_spotifyRequests.allPlaylists));
 
                 //Checks if user selected a playlist before search closed
                 if (result != null) {
@@ -288,5 +264,50 @@ class HomeViewState extends State<HomeView> with SingleTickerProviderStateMixin{
       ],
     );
   }//homeAppbar
+
+
+  Tab tabRefresh(){
+    if(_spotifyRequests.errorIds.isEmpty){
+      return Tab(
+        height: 0,
+        child: Container(),
+      );
+    }
+
+    return Tab(
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: <Widget>[
+          IconButton(
+            color: Colors.black,
+            icon:  AnimatedBuilder(
+              animation: _animationController, 
+              builder: (_, __) => Transform.rotate(
+                angle: _animationController.value * 2 * 3.14,
+                child: const Icon(Icons.sync),
+              ),
+            ),
+            onPressed: () async {
+              if (_loaded.value && !_spotifyRequests.loading.value){
+                if(mounted) _animationController.repeat();
+                await refreshPage();
+                if(mounted) _animationController.reset();
+              }
+            },
+          ),
+          InkWell(
+            onTap: () async{
+              if (_loaded.value && !_spotifyRequests.loading.value){
+                if(mounted) _animationController.repeat();
+                await refreshPage();
+                if(mounted) _animationController.reset();
+              }
+            },
+            child: const Text('Refresh'),
+          ),
+        ],
+      )
+    );
+  }
 
 }//HomeViewState

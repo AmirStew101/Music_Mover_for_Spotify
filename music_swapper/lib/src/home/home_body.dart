@@ -3,14 +3,16 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:spotify_music_helper/src/tracks/tracks_view.dart';
 import 'package:spotify_music_helper/src/utils/analytics.dart';
+import 'package:spotify_music_helper/src/utils/backend_calls/secure_storage.dart';
 import 'package:spotify_music_helper/src/utils/backend_calls/spotify_requests.dart';
+import 'package:spotify_music_helper/src/utils/class%20models/custom_sort.dart';
 import 'package:spotify_music_helper/src/utils/globals.dart';
-import 'package:spotify_music_helper/src/utils/playlist_model.dart';
+import 'package:spotify_music_helper/src/utils/class%20models/playlist_model.dart';
 
 class ImageGridWidget extends StatefulWidget{
   ///Playlists View.
   const ImageGridWidget({required this.playlists, required this.spotifyRequests,super.key});
-  final Map<String, PlaylistModel> playlists;
+  final List<PlaylistModel> playlists;
   final SpotifyRequests spotifyRequests;
 
   @override
@@ -19,17 +21,14 @@ class ImageGridWidget extends StatefulWidget{
 
 ///State view for the users Playlists showing each playlists image with its name under it.
 class ImageGridState extends State<ImageGridWidget> {
-  Map<String, PlaylistModel> playlists = <String, PlaylistModel>{};
-  List<PlaylistModel> playlistsList = <PlaylistModel>[];
+  List<PlaylistModel> playlists = <PlaylistModel>[];
   late final SpotifyRequests _spotifyRequests;
 
   @override
   void initState(){
     super.initState();
     _spotifyRequests = widget.spotifyRequests;
-    playlists = widget.playlists;
-    playlistsList = List.generate(playlists.length, (int index) => playlists.entries.elementAt(index).value);
-    playlistsList.sort((PlaylistModel a, PlaylistModel b) => a.title.compareTo(b.title));
+    playlists = Sort().playlistsListSort(playlistsList: widget.playlists);
   }
 
   String imageText(String id, String playlistName){
@@ -56,17 +55,17 @@ class ImageGridState extends State<ImageGridWidget> {
             crossAxisSpacing: 8, //Spacing between Col
             mainAxisSpacing: 10, //Spacing between rows
           ),
-          itemCount: playlistsList.length+1,
+          itemCount: playlists.length+1,
           itemBuilder: (_, int index) {
             
-            if(index >= playlistsList.length){
+            if(index >= playlists.length){
               return const SizedBox(
                 height: 10,
               );
             }
             else{
               //Gets the Map items by index with the extra item in mind
-              final PlaylistModel currPlaylist = playlistsList[index];
+              final PlaylistModel currPlaylist = playlists[index];
               final String imageName = currPlaylist.title;
               String imageUrl = currPlaylist.imageUrl;
               
@@ -80,8 +79,12 @@ class ImageGridState extends State<ImageGridWidget> {
                           await AppAnalytics().trackLikedSongs();
                         }
 
-                        PlaylistModel failedPlaylist = await Get.to(const TracksView(), arguments: currPlaylist);
-                        _spotifyRequests.requestTracks(failedPlaylist.id);
+                        _spotifyRequests.currentPlaylist = currPlaylist;
+                        bool success = await Get.to(const TracksView());
+
+                        if(!success){
+                          _spotifyRequests.requestTracks(currPlaylist.id);
+                        }
                       }
                     },
                     // Aligns the image over its title

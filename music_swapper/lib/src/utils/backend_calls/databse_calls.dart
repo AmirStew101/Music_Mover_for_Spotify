@@ -2,9 +2,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:get/get.dart';
 import 'package:spotify_music_helper/src/utils/exceptions.dart';
-import 'package:spotify_music_helper/src/utils/globals.dart';
-import 'package:spotify_music_helper/src/utils/playlist_model.dart';
-import 'package:spotify_music_helper/src/utils/user_model.dart';
+import 'package:spotify_music_helper/src/utils/class%20models/user_model.dart';
 
 const String _fileName = 'database_calls.dart';
 final FirebaseFirestore db = FirebaseFirestore.instance;
@@ -65,11 +63,11 @@ class UserRepository extends GetxController{
       final DocumentSnapshot<Map<String, dynamic>> databaseUser = await _user.userDoc.get();
 
       if (databaseUser.exists){
-        await _user.userDoc.update(<Object, Object?>{'Subscribed': user.subscribed, 'Tier': user.tier, 'Username': user.username, 'Expiration': DateTime.now()});
+        await _user.userDoc.update(<Object, Object?>{'subscribed': user.subscribed, 'tier': user.tier, 'username': user.username, 'expiration': user.expiration, 'url': user.url});
       }
     }
-    catch (e){
-      throw CustomException(stack: StackTrace.current, fileName: _fileName, functionName: 'updateUser',  error: e);
+    catch (e, stack){
+      throw CustomException(stack: stack, fileName: _fileName, functionName: 'updateUser',  error: e);
     }
 
     _user = user;
@@ -83,8 +81,8 @@ class UserRepository extends GetxController{
     try{
       _user.toFirestoreJson();
     }
-    catch (e){
-      throw CustomException(stack: StackTrace.current, fileName: _fileName, functionName: '_checkUserInitialized',  error: 'User not Initialized. Call the [initializeUser] function before calling other functions.');
+    catch (e, stack){
+      throw CustomException(stack: stack, fileName: _fileName, functionName: '_checkUserInitialized',  error: 'User not Initialized. Call the [initializeUser] function before calling other functions.');
     }
   }
 
@@ -99,20 +97,20 @@ class UserRepository extends GetxController{
       }
       return false;
     }
-    catch (e){
-      throw CustomException(stack: StackTrace.current, fileName: _fileName, functionName: 'hasUser',  error: e);
+    catch (e, stack){
+      throw CustomException(stack: stack, fileName: _fileName, functionName: 'hasUser',  error: e);
     }
   }// hasUser
   
-  /// Create a new user and adds them to the database.
+  /// Create a new user in the databse or sets an existing user to new values.
   Future<void> _createUser() async{
     try{
       await usersRef.doc(_user.spotifyId).set(_user.toFirestoreJson());
 
       _user.userDoc = usersRef.doc(_user.spotifyId);
     }
-    catch (e){
-      throw CustomException(stack: StackTrace.current, fileName: _fileName, functionName: 'createUser',  error: e);
+    catch (e, stack){
+      throw CustomException(stack: stack, fileName: _fileName, functionName: 'createUser',  error: e);
     }
   }// createUser
 
@@ -126,7 +124,7 @@ class UserRepository extends GetxController{
           spotifyId: databaseUser.id,
           subscribed: databaseUser.data()?['subscribed'],
           tier: databaseUser.data()?['tier'],
-          uri: databaseUser.data()?['uri'],
+          url: databaseUser.data()?['url'],
           username: databaseUser.data()?['username'],
           expiration: databaseUser.data()?['expiration'],
           userDocRef: usersRef.doc(user.spotifyId)
@@ -135,11 +133,15 @@ class UserRepository extends GetxController{
         return retreivedUser;
       }
       else{
-        throw CustomException(stack: StackTrace.current, fileName: _fileName, functionName: 'getUser',  error: 'Failed to get User from Database');
+        throw CustomException(stack: StackTrace.current, fileName: _fileName, functionName: 'getUser',  error: 'Failed User doesn\'t Exist');
       }
     }
     catch (e){
-      throw CustomException(stack: StackTrace.current, fileName: _fileName, functionName: 'getUser',  error: 'Failed to get User from Database');
+      _user = user;
+      await _createUser()
+      .onError((Object? error, StackTrace stackTrace) => 
+      throw CustomException(stack: stackTrace, fileName: _fileName, functionName: 'getUser',  error: 'Failed to get User from Database $error'));
+      return _user;
     }
   }// getUser
 
