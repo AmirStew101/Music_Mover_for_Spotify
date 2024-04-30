@@ -53,7 +53,7 @@ class HomeViewState extends State<HomeView> with SingleTickerProviderStateMixin{
   bool error = false;
   bool refresh = false;
 
-  final ValueNotifier _loaded = ValueNotifier(false);
+  final ValueNotifier<bool> _loaded = ValueNotifier<bool>(false);
 
   @override
   void initState(){

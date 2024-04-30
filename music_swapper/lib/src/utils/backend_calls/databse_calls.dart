@@ -18,6 +18,12 @@ class UserRepository extends GetxController{
   late UserModel _user;
   late String userId;
 
+  bool _new_user = false;
+
+  get newUser{
+    return _new_user;
+  }
+
   get user{
     return _user;
   }
@@ -32,6 +38,7 @@ class UserRepository extends GetxController{
   Future<void> initializeUser(UserModel user) async{
     bool has = await _hasUser(user);
     if(!has){
+      _new_user = true;
       _user = user;
       _createUser();
     }

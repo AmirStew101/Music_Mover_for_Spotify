@@ -2,6 +2,7 @@
 
 import 'dart:async';
 
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:spotify_music_helper/src/select_playlists/select_popups.dart';
@@ -28,6 +29,7 @@ class SelectPlaylistsViewWidget extends StatefulWidget {
 class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
   late ScaffoldMessengerState scaffoldMessengerState;
   late SpotifyRequests _spotifyRequests ;
+  final FirebaseCrashlytics _crashlytics = FirebaseCrashlytics.instance;
 
   /// Passed variables
   List<TrackModel> selectedTracksList = <TrackModel>[];
@@ -89,7 +91,7 @@ class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
     }
     catch (e, stack){
       error = true;
-      FileErrors.logError(error, stack);
+      _crashlytics.recordError(e, stack, reason: 'Failed to Request playlists from Spotify', fatal: true);
     }
 
   }

@@ -12,6 +12,11 @@ class DatabaseStorage extends GetxController{
   late UserModel _user;
 
   bool initialized = false;
+  bool _new_user = false;
+
+  get newUser{
+    return _new_user;
+  }
 
   static DatabaseStorage get instance => Get.find();
 
@@ -25,6 +30,7 @@ class DatabaseStorage extends GetxController{
   Future<void> initializeDatabase(UserModel user) async{
     await _userRepository.initializeUser(user);
     _user = _userRepository.user;
+    _new_user = _userRepository.newUser;
     initialized = true;
   }
 

@@ -1,7 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:http/http.dart' as http;
 import 'package:spotify_music_helper/src/utils/class%20models/custom_sort.dart';
@@ -10,7 +9,6 @@ import 'package:spotify_music_helper/src/utils/exceptions.dart';
 import 'package:spotify_music_helper/src/utils/backend_calls/storage.dart';
 import 'package:spotify_music_helper/src/utils/globals.dart';
 import 'package:spotify_music_helper/src/utils/class%20models/callback_model.dart';
-import 'package:spotify_music_helper/src/utils/global_classes/global_objects.dart';
 import 'package:get/get.dart';
 import 'package:spotify_music_helper/src/utils/class%20models/playlist_model.dart';
 import 'package:spotify_music_helper/src/utils/class%20models/track_model.dart';
@@ -449,7 +447,6 @@ class SpotifyRequests extends GetxController{
     user = UserModel(username: userInfo['user_name'] , spotifyId: userInfo['id'], url: userInfo['url']);
   }//getUser
 
-
   /// Gives each playlist the image size based on current platform.
   void _getPlaylistImages(Map<String, dynamic> playlists) {
     _allPlaylists.clear();
@@ -496,7 +493,6 @@ class SpotifyRequests extends GetxController{
       throw CustomException(stack: stack, fileName: _fileName, functionName: 'getPlaylistImages', error:e);
     }
   }
-
 
   /// Get the total number of tracks in a playlist.
   Future<void> _getTracksTotal() async{

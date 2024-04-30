@@ -8,8 +8,6 @@ import 'package:spotify_music_helper/src/utils/analytics.dart';
 import 'package:spotify_music_helper/src/utils/auth.dart';
 import 'package:spotify_music_helper/src/utils/backend_calls/spotify_requests.dart';
 import 'package:spotify_music_helper/src/utils/dev_global.dart';
-import 'package:spotify_music_helper/src/utils/exceptions.dart';
-import 'package:spotify_music_helper/src/utils/class%20models/callback_model.dart';
 import 'package:spotify_music_helper/src/utils/globals.dart';
 import 'package:spotify_music_helper/src/utils/backend_calls/database_classes.dart';
 import 'package:spotify_music_helper/src/utils/backend_calls/storage.dart';
@@ -122,10 +120,16 @@ class SpotLoginState extends State<SpotLoginWidget> {
               await _cacheManager.getCachedPlaylists();
 
               await AppAnalytics().trackSpotifyLogin(_spotifyRequests.user);
-              
-              // Navigate to Home and remove previous routes
-              Get.offAllNamed('/');
 
+              if(_databaseStorage.newUser){
+                // Navigate to Tutorial screen for new Users and remove previous routes
+                Get.offAllNamed('/tutorial');
+              }
+              else{
+                // Navigate to Home and remove previous routes
+                Get.offAllNamed('/');
+              }
+              
               return NavigationDecision.prevent;
             }
             else{
