@@ -3,6 +3,7 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:spotify_music_helper/src/home/home_search.dart';
@@ -44,6 +45,7 @@ class HomeViewState extends State<HomeView> with SingleTickerProviderStateMixin{
   late SpotifyRequests _spotifyRequests;
   late DatabaseStorage _databaseStorage;
   late SecureStorage _secureStorage;
+  final FirebaseCrashlytics _crashlytics = FirebaseCrashlytics.instance;
 
   UserModel user = UserModel(subscribed: true);
 
@@ -129,7 +131,7 @@ class HomeViewState extends State<HomeView> with SingleTickerProviderStateMixin{
     catch (e, stack){
       error = true;
       _loaded.value = true;
-      await FileErrors.logError(e, stack);
+      _crashlytics.recordError(e, stack, reason: 'Failed to Check Login', fatal: true);
     }
   }//checkLogin
 
@@ -140,8 +142,8 @@ class HomeViewState extends State<HomeView> with SingleTickerProviderStateMixin{
       // Navigate to the tracks page sending the chosen playlist.
       Get.to(const TracksView());
     }
-    catch (e){
-      throw CustomException(stack: StackTrace.current, fileName: _fileName, functionName: 'navigateToTracks',  error: e);
+    catch (e, stack){
+      _crashlytics.recordError(e, stack, reason: 'Failed to Navigate to Tracks', fatal: true);
     }
   }//navigateToTracks
 

@@ -60,21 +60,3 @@ class CustomException implements Exception{
   }//exceptionText
 
 }
-
-class FileErrors{
-  static Future<void> logError(dynamic error, StackTrace stackTrace) async {
-    try {
-      // Get the directory for storing files
-      Directory directory = await getApplicationDocumentsDirectory();
-      File file = File('${directory.path}/error_log.txt');
-
-      // Write error and stack trace to the file
-      String errorMessage = '$error\n$stackTrace';
-      await file.writeAsString(errorMessage, mode: FileMode.append);
-    } 
-    catch (e) {
-      // Handle any errors that occur during file writing
-      print('Error occurred while saving error to file: $e');
-    }
-  }
-}

@@ -2,12 +2,12 @@
 
 import 'dart:async';
 
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:spotify_music_helper/src/select_playlists/select_view.dart';
 import 'package:spotify_music_helper/src/utils/ads.dart';
 import 'package:spotify_music_helper/src/tracks/tracks_popups.dart';
-import 'package:spotify_music_helper/src/utils/backend_calls/storage.dart';
 import 'package:spotify_music_helper/src/utils/class%20models/custom_sort.dart';
 import 'package:spotify_music_helper/src/utils/exceptions.dart';
 import 'package:spotify_music_helper/src/utils/global_classes/global_objects.dart';
@@ -37,9 +37,8 @@ class _UiText{
 }
 
 class TracksViewState extends State<TracksView> with SingleTickerProviderStateMixin{
-  //late DatabaseStorage _databaseStorage = DatabaseStorage.instance;
+  final FirebaseCrashlytics _crashlytics = FirebaseCrashlytics.instance;
   late SpotifyRequests _spotifyRequests;
-  //late SpotifySync _spotifySync = SpotifySync.instance;
 
   late PlaylistModel currentPlaylist;
   late UserModel user;
@@ -125,7 +124,7 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
       catch (e, stack){
         error = true;
         loaded.value = true;
-        await FileErrors.logError(e, stack);
+        _crashlytics.recordError(e, stack, reason: 'Failed while Fetching Spotify Tracks', fatal: true);
       }
     }
   }//checkLogin

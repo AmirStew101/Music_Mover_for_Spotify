@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:http/http.dart' as http;
 import 'package:spotify_music_helper/src/utils/class%20models/custom_sort.dart';
 import 'package:spotify_music_helper/src/utils/dev_global.dart';
@@ -21,6 +22,7 @@ const String _fileName = 'spotify_requests.dart';
 /// 
 /// Must call the initializeRequests() function before making any functin calls or an error wil be thrown.
 class SpotifyRequests extends GetxController{
+  final FirebaseCrashlytics _crashlytics = FirebaseCrashlytics.instance;
   /// User and Callback saved on the device.
   late final SecureStorage _secureStorage;
 
@@ -162,9 +164,9 @@ class SpotifyRequests extends GetxController{
     }
 
     await _cacheManager.getCachedPlaylists()
-    .onError((error, stackTrace) {
+    .onError((error, stack) {
       cacheLoaded = false;
-      print('Faied to retreive cached playlists: $error $stackTrace');
+      _crashlytics.recordError(error, stack, reason: 'Faied to retreive cached playlists');
     });
     
     // Set Payists retreived from cache and add them to the loaded playlists.
@@ -194,12 +196,8 @@ class SpotifyRequests extends GetxController{
         if(response.body.contains('Need refresh token')){
           await _checkRefresh(forceRefresh: true);
           response = await http.get(Uri.parse(getPlaylistsUrl));
-
-          if(response.statusCode != 200){
-            throw CustomException(stack: StackTrace.current, fileName: _fileName, functionName: 'requestPlaylists', error: response.body);
-          }
         }
-        else{
+        if(response.statusCode != 200){
           throw CustomException(stack: StackTrace.current, fileName: _fileName, functionName: 'requestPlaylists', error: response.body);
         }
       }
@@ -244,7 +242,7 @@ class SpotifyRequests extends GetxController{
       _loadedIds.add(_playlistId);
     }
     _cacheManager.cachePlaylists(allPlaylists)
-    .onError((Object? error, StackTrace stackTrace) => FileErrors.logError('Failed to cache Playlists: $error', stackTrace));
+    .onError((Object? error, StackTrace stack) => _crashlytics.recordError(error, stack, reason: 'Failed to cache Playlists'));
 
     loading.value = false;
   }
