@@ -80,9 +80,9 @@ class ImageGridState extends State<ImageGridWidget> {
                         }
 
                         _spotifyRequests.currentPlaylist = currPlaylist;
-                        bool success = await Get.to(const TracksView());
+                        bool? success = await Get.to(const TracksView());
 
-                        if(!success){
+                        if(success != null && !success){
                           _spotifyRequests.requestTracks(currPlaylist.id);
                         }
                       }

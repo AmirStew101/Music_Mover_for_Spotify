@@ -1,6 +1,7 @@
 // ignore_for_file: use_build_context_synchronously
 
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
@@ -168,45 +169,75 @@ class HomeViewState extends State<HomeView> with SingleTickerProviderStateMixin{
 
         drawer: optionsMenu(context),
 
-        body: ValueListenableBuilder(
-          valueListenable: _loaded, 
-          builder: (_, __, ___) {
-            if (_loaded.value && !error && _spotifyRequests.allPlaylists.isNotEmpty) {
-              return Stack(
-                children: <Widget>[
-                  ImageGridWidget(playlists: _spotifyRequests.allPlaylists, spotifyRequests: _spotifyRequests,),
-                  if (!user.subscribed)
-                    Ads().setupAds(context, user)
+        body: PopScope(
+          canPop: false,
+          onPopInvoked: (_) {
+            Get.dialog(
+              AlertDialog.adaptive(
+                title: const Text(
+                  'Sure you want to exit the App?',
+                  textAlign: TextAlign.center,
+                ),
+                actionsAlignment: MainAxisAlignment.center,
+                actions: <Widget>[
+                  TextButton(
+                    onPressed: () {
+                      //Close Popup
+                      Get.back();
+                    }, 
+                    child: const Text('Cancel')
+                  ),
+                  TextButton(
+                    onPressed: () {
+                      //Close App
+                      exit(0);
+                    },
+                    child: const Text('Confirm'),
+                  ),
                 ],
-              );
-            }
-            else if(!_loaded.value && !error) {
+              )
+            );
+          },
+          child: ValueListenableBuilder(
+            valueListenable: _loaded, 
+            builder: (_, __, ___) {
+              if (_loaded.value && !error && _spotifyRequests.allPlaylists.isNotEmpty) {
                 return Stack(
                   children: <Widget>[
-                    const Center( child:  CircularProgressIndicator(strokeWidth: 6)),
+                    ImageGridWidget(playlists: _spotifyRequests.allPlaylists, spotifyRequests: _spotifyRequests,),
+                    if (!user.subscribed)
+                      Ads().setupAds(context, user)
+                  ],
+                );
+              }
+              else if(!_loaded.value && !error) {
+                  return Stack(
+                    children: <Widget>[
+                      const Center( child:  CircularProgressIndicator(strokeWidth: 6)),
+                      if (!user.subscribed)
+                        Ads().setupAds(context, user),
+                    ],
+                  ) ;
+              }
+              else{
+                return Stack(
+                  children: <Widget>[
+                    Center(
+                      child: Text(
+                        error ? _UiText().error : _UiText().empty,
+                        textAlign: TextAlign.center,
+                        textScaler: const TextScaler.linear(2),
+                      ),
+                    ),
                     if (!user.subscribed)
                       Ads().setupAds(context, user),
                   ],
-                ) ;
-            }
-            else{
-              return Stack(
-                children: <Widget>[
-                  Center(
-                    child: Text(
-                      error ? _UiText().error : _UiText().empty,
-                      textAlign: TextAlign.center,
-                      textScaler: const TextScaler.linear(2),
-                    ),
-                  ),
-                  if (!user.subscribed)
-                    Ads().setupAds(context, user),
-                ],
-              );
-            }
-          },
-        ),
-      );
+                );
+              }
+            },
+          ),
+        )
+    );
   }//build
 
   AppBar homeAppbar(){

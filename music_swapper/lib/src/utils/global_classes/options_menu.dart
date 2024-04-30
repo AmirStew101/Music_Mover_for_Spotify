@@ -81,7 +81,10 @@ Drawer optionsMenu(BuildContext context){
             onTap: () {
               Get.dialog(
                 AlertDialog.adaptive(
-                  title: const Text('Sure you want to exit the App?'),
+                  title: const Text(
+                    'Sure you want to exit the App?',
+                    textAlign: TextAlign.center
+                  ),
                   actionsAlignment: MainAxisAlignment.center,
                   actions: <Widget>[
                     TextButton(

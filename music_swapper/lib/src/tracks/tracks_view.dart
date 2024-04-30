@@ -38,7 +38,7 @@ class _UiText{
 
 class TracksViewState extends State<TracksView> with SingleTickerProviderStateMixin{
   //late DatabaseStorage _databaseStorage = DatabaseStorage.instance;
-  late SpotifyRequests _spotifyRequests = SpotifyRequests.instance;
+  late SpotifyRequests _spotifyRequests;
   //late SpotifySync _spotifySync = SpotifySync.instance;
 
   late PlaylistModel currentPlaylist;
@@ -308,7 +308,7 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
                    Obx(() => Checkbox(
                     materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                     shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
-                    value: selectedTracksList.length == currentPlaylist.tracks.length,
+                    value: selectedTracksList.length == currentPlaylist.tracks.length && loaded.value,
                     onChanged: (_) {
                       handleSelectAll();
                     },
