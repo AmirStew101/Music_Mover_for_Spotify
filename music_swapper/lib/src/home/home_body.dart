@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:spotify_music_helper/src/tracks/tracks_view.dart';
 import 'package:spotify_music_helper/src/utils/analytics.dart';
-import 'package:spotify_music_helper/src/utils/backend_calls/secure_storage.dart';
+import 'package:spotify_music_helper/src/utils/backend_calls/storage.dart';
 import 'package:spotify_music_helper/src/utils/backend_calls/spotify_requests.dart';
 import 'package:spotify_music_helper/src/utils/class%20models/custom_sort.dart';
 import 'package:spotify_music_helper/src/utils/globals.dart';

@@ -13,10 +13,9 @@ class TracksSearchDelegate extends SearchDelegate {
   ///Tracks user has selected in Search or Body.
   ///
   ///Key: Track Title, Value: {ID & bool if 'chosen'}.
-  RxMap<String, TrackModel> chosenTracksMap = <String, TrackModel>{}.obs;
+  RxList<TrackModel> chosenTracksList = <TrackModel>[].obs;
 
   Rx<bool> artistFilter = false.obs;
-  Rx<bool> selectAll = false.obs;
   
   late PlaylistModel playlist;
 
@@ -25,13 +24,11 @@ class TracksSearchDelegate extends SearchDelegate {
 
   ///Gets all the tracks for the playlist from tracks, and
   ///gets all the selected Tracks from previous widget.
-  TracksSearchDelegate(PlaylistModel currentPlaylist, Map<String, TrackModel> tracksSelectedMap) {
+  TracksSearchDelegate(PlaylistModel currentPlaylist, List<TrackModel> tracksSelectedMap) {
     playlist = currentPlaylist;
-    searchResults = Sort().tracksListSort(playlist, ascending: ascending);
+    searchResults = Sort().tracksListSort(playlist: playlist, ascending: ascending);
 
-    chosenTracksMap.addAll(tracksSelectedMap);
-
-    if (chosenTracksMap.length == playlist.tracksDupes.length) selectAll.value = true;
+    chosenTracksList.addAll(tracksSelectedMap);
   }
   
   @override
@@ -41,7 +38,7 @@ class TracksSearchDelegate extends SearchDelegate {
       icon: const Icon(Icons.cancel),
       onPressed: () {
         if (query.isEmpty) {
-          close(context, chosenTracksMap);
+          close(context, chosenTracksList);
         } 
         else {
           query = '';
@@ -76,16 +73,16 @@ class TracksSearchDelegate extends SearchDelegate {
             backgroundColor: Colors.grey,
             label: const Text('All'),
 
-            selected: selectAll.value,
+            selected: chosenTracksList.length == searchResults.length,
             selectedColor: spotHelperGreen,
 
             onSelected: (_) {
-              selectAll.value = !selectAll.value;
-              if(selectAll.value){
-                chosenTracksMap.addAll(playlist.tracksDupes);
+              if(chosenTracksList.length != searchResults.length){
+                chosenTracksList.clear();
+                chosenTracksList.addAll(playlist.tracks);
               }
               else{
-                chosenTracksMap.clear();
+                chosenTracksList.clear();
               }
             },
           ),
@@ -97,8 +94,7 @@ class TracksSearchDelegate extends SearchDelegate {
 
   @override
   Widget buildResults(BuildContext context) {
-    close(context, chosenTracksMap);
-    return const Center(child: Text('No Matching Results', textScaler: TextScaler.linear(2)));
+    return buildSuggestions(context);
   }
 
   @override
@@ -159,26 +155,26 @@ class TracksSearchDelegate extends SearchDelegate {
               return ListTile(
                 onTap: () {
                   setState(() {
-                    if(!chosenTracksMap.containsKey(suggestion.dupeId)){
-                      chosenTracksMap.putIfAbsent(suggestion.dupeId, () => suggestion);
+                    if(!chosenTracksList.contains(suggestion)){
+                      chosenTracksList.add(suggestion);
                     }
                     else{
-                      chosenTracksMap.remove(suggestion.dupeId);
+                      chosenTracksList.remove(suggestion);
                     }
                   });
                 },
 
                 //Checkbox for users Track
                 leading: Obx(() => Checkbox(
-                  value: chosenTracksMap.containsKey(suggestion.dupeId),
+                  value: chosenTracksList.contains(suggestion),
                   //Keeps track of tracks user selects
-                  onChanged: (bool? value) {
+                  onChanged: (_) {
                     setState(() {
-                      if(!chosenTracksMap.containsKey(suggestion.dupeId)){
-                        chosenTracksMap.putIfAbsent(suggestion.dupeId, () => suggestion);
+                      if(!chosenTracksList.contains(suggestion)){
+                        chosenTracksList.add(suggestion);
                       }
                       else{
-                        chosenTracksMap.remove(suggestion.dupeId);
+                        chosenTracksList.remove(suggestion);
                       }
                       
                     });

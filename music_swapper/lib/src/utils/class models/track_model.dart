@@ -1,5 +1,7 @@
 
 
+import 'dart:convert';
+
 ///Model for Spotify Track object.
 class TrackModel extends Object{
   final String id;
@@ -158,19 +160,27 @@ class TrackModel extends Object{
   }
 
   /// Converts a Json track to a TrackModel
-  factory TrackModel.fromJson(Map<String, dynamic> json) =>
-  TrackModel(
-    id: json['id'],
-    title: json['title'],
-    imageUrl: json['imageUrl'],
-    previewUrl: json['previewUrl'],
-    artists: json['artists'],
-    album: json['album'],
-    addedAt: json['addedAt'],
-    duplicates: json['duplicates'],
-    dupeId: json['dupeId'],
-    type: json['type']
-  );
+  factory TrackModel.fromJson(Map<String, dynamic> json) {
+    String encodedArtists = jsonEncode(json['artists']);
+    encodedArtists = jsonEncode(json['artists']);
+    final String encodeAlbum = jsonEncode(json['album']);
+
+    Map<String, dynamic> artists = jsonDecode(encodedArtists);
+    Map<String, dynamic> album = jsonDecode(encodeAlbum);
+
+    return TrackModel(
+      id: json['id'],
+      title: json['title'],
+      imageUrl: json['imageUrl'],
+      previewUrl: json['previewUrl'],
+      artists: artists,
+      album: album,
+      addedAt: DateTime.tryParse(json['addedAt']),
+      duplicates: json['duplicates'],
+      dupeId: json['dupeId'],
+      type: json['type']
+    );
+  }
 
   /// Converts a TrackModel to a Json track
   Map<String, dynamic> toJson() => 
@@ -179,17 +189,18 @@ class TrackModel extends Object{
     'title': title,
     'imageUrl': imageUrl,
     'previewUrl': previewUrl,
-    'artists': _artists.toString(),
-    'album': _album.toString(),
+    'artists': _artists,
+    'album': _album,
     'addedAt': _addedAt.toString(),
     'duplicates': duplicates,
     'dupeId': dupeId,
-    'type': _type
+    'type': _type,
+    'liked': liked
   };
 
   @override
   String toString(){
-    return 'TrackModel(id: $id, title: $title, artists: ${_artists.toString()}, album: ${_album.toString()} duplicates: $duplicates, imageUrl: $imageUrl, liked: $liked, type: $_type, addedAt: ${_addedAt.toString()})';
+    return 'TrackModel(id: $id, title: $title)';
   }
 
   @override

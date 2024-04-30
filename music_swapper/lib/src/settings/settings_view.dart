@@ -10,7 +10,7 @@ import 'package:spotify_music_helper/src/utils/exceptions.dart';
 import 'package:spotify_music_helper/src/utils/backend_calls/database_classes.dart';
 import 'package:spotify_music_helper/src/utils/global_classes/options_menu.dart';
 import 'package:spotify_music_helper/src/utils/globals.dart';
-import 'package:spotify_music_helper/src/utils/backend_calls/secure_storage.dart';
+import 'package:spotify_music_helper/src/utils/backend_calls/storage.dart';
 import 'package:spotify_music_helper/src/utils/global_classes/global_objects.dart';
 import 'package:url_launcher/link.dart';
 import 'package:url_launcher/url_launcher.dart';

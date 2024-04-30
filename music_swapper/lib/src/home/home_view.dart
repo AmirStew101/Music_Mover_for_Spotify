@@ -13,7 +13,7 @@ import 'package:spotify_music_helper/src/utils/globals.dart';
 import 'package:spotify_music_helper/src/home/home_body.dart';
 import 'package:spotify_music_helper/src/tracks/tracks_view.dart';
 import 'package:spotify_music_helper/src/utils/backend_calls/database_classes.dart';
-import 'package:spotify_music_helper/src/utils/backend_calls/secure_storage.dart';
+import 'package:spotify_music_helper/src/utils/backend_calls/storage.dart';
 import 'package:spotify_music_helper/src/utils/global_classes/options_menu.dart';
 import 'package:spotify_music_helper/src/utils/class%20models/playlist_model.dart';
 import 'package:spotify_music_helper/src/utils/class%20models/user_model.dart';
@@ -43,14 +43,12 @@ class HomeViewState extends State<HomeView> with SingleTickerProviderStateMixin{
   late SpotifyRequests _spotifyRequests;
   late DatabaseStorage _databaseStorage;
   late SecureStorage _secureStorage;
-  late CacheManager _cacheManager;
 
   UserModel user = UserModel(subscribed: true);
 
   //bool loaded = false;
   bool error = false;
   bool refresh = false;
-  bool checkLogin = false;
 
   final ValueNotifier _loaded = ValueNotifier(false);
 
@@ -63,13 +61,11 @@ class HomeViewState extends State<HomeView> with SingleTickerProviderStateMixin{
     );
 
     try{
-      _cacheManager = CacheManager.instance;
       _spotifyRequests = SpotifyRequests.instance;
       _databaseStorage = DatabaseStorage.instance;
       _secureStorage = SecureStorage.instance;
     }
     catch (e){
-      _cacheManager = Get.put(CacheManager());
       _spotifyRequests = Get.put(SpotifyRequests());
       _databaseStorage = Get.put(DatabaseStorage());
       _secureStorage = Get.put(SecureStorage());
@@ -87,13 +83,9 @@ class HomeViewState extends State<HomeView> with SingleTickerProviderStateMixin{
   /// Check the saved Tokens & User on device and on successful confirmation get Users playlists.
   Future<void> _checkLogin() async {
     try{
-      if(!checkLogin){
+      if(!_spotifyRequests.initialized || !_databaseStorage.initialized){
         await _secureStorage.getUser();
         await _secureStorage.getTokens();
-
-        if(_cacheManager.storedPlaylists.isEmpty){
-          await _cacheManager.getCachedPlaylists();
-        }
         
         // The saved User and Tokens are not corrupted.
         // Initialize the users database connection & spotify requests connection.
@@ -110,13 +102,12 @@ class HomeViewState extends State<HomeView> with SingleTickerProviderStateMixin{
           bool reLogin = true;
           Get.to(const StartViewWidget(), arguments: reLogin);
         }
-        checkLogin = true;
       }
 
       //Fetches Playlists if page is not loaded and on this Page
       if (mounted && !_loaded.value){
-        if(mounted && _cacheManager.storedPlaylists.isNotEmpty){
-          _spotifyRequests.allPlaylists = _cacheManager.storedPlaylists;
+        if(mounted && _spotifyRequests.cacheLoaded){
+          await _spotifyRequests.requestPlaylists();
           _loaded.value = true;
         }
         if(mounted && (_spotifyRequests.loadedIds.isEmpty || _spotifyRequests.errorIds.isNotEmpty) && !refresh){

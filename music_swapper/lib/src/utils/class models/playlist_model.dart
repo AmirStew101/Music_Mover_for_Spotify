@@ -1,4 +1,6 @@
 
+import 'dart:convert';
+
 import 'package:spotify_music_helper/src/utils/class%20models/track_model.dart';
 
 ///Model for Spotify Playlist object.
@@ -8,8 +10,7 @@ class PlaylistModel {
   final String imageUrl;
   final String snapshotId;
   final String title;
-  List<TrackModel> _tracks;
-  Map<String, TrackModel> _tracksDupes = {};
+  List<TrackModel> _tracks = [];
 
   ///Model for a Spotify Playlist object.
   PlaylistModel({
@@ -32,9 +33,6 @@ class PlaylistModel {
     _makeDuplicates();
   }
 
-  Map<String, TrackModel> get tracksDupes{
-    return _tracksDupes;
-  }
 
   /// Add a track to a playlist or increase the tracks duplicates if it already exists in the playlist.
   void addTrack(TrackModel trackModel){
@@ -64,11 +62,12 @@ class PlaylistModel {
 
     int duplicates;
     String dupeId;
+    List<TrackModel> newTracks = [];
 
     for (TrackModel track in _tracks){
       duplicates = track.duplicates;
 
-      // Make duplicates of a track with duplicates.
+      // Make duplicates of a track with duplicate ids.
       if (duplicates > 0){
         for (int i = 0; i <= duplicates; i++){
           dupeId = i == 0
@@ -76,14 +75,16 @@ class PlaylistModel {
           : '${track.id}_$i';
 
           // Create a dupicate with a modified Id
-          tracksDupes.addAll(<String, TrackModel>{dupeId: track});
+          newTracks.add(track.copyWith(dupeId: dupeId));
         }
       }
-      // Create the original track with an unmodified Id
+      // Create the original track with an unmodified dupelicate Id
       else{
-        tracksDupes.addAll(<String, TrackModel>{track.id: track});
+        newTracks.add(track.copyWith(dupeId: track.id));
       }
     }
+
+    _tracks = newTracks;
   }
 
   factory PlaylistModel.fromJson(Map<String, dynamic> json){
@@ -91,17 +92,22 @@ class PlaylistModel {
     List<TrackModel> tracksList = [];
 
     for(dynamic item in jsonTracks){
-      tracksList.add(TrackModel.fromJson(item));
+      /// Encode the Map as a Json map with "" around each key
+      final String encoded = jsonEncode(item);
+
+      /// Decode the String to a Map.
+      Map<String, dynamic> mapItem = jsonDecode(encoded);
+      tracksList.add(TrackModel.fromJson(mapItem));
     }
 
     return PlaylistModel(
-        id: json['id'],
-        link: json['link'],
-        imageUrl: json['imageUrl'],
-        snapshotId: json['snapshotId'],
-        title: json['title'],
-        tracks: tracksList,
-      );
+      id: json['id'],
+      link: json['link'],
+      imageUrl: json['imageUrl'],
+      snapshotId: json['snapshotId'],
+      title: json['title'],
+      tracks: tracksList,
+    );
   }
 
   Map<String, dynamic> toJson() => <String, dynamic>{
@@ -146,7 +152,7 @@ class PlaylistModel {
 
   @override
   String toString(){
-    return 'PlaylistModel(id: $id, title: $title, snapshotId: $snapshotId, link: $link, imageUrl: $imageUrl, tracks: ${_tracks.toString()}, tracksDupes: ${_tracksDupes.toString()})';
+    return 'PlaylistModel(id: $id, title: $title, snapshotId: $snapshotId, link: $link, imageUrl: $imageUrl, tracks: ${_tracks.toString()})';
   }
 
 }

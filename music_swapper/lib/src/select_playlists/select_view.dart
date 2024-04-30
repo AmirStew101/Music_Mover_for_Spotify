@@ -30,7 +30,7 @@ class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
   late SpotifyRequests _spotifyRequests ;
 
   /// Passed variables
-  Map<String, TrackModel> selectedTracksMap = <String, TrackModel>{};
+  List<TrackModel> selectedTracksList = <TrackModel>[];
   String option = '';
 
   /// Variables in storage
@@ -40,7 +40,6 @@ class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
   List<PlaylistModel> sortedPlaylists = [];
   bool ascending = true;
   RxList<PlaylistModel> selectedPlaylistList = <PlaylistModel>[].obs;
-  bool selectAll = false;
 
   /// Page View state variables
   bool loaded = false;
@@ -62,7 +61,7 @@ class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
     user = _spotifyRequests.user;
     currentPlaylist = _spotifyRequests.currentPlaylist;
     final TrackArguments trackArgs = Get.arguments;
-    selectedTracksMap = trackArgs.selectedTracks;
+    selectedTracksList = trackArgs.selectedTracks;
     option = trackArgs.option;
 
     sortedPlaylists = Sort().playlistsListSort(playlistsList: _spotifyRequests.allPlaylists);
@@ -74,16 +73,6 @@ class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
     scaffoldMessengerState = ScaffoldMessenger.of(context);
   }
 
-  /// Selects all of the playlists.
-  void handleSelectAll(){
-
-    if (selectAll){
-      selectedPlaylistList.addAll(_spotifyRequests.allPlaylists);
-    }
-    else{
-      selectedPlaylistList.clear();
-    }
-  }
 
   /// Check if the playlists were passed correctly.
   Future<void> _checkPlaylists() async{
@@ -114,10 +103,10 @@ class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
     if (option == 'move') {
       try{
         //Add tracks to selected playlists
-        await _spotifyRequests.addTracks(selectedList, tracksMap: selectedTracksMap);
+        await _spotifyRequests.addTracks(selectedList, tracksList: selectedTracksList);
 
         //Remove tracks from current playlist
-        await _spotifyRequests.removeTracks(selectedTracksMap, currentPlaylist, currentPlaylist.snapshotId);
+        await _spotifyRequests.removeTracks(selectedTracksList, currentPlaylist, currentPlaylist.snapshotId);
 
         //Finished moving tracks for the playlist
         adding = false;
@@ -133,7 +122,7 @@ class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
       try{
         adding = true;
         //Update Spotify with the added tracks
-        await _spotifyRequests.addTracks(selectedList, tracksMap: selectedTracksMap);
+        await _spotifyRequests.addTracks(selectedList, tracksList: selectedTracksList);
 
         //Finished adding tracks to 
         adding = false;
@@ -202,9 +191,6 @@ class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
                     selectedPlaylistList = result;
                   }
 
-                  if (selectedPlaylistList.length == _spotifyRequests.allPlaylists.length) selectAll = true;
-                  if (selectedPlaylistList.isEmpty) selectAll = false;
-
                   //Update Selected Playlists
                   setState(() {});
                 }
@@ -246,8 +232,6 @@ class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
         String playId = playModel.id;
         String imageUrl = playModel.imageUrl;
 
-        Rx<bool> chosen = selectedPlaylistList.contains(playModel).obs;
-
         if (option == 'move' && currentPlaylist.title == playTitle){
           return Container();
         }
@@ -256,9 +240,8 @@ class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
           children: <Widget>[
             InkWell(
               onTap: () {
-                chosen.value = !chosen.value;
 
-                if(chosen.value){
+                if(!selectedPlaylistList.contains(playModel)){
                   selectedPlaylistList.add(playModel);
                 }
                 else{
@@ -269,11 +252,10 @@ class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
                 leading: Obx(() => Checkbox(
                   materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                   shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
-                  value: chosen.value,
+                  value: selectedPlaylistList.contains(playModel),
                   onChanged: (_) {
-                    chosen.value = !chosen.value;
 
-                    if(chosen.value){
+                    if(!selectedPlaylistList.contains(playModel)){
                       selectedPlaylistList.add(playModel);
                     }
                     else{
@@ -308,7 +290,7 @@ class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
       optionText = 'Add Track(s)';
     }
 
-    int totalChosen = selectedTracksMap.length;
+    int totalChosen = selectedTracksList.length;
                   
     /// Sets variables for User Notification
     int totalPlaylists = selectedPlaylistList.length;
@@ -329,10 +311,10 @@ class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
           Expanded(
             child: InkWell(
               onTap: () async {
-                if (selectedTracksMap.isNotEmpty){
+                if (selectedTracksList.isNotEmpty){
                   if (!adding){
                     adding = true;
-                    int totalChosen = selectedTracksMap.length;
+                    int totalChosen = selectedTracksList.length;
                     
                     //Sets variables for User Notification
                     int totalPlaylists = selectedPlaylistList.length;
@@ -379,7 +361,7 @@ class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
                 IconButton(
                   icon: optionIcon,
                   onPressed: () async {
-                    if (selectedTracksMap.isNotEmpty){
+                    if (selectedTracksList.isNotEmpty){
                       adding = true;
 
                       setState(() {
@@ -411,26 +393,30 @@ class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
             child:
             InkWell(
               onTap: () {
-                selectAll = !selectAll;
-                handleSelectAll();
-                setState(() {
-                  //Check
-                });
+                if (selectedPlaylistList.length != _spotifyRequests.allPlaylists.length){
+                  selectedPlaylistList.clear();
+                  selectedPlaylistList.addAll(_spotifyRequests.allPlaylists);
+                }
+                else{
+                  selectedPlaylistList.clear();
+                }
               },
               child: Row(
                 children: <Widget>[
-                  Checkbox(
+                  Obx(() => Checkbox(
                     materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                     shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
-                    value: selectAll, 
-                    onChanged: (bool? value) {
-                      selectAll = !selectAll;
-                      handleSelectAll();
-                      setState(() {
-                        //Check
-                      });
+                    value: selectedPlaylistList.length == _spotifyRequests.allPlaylists.length,
+                    onChanged: (_) {
+                      if (selectedPlaylistList.length != _spotifyRequests.allPlaylists.length){
+                        selectedPlaylistList.clear();
+                        selectedPlaylistList.addAll(_spotifyRequests.allPlaylists);
+                      }
+                      else{
+                        selectedPlaylistList.clear();
+                      }
                     },
-                  ),
+                  )),
                   const Text('Select All'),
                 ],
               ),

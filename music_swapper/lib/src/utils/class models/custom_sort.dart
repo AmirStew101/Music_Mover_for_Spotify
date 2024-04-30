@@ -48,49 +48,62 @@ class Sort{
   /// [addedAt] - The time the track was added to the playlist
   /// 
   /// Tracks can be sorted in ascending or descending order based on the value of [ascending]. Defaults to true.
-  List<TrackModel> tracksListSort(PlaylistModel playlist, {bool artist = false, bool type = false, bool addedAt = false, bool ascending = true}){
-    Map<String, TrackModel> tracks = playlist.tracksDupes;
-    List<TrackModel> tracksList = [];
+  List<TrackModel> tracksListSort({PlaylistModel? playlist, List<TrackModel>? tracksList, bool artist = false, bool type = false, bool addedAt = false, bool id = false, bool ascending = true}){
+    List<TrackModel> tracks;
 
-    tracks.forEach((String key, TrackModel value) {
-      tracksList.add(value.copyWith(dupeId: key));
-    });
+    if(playlist != null){
+      tracks = playlist.tracks;
+    }
+    else if(tracksList != null){
+      tracks = tracksList;
+    }
+    else{
+      throw CustomException(error: 'Missing PlaylistModel or List of TrackModels');
+    }
 
 
     if(artist){
       if(ascending){
-        tracksList.sort((TrackModel a, TrackModel b) => a.artistNames[0].compareTo(b.artistNames[0]));
+        tracks.sort((TrackModel a, TrackModel b) => a.artistNames[0].compareTo(b.artistNames[0]));
       }
       else{
-        tracksList.sort((TrackModel a, TrackModel b) => a.artistNames[0].compareTo(b.artistNames[0]) * -1);
+        tracks.sort((TrackModel a, TrackModel b) => a.artistNames[0].compareTo(b.artistNames[0]) * -1);
       }
     }
     else if(type){
       if (ascending){
-        tracksList.sort((TrackModel a, TrackModel b) => a.type.compareTo(b.type));
+        tracks.sort((TrackModel a, TrackModel b) => a.type.compareTo(b.type));
       }
       else{
-        tracksList.sort((TrackModel a, TrackModel b) => a.type.compareTo(b.type) * -1);
+        tracks.sort((TrackModel a, TrackModel b) => a.type.compareTo(b.type) * -1);
       }
     }
     else if(addedAt){
       if (ascending){
-        tracksList.sort((TrackModel a, TrackModel b) => a.addedAt.compareTo(b.addedAt));
+        tracks.sort((TrackModel a, TrackModel b) => a.addedAt.compareTo(b.addedAt));
       }
       else{
-        tracksList.sort((TrackModel a, TrackModel b) => a.addedAt.compareTo(b.addedAt) * -1);
+        tracks.sort((TrackModel a, TrackModel b) => a.addedAt.compareTo(b.addedAt) * -1);
+      }
+    }
+    else if(id){
+      if (ascending){
+        tracks.sort((TrackModel a, TrackModel b) => a.id.compareTo(b.id));
+      }
+      else{
+        tracks.sort((TrackModel a, TrackModel b) => a.id.compareTo(b.id) * -1);
       }
     }
     else{
       if(ascending){
-        tracksList.sort((TrackModel a, TrackModel b) => a.title.compareTo(b.title));
+        tracks.sort((TrackModel a, TrackModel b) => a.title.compareTo(b.title));
       }
       else{
-        tracksList.sort((TrackModel a, TrackModel b) => a.title.compareTo(b.title) * -1);
+        tracks.sort((TrackModel a, TrackModel b) => a.title.compareTo(b.title) * -1);
       }
     }
 
-    return tracksList;
+    return tracks;
   }
 
 }

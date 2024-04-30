@@ -254,12 +254,12 @@ class SecureStorage extends GetxController{
   }//storageCheck
 }
 
-class CacheManager extends GetxController{
+class PlaylistsCacheManager extends GetxController{
   static const String _key = 'cached_playlists';
 
   List<PlaylistModel> _storedPlaylists = [];
 
-  static CacheManager get instance => Get.find();
+  static PlaylistsCacheManager get instance => Get.find();
 
   List<PlaylistModel> get storedPlaylists{
     return _storedPlaylists;
@@ -277,22 +277,32 @@ class CacheManager extends GetxController{
     await prefs.setString(_key, jsonEncode(storeList));
   }
 
+  Future<void> clearPlaylists() async{
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_key);
+  }
+
   Future<List<PlaylistModel>?> getCachedPlaylists() async {
     final SharedPreferences prefs = await SharedPreferences.getInstance();
-    final String? jsonData = prefs.getString(_key);
+    final jsonData = prefs.getString(_key);
 
     if(jsonData == null){
       return null;
     }
 
-    List<Map<String, dynamic>> storedList = jsonDecode(jsonData) as List<Map<String, dynamic>>;
-    List<PlaylistModel> playlists = <PlaylistModel>[];
+    try{
+      List<dynamic> storedList = jsonDecode(jsonData);
+      List<PlaylistModel> playlists = <PlaylistModel>[];
 
-    for(Map<String, dynamic> item in storedList){
-      playlists.add(PlaylistModel.fromJson(item));
+      for(Map<String, dynamic> item in storedList){
+        playlists.add(PlaylistModel.fromJson(item));
+      }
+      _storedPlaylists = playlists;
+      return playlists;
+
     }
-    _storedPlaylists = playlists;
-
-    return playlists;
+    catch (e, stack){
+      throw CustomException(error: 'Error Cache Decoding: $e $stack');
+    }
   }
 }

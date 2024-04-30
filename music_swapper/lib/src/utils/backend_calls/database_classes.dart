@@ -11,6 +11,8 @@ final UserRepository _userRepository = Get.put(UserRepository());
 class DatabaseStorage extends GetxController{
   late UserModel _user;
 
+  bool initialized = false;
+
   static DatabaseStorage get instance => Get.find();
 
   UserModel get user{
@@ -23,6 +25,7 @@ class DatabaseStorage extends GetxController{
   Future<void> initializeDatabase(UserModel user) async{
     await _userRepository.initializeUser(user);
     _user = _userRepository.user;
+    initialized = true;
   }
 
   /// Removes a [user] and all of their data from the database.

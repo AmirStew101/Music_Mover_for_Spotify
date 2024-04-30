@@ -38,12 +38,12 @@ Divider customDivider(){
 
 ///Model for app TrackArguments object. Used to pass tracks between pages.
 class TrackArguments{
-  final Map<String, TrackModel> selectedTracks;
+  final List<TrackModel> selectedTracks;
   final String option;
 
   ///Model for app TrackArguments object. Used to pass tracks between pages.
   TrackArguments({
-    this.selectedTracks = const <String, TrackModel>{},
+    this.selectedTracks = const <TrackModel>[],
     this.option = '',
   });
 

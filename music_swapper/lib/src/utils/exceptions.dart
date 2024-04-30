@@ -70,7 +70,6 @@ class FileErrors{
 
       // Write error and stack trace to the file
       String errorMessage = '$error\n$stackTrace';
-      print(errorMessage);
       await file.writeAsString(errorMessage, mode: FileMode.append);
     } 
     catch (e) {

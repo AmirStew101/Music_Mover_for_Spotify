@@ -12,7 +12,7 @@ import 'package:spotify_music_helper/src/utils/exceptions.dart';
 import 'package:spotify_music_helper/src/utils/class%20models/callback_model.dart';
 import 'package:spotify_music_helper/src/utils/globals.dart';
 import 'package:spotify_music_helper/src/utils/backend_calls/database_classes.dart';
-import 'package:spotify_music_helper/src/utils/backend_calls/secure_storage.dart';
+import 'package:spotify_music_helper/src/utils/backend_calls/storage.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:http/http.dart' as http;
 
@@ -33,21 +33,21 @@ class SpotLoginState extends State<SpotLoginWidget> {
   late SpotifyRequests _spotifyRequests;
   late DatabaseStorage _databaseStorage;
   late SecureStorage _secureStorage;
-  late CacheManager _cacheManager;
+  late PlaylistsCacheManager _cacheManager;
 
   @override
   void initState(){
     super.initState();
     try{
       _secureStorage = SecureStorage.instance;
-      _cacheManager = CacheManager.instance;
+      _cacheManager = PlaylistsCacheManager.instance;
       _spotifyRequests = SpotifyRequests.instance;
       _databaseStorage = DatabaseStorage.instance;
       
     }
     catch (e){
       _secureStorage = Get.put(SecureStorage());
-      _cacheManager = Get.put(CacheManager());
+      _cacheManager = Get.put(PlaylistsCacheManager());
       _spotifyRequests = Get.put(SpotifyRequests());
       _databaseStorage = Get.put(DatabaseStorage());
     }
