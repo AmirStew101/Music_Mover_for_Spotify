@@ -66,7 +66,7 @@ class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
     selectedTracksList = trackArgs.selectedTracks;
     option = trackArgs.option;
 
-    sortedPlaylists = Sort().playlistsListSort(playlistsList: _spotifyRequests.allPlaylists);
+    sortedPlaylists = _spotifyRequests.allPlaylists;
   }
 
   @override
@@ -81,7 +81,7 @@ class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
     try{
       if(mounted && !loaded && (_spotifyRequests.allPlaylists.isEmpty || refresh)){
         await _spotifyRequests.requestPlaylists(refresh: refresh);
-        sortedPlaylists = Sort().playlistsListSort(playlistsList: _spotifyRequests.allPlaylists);
+        sortedPlaylists = _spotifyRequests.allPlaylists;
         selectedPlaylistList.clear();
       }
       
@@ -99,13 +99,13 @@ class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
   /// Handles what to do when the user selects the Move/Add Tracks button
   Future<void> handleOptionSelect() async {
 
-    List<PlaylistModel> selectedList = Sort().playlistsListSort(playlistsList: selectedPlaylistList);
+    List<PlaylistModel> selectedList = selectedPlaylistList;
     
     //Move tracks to Playlists
     if (option == 'move') {
       try{
         //Add tracks to selected playlists
-        await _spotifyRequests.addTracks(selectedList, tracksList: selectedTracksList);
+        await _spotifyRequests.addTracks(selectedList, selectedTracksList);
 
         //Remove tracks from current playlist
         await _spotifyRequests.removeTracks(selectedTracksList, currentPlaylist, currentPlaylist.snapshotId);
@@ -124,7 +124,7 @@ class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
       try{
         adding = true;
         //Update Spotify with the added tracks
-        await _spotifyRequests.addTracks(selectedList, tracksList: selectedTracksList);
+        await _spotifyRequests.addTracks(selectedList, selectedTracksList);
 
         //Finished adding tracks to 
         adding = false;

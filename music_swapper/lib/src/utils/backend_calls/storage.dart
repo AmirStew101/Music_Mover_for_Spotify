@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:another_flushbar/flushbar.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:get/get.dart';
@@ -267,14 +268,19 @@ class PlaylistsCacheManager extends GetxController{
 
   /// Cache a sorted list of playlists for the user.
   Future<void> cachePlaylists(List<PlaylistModel> playlists) async {
-    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    try{
+      final SharedPreferences prefs = await SharedPreferences.getInstance();
 
-    List<Map<String, dynamic>> storeList = <Map<String, dynamic>>[];
+      List<Map<String, dynamic>> storeList = <Map<String, dynamic>>[];
 
-    for(PlaylistModel playlist in playlists){
-      storeList.add(playlist.toJson());
+      for(PlaylistModel playlist in playlists){
+        storeList.add(playlist.toJson());
+      }
+      await prefs.setString(_key, jsonEncode(storeList));
     }
-    await prefs.setString(_key, jsonEncode(storeList));
+    catch (error, stack){
+      FirebaseCrashlytics.instance.recordError(error, stack, reason: 'Failed to cache Playlists');
+    }
   }
 
   Future<void> clearPlaylists() async{
@@ -282,15 +288,16 @@ class PlaylistsCacheManager extends GetxController{
     await prefs.remove(_key);
   }
 
+  /// Get the Playlists from cache.
   Future<List<PlaylistModel>?> getCachedPlaylists() async {
-    final SharedPreferences prefs = await SharedPreferences.getInstance();
-    final jsonData = prefs.getString(_key);
-
-    if(jsonData == null){
-      return null;
-    }
-
     try{
+      final SharedPreferences prefs = await SharedPreferences.getInstance();
+      final jsonData = prefs.getString(_key);
+
+      if(jsonData == null){
+        return null;
+      }
+
       List<dynamic> storedList = jsonDecode(jsonData);
       List<PlaylistModel> playlists = <PlaylistModel>[];
 
@@ -301,8 +308,9 @@ class PlaylistsCacheManager extends GetxController{
       return playlists;
 
     }
-    catch (e, stack){
-      throw CustomException(error: 'Error Cache Decoding: $e $stack');
+    catch (error, stack){
+      FirebaseCrashlytics.instance.recordError(error, stack, reason: 'Error Cache Decoding');
+      return null;
     }
   }
 }

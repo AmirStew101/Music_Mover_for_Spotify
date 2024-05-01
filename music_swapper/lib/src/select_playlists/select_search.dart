@@ -13,7 +13,7 @@ class SelectPlaylistSearchDelegate extends SearchDelegate {
   //Search Constructor setting the search results to the Playlist names
   SelectPlaylistSearchDelegate(List<PlaylistModel> playlists, List<PlaylistModel> selectedPlaylistsist) {
     allPlaylists = playlists;
-    allPlaylists = Sort().playlistsListSort(playlistsList: playlists);
+    allPlaylists = playlists;
     selectedList.addAll(selectedPlaylistsist);
   }
 

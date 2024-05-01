@@ -103,7 +103,6 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
     else{
       sortedTracks = Sort().tracksListSort(playlist: currentPlaylist, ascending: ascending);
     }
-    
   }
 
   ///Page state setup Function to setup the page.

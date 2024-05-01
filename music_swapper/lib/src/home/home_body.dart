@@ -27,7 +27,7 @@ class ImageGridState extends State<ImageGridWidget> {
   void initState(){
     super.initState();
     _spotifyRequests = widget.spotifyRequests;
-    playlists = Sort().playlistsListSort(playlistsList: widget.playlists);
+    playlists = widget.playlists;
   }
 
   /// Text under a playlists image giving its state.

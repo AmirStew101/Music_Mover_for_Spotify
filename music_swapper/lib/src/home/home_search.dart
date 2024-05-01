@@ -11,7 +11,7 @@ class PlaylistSearchDelegate extends SearchDelegate {
   ///setting playlistImages variable
   PlaylistSearchDelegate(List<PlaylistModel> playlists) {
     allplaylists = playlists;
-    searchResults = Sort().playlistsListSort(playlistsList: playlists);
+    searchResults = playlists;
   }
 
   //What Icons on the Left side of the Search Bar

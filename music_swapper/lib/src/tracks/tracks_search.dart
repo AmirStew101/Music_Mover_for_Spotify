@@ -19,7 +19,7 @@ class TracksSearchDelegate extends SearchDelegate {
   
   late PlaylistModel playlist;
 
-  String sortType = Sort().title;
+  String searchType = Sort().title;
   bool ascending = true;
 
   ///Gets all the tracks for the playlist from tracks, and
@@ -64,6 +64,12 @@ class TracksSearchDelegate extends SearchDelegate {
 
             onSelected: (_) {
               artistFilter.value = !artistFilter.value;
+              if(artistFilter.value){
+                searchType = Sort().artist;
+              }
+              else{
+                searchType = Sort().title;
+              }
             },
           ),
           const SizedBox(width: 5,),
@@ -105,7 +111,7 @@ class TracksSearchDelegate extends SearchDelegate {
     .where((TrackModel searchResult) {
       final String result;
 
-      if(sortType == Sort().artist){
+      if(searchType == Sort().artist){
         result = searchResult.artistNames[0].toLowerCase();
       }
       else{
@@ -120,10 +126,11 @@ class TracksSearchDelegate extends SearchDelegate {
     //No suggestions when Filter box isn't checked
     if (trackSuggestions.isEmpty) {
       return const Align(
-          alignment: Alignment.topCenter,
-          child: Text(
-            'No Matching Results', 
-            textScaler: TextScaler.linear(1.2))
+        alignment: Alignment.topCenter,
+        child: Text(
+          'No Matching Results', 
+          textScaler: TextScaler.linear(1.2)
+        )
       );
     }
 

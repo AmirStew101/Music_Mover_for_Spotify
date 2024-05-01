@@ -14,28 +14,16 @@ class Sort{
 
   /// Sorts a Map or List of playlists in ascending or descending order based on their Title.
   /// Trows an error if no Map or List is given.
-  List<PlaylistModel> playlistsListSort({Map<String, PlaylistModel>? playlistsMap, List<PlaylistModel>? playlistsList, bool ascending = true}){
-    List<PlaylistModel> newPlaylists = [];
-
-    if(playlistsMap == null && playlistsList == null){
-      throw CustomException(error: 'Missing the required Map or List of playlists.');
-    }
-
-    if(playlistsMap != null && playlistsMap.isNotEmpty){
-      playlistsMap.forEach((_, PlaylistModel value) => newPlaylists.add(value));
-    }
-    else{
-      newPlaylists.addAll(playlistsList!);
-    }
+  List<PlaylistModel> playlistsListSort(List<PlaylistModel> playlistsList,{bool ascending = true}){
 
     if(ascending){
-      newPlaylists.sort((PlaylistModel a, PlaylistModel b) => a.title.compareTo(b.title));
+      playlistsList.sort((PlaylistModel a, PlaylistModel b) => a.title.compareTo(b.title));
     }
     else{
-      newPlaylists.sort((PlaylistModel a, PlaylistModel b) => a.title.compareTo(b.title) * -1);
+      playlistsList.sort((PlaylistModel a, PlaylistModel b) => a.title.compareTo(b.title) * -1);
     }
 
-    return newPlaylists;
+    return playlistsList;
   }
 
   /// Sort a Map of tracks from a given playlist.
