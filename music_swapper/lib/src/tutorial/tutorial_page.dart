@@ -4,12 +4,14 @@ import 'package:get/get.dart';
 import 'package:spotify_music_helper/src/utils/globals.dart';
 
 class TutorialWidget extends StatelessWidget{
+  TutorialWidget({super.key});
 
   final RxList<String> _tutorialImages = <String>[SpotifyLogos().greenRGB].obs;
-  int index = 0;
   
   @override
   Widget build(BuildContext context) {
+    int index = 0;
+
     return Scaffold(
       body: Center(
         child: Row(

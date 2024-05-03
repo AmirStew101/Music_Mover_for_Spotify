@@ -1,8 +1,6 @@
 import 'package:get/get.dart';
 import 'package:spotify_music_helper/src/utils/backend_calls/databse_calls.dart';
 import 'package:spotify_music_helper/src/utils/exceptions.dart';
-import 'package:spotify_music_helper/src/utils/class%20models/playlist_model.dart';
-import 'package:spotify_music_helper/src/utils/class%20models/track_model.dart';
 import 'package:spotify_music_helper/src/utils/class%20models/user_model.dart';
 
 const String _fileName = 'database_classes.dart';

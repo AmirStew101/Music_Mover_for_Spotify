@@ -134,7 +134,9 @@ class UserRepository extends GetxController{
           url: databaseUser.data()?['url'],
           username: databaseUser.data()?['username'],
           expiration: databaseUser.data()?['expiration'],
-          userDocRef: usersRef.doc(user.spotifyId)
+          userDocRef: usersRef.doc(user.spotifyId),
+          playlistAsc: databaseUser.data()?['playlistAsc'],
+          tracksAsc: databaseUser.data()?['tracksAsc'],
         );
 
         return retreivedUser;

@@ -36,6 +36,7 @@ class Sort{
   /// [artist] - The artists name,
   /// [type] - The type of track it is between 'track' and 'episode',
   /// [addedAt] - The time the track was added to the playlist
+  /// [id] = The tracks unique id
   /// 
   /// Tracks can be sorted in ascending or descending order based on the value of [ascending]. Defaults to true.
   List<TrackModel> tracksListSort({PlaylistModel? playlist, List<TrackModel>? tracksList, bool artist = false, bool type = false, bool addedAt = false, bool id = false, bool ascending = true}){

@@ -6,7 +6,6 @@ import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:spotify_music_helper/src/select_playlists/select_popups.dart';
-import 'package:spotify_music_helper/src/utils/class%20models/custom_sort.dart';
 import 'package:spotify_music_helper/src/utils/exceptions.dart';
 import 'package:spotify_music_helper/src/utils/global_classes/global_objects.dart';
 import 'package:spotify_music_helper/src/utils/globals.dart';
@@ -231,7 +230,6 @@ class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
       itemBuilder: (_, int index) {
         PlaylistModel playModel = sortedPlaylists[index];
         String playTitle = playModel.title;
-        String playId = playModel.id;
         String imageUrl = playModel.imageUrl;
 
         if (option == 'move' && currentPlaylist.title == playTitle){

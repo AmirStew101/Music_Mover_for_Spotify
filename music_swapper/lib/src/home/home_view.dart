@@ -10,8 +10,6 @@ import 'package:spotify_music_helper/src/home/home_search.dart';
 import 'package:spotify_music_helper/src/login/start_screen.dart';
 import 'package:spotify_music_helper/src/utils/ads.dart';
 import 'package:spotify_music_helper/src/utils/backend_calls/spotify_requests.dart';
-import 'package:spotify_music_helper/src/utils/class%20models/custom_sort.dart';
-import 'package:spotify_music_helper/src/utils/exceptions.dart';
 import 'package:spotify_music_helper/src/utils/globals.dart';
 import 'package:spotify_music_helper/src/home/home_body.dart';
 import 'package:spotify_music_helper/src/tracks/tracks_view.dart';
@@ -20,8 +18,6 @@ import 'package:spotify_music_helper/src/utils/backend_calls/storage.dart';
 import 'package:spotify_music_helper/src/utils/global_classes/options_menu.dart';
 import 'package:spotify_music_helper/src/utils/class%20models/playlist_model.dart';
 import 'package:spotify_music_helper/src/utils/class%20models/user_model.dart';
-
-const String _fileName = 'home_view.dart';
 
 //Creates the state for the home screen to view/edit playlists
 class HomeView extends StatefulWidget {
@@ -53,7 +49,6 @@ class HomeViewState extends State<HomeView> with SingleTickerProviderStateMixin{
   //bool loaded = false;
   bool error = false;
   bool refresh = false;
-  bool ascending = false;
 
   final ValueNotifier<bool> _loaded = ValueNotifier<bool>(false);
 
@@ -90,7 +85,7 @@ class HomeViewState extends State<HomeView> with SingleTickerProviderStateMixin{
   /// Updates how the tracks are sorted.
   void sortUpdate() {
     print('Sort');
-    _spotifyRequests.sortPlaylists(ascending: ascending);
+    _spotifyRequests.sortPlaylists();
     print('Finish Sort');
   }
 
@@ -127,7 +122,6 @@ class HomeViewState extends State<HomeView> with SingleTickerProviderStateMixin{
           print('Loaded Ids: ${_spotifyRequests.loadedIds.isEmpty} Error Ids: ${_spotifyRequests.errorIds.isNotEmpty} All Playlists: ${_spotifyRequests.allPlaylists.isEmpty}');
           print('Request all Playlists & Tracks');
           await _spotifyRequests.requestPlaylists();
-          sortUpdate();
           _loaded.value = true;
           await _spotifyRequests.requestAllTracks();
           print('Finished Requesting all Playlists & Tracks');
@@ -135,14 +129,12 @@ class HomeViewState extends State<HomeView> with SingleTickerProviderStateMixin{
         else if(mounted && refresh){
           print('Request all Playlists');
           await _spotifyRequests.requestPlaylists(refresh: refresh);
-          sortUpdate();
           refresh = false;
           _loaded.value = true;
           print('Finished Requesting all Playlists');
         }
         else{
           print('Load cached Playlists');
-          sortUpdate();
           _loaded.value = true;
         }
       }
@@ -246,27 +238,28 @@ class HomeViewState extends State<HomeView> with SingleTickerProviderStateMixin{
                 return Stack(
                   alignment: Alignment.center,
                   children: <Widget>[
-                    Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        Text(
-                          error ? _UiText().error : _UiText().empty,
-                          textAlign: TextAlign.center,
-                          textScaler: const TextScaler.linear(2),
-                        ),
-                        const SizedBox(height: 10,), 
-                        IconButton(
-                          onPressed: () async{
-                            await refreshPage();
-                          }, 
-                          icon: const Icon(
-                            Icons.refresh_sharp,
-                            color: Colors.green,
-                            size: 50,
-                          ) 
-                        )
-                      ],
+                    Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            error ? _UiText().error : _UiText().empty,
+                            textAlign: TextAlign.center,
+                            textScaler: const TextScaler.linear(2),
+                          ),
+                          const SizedBox(height: 10,), 
+                          IconButton(
+                            onPressed: () async{
+                              await refreshPage();
+                            }, 
+                            icon: const Icon(
+                              Icons.refresh_sharp,
+                              color: Colors.green,
+                              size: 50,
+                            ) 
+                          )
+                        ],
+                      )
                     ),
                     if (!user.subscribed)
                       Ads().setupAds(context, user),
@@ -303,6 +296,15 @@ class HomeViewState extends State<HomeView> with SingleTickerProviderStateMixin{
       backgroundColor: spotHelperGreen,
 
       actions: <Widget>[
+        Obx(() => IconButton(
+          onPressed: () {
+            _spotifyRequests.playlistsAsc = !_spotifyRequests.playlistsAsc;
+            sortUpdate();
+          }, 
+          icon: _spotifyRequests.playlistsAsc
+          ? const Icon(Icons.arrow_upward_sharp)
+          : const Icon(Icons.arrow_downward_sharp)
+        )),
         //Search Button
         IconButton(
             icon: const Icon(Icons.search),

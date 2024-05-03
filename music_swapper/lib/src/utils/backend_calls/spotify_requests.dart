@@ -34,13 +34,15 @@ class SpotifyRequests extends GetxController{
 
   /// Contains the Users id and other information.
   late UserModel user;
+  final Rx<bool> _playlistsAsc = true.obs;
+  final Rx<bool> _tracksAsc = true.obs;
 
   /// All of a Users Spotify Playlists.
   /// 
   /// Key: Playlist id
   /// 
   /// Value: Playlist model with stored tracks.
-  List<PlaylistModel> _allPlaylists = <PlaylistModel>[];
+  final RxList<PlaylistModel> _allPlaylists = <PlaylistModel>[].obs;
 
   /// Listenable List of playlists that have finished loading tracks.
   final RxList<String> _loadedIds = <String>[].obs;
@@ -51,10 +53,10 @@ class SpotifyRequests extends GetxController{
 
   /// The Id for the currently active playlist.
   late String _playlistId;
-  late PlaylistModel currentPlaylist;
+  late PlaylistModel _currentPlaylist;
 
   /// Tracks for the currently active playlist from playlistId. 
-  List<TrackModel> _playlistTracks = [];
+  final RxList<TrackModel> _playlistTracks = <TrackModel>[].obs;
 
   /// Total number of Tracks in a playlist.
   int tracksTotal = 0;
@@ -91,6 +93,35 @@ class SpotifyRequests extends GetxController{
     }
   }
 
+  PlaylistModel get currentPlaylist{
+    return _currentPlaylist;
+  }
+
+  set currentPlaylist(PlaylistModel playlist){
+    _currentPlaylist = playlist;
+    _playlistTracks.value = _currentPlaylist.tracks;
+    _playlistId = _currentPlaylist.id;
+  }
+
+
+  bool get playlistsAsc{
+    return _playlistsAsc.value;
+  }
+
+  bool get tracksAsc{
+    return _tracksAsc.value;
+  }
+
+  set playlistsAsc(bool ascending){
+    user.playlistAsc = ascending;
+    _playlistsAsc.value = ascending;
+  }
+
+  set tracksAsc(bool ascending){
+    user.tracksAsc = ascending;
+    _tracksAsc.value = ascending;
+  }
+
   /// Listenable List of playlists that have finished loading tracks.
   RxList<String>  get loadedIds{
     return _loadedIds;
@@ -112,7 +143,7 @@ class SpotifyRequests extends GetxController{
   }
 
   set allPlaylists(List<PlaylistModel> playlists){
-    _allPlaylists = playlists;
+    _allPlaylists.value = playlists;
     _checkTracks(_allPlaylists);
   }
 
@@ -134,10 +165,30 @@ class SpotifyRequests extends GetxController{
   /// Get the instance of the User Repository.
   static SpotifyRequests get instance => Get.find();
 
-  void sortPlaylists({bool ascending = true}){
+  void sortPlaylists(){
     // Sorts Playlists in ascending or descending order based on the current sort type.
-    _allPlaylists = Sort().playlistsListSort(_allPlaylists, ascending: ascending);
+    _allPlaylists.value = Sort().playlistsListSort(_allPlaylists, ascending: user.playlistAsc);
     _checkTracks(_allPlaylists);
+  }
+
+  List<TrackModel> sortTracks(String sortType, {bool artist = false, bool type = false, bool addedAt = false, bool id = false}){
+    if(sortType == Sort().addedAt){
+      _currentPlaylist.tracks = Sort().tracksListSort(tracksList: _playlistTracks, addedAt: true, ascending: user.tracksAsc);
+    }
+    else if(sortType == Sort().artist){
+      _currentPlaylist.tracks = Sort().tracksListSort(tracksList: _playlistTracks, artist: true, ascending: user.tracksAsc);
+    }
+    else if(sortType == Sort().type){
+      _currentPlaylist.tracks = Sort().tracksListSort(tracksList: _playlistTracks, type: true, ascending: user.tracksAsc);
+    }
+    // Default title sort
+    else{
+      _currentPlaylist.tracks = Sort().tracksListSort(tracksList: _playlistTracks, ascending: user.tracksAsc);
+    }
+
+    _playlistTracks.value = _currentPlaylist.tracks;
+
+    return _playlistTracks;
   }
 
   /// Must initialize the requests with a Spotify [CallbackModel] before calling any other functions.
@@ -163,12 +214,15 @@ class SpotifyRequests extends GetxController{
     }
     else{
       user = savedUser;
+      _playlistsAsc.value = user.playlistAsc;
+      _tracksAsc.value = user.tracksAsc;
     }
 
     await _cacheManager.getCachedPlaylists()
-    .onError((error, stack) {
+    .onError((Object? error, StackTrace stack) {
       cacheLoaded = false;
       _crashlytics.recordError(error, stack, reason: 'Faied to retreive cached playlists');
+      return null;
     });
     
     // Set Payists retreived from cache and add them to the loaded playlists.
@@ -188,7 +242,10 @@ class SpotifyRequests extends GetxController{
   /// 
   /// Must initialize Requests before calling function.
   Future<void> requestPlaylists({bool refresh = false}) async {
-    if(loading.value) return;
+    if(loading.value){
+      print('Requests Loading');
+      return;
+    }
 
     print('Request Playlists');
     await _checkInitialized();
@@ -205,6 +262,7 @@ class SpotifyRequests extends GetxController{
           response = await http.get(Uri.parse(getPlaylistsUrl));
         }
         if(response.statusCode != 200){
+          loading.value = false;
           throw CustomException(stack: StackTrace.current, fileName: _fileName, functionName: 'requestPlaylists', error: response.body);
         }
       }
@@ -235,7 +293,10 @@ class SpotifyRequests extends GetxController{
   /// 
   /// Must initialize Requests before calling function.
   Future<void> requestTracks(String playlistId) async{
-    if(loading.value) return;
+    if(loading.value){
+      print('Requests Loading');
+      return;
+    }
 
     print('Request Tracks');
     await _checkInitialized();
@@ -246,7 +307,7 @@ class SpotifyRequests extends GetxController{
     _errorLoading.remove(playlistId);
 
     _playlistId = playlistId;
-    currentPlaylist = _allPlaylists.firstWhere((_) => _.id == _playlistId);
+    _currentPlaylist = _allPlaylists.firstWhere((_) => _.id == _playlistId);
 
     await _getTracks()
     .onError((_, __) => _errorLoading.addIf(!_errorLoading.contains(_playlistId), _playlistId));
@@ -264,7 +325,10 @@ class SpotifyRequests extends GetxController{
 
   /// Makes multpile calls to Spotify to get all of a users Tracks.
   Future<void> requestAllTracks({bool refresh = false}) async{
-    if(loading.value) return;
+    if(loading.value){
+      print('Requests Loading');
+      return;
+    }
 
     print('Request All Tracks');
     await _checkInitialized();
@@ -303,7 +367,10 @@ class SpotifyRequests extends GetxController{
   ///
   /// Must initialize Requests before calling function.
   Future<void> addTracks(List<PlaylistModel> playlists, List<TrackModel> tracksList) async {
-    if(loading.value) return;
+    if(loading.value){
+      print('Requests Loading');
+      return;
+    }
 
     print('Add Tracks');
     await _checkInitialized();
@@ -338,7 +405,6 @@ class SpotifyRequests extends GetxController{
     }
     catch (e, stack){
       loading.value = false;
-      
       throw CustomException(stack: stack, fileName: _fileName, functionName: 'addTracks', error: e);
     }
 
@@ -348,6 +414,7 @@ class SpotifyRequests extends GetxController{
     else{
       _addBackTracks.clear();
     }
+
     loading.value = false;
     print('Added Tracks');
   }
@@ -356,7 +423,10 @@ class SpotifyRequests extends GetxController{
   /// 
   /// Must initialize Requests before calling function.
   Future<void> removeTracks(List<TrackModel> selectedTracks, PlaylistModel playlist, String snapshotId) async{
-    if(loading.value) return;
+    if(loading.value){
+      print('Requests Loading');
+      return;
+    }
 
     print('Remove Tracks');
     await _checkInitialized();
@@ -492,11 +562,12 @@ class SpotifyRequests extends GetxController{
     Map<String, dynamic> userInfo = jsonDecode(response.body);
 
     //Converts user from Spotify to Firestore user
-    user = UserModel(username: userInfo['user_name'] , spotifyId: userInfo['id'], url: userInfo['url']);
+    user = UserModel(username: userInfo['user_name'] , spotifyId: userInfo['id'], url: userInfo['url'], playlistAsc: _playlistsAsc.value, tracksAsc: _tracksAsc.value);
   }//getUser
 
   /// Gives each playlist the image size based on current platform.
   void _getPlaylistImages(Map<String, dynamic> playlists) {
+    print('Get Playlist Images');
     try{
       //The chosen image url
       String imageUrl = '';
@@ -552,8 +623,8 @@ class SpotifyRequests extends GetxController{
             _allPlaylists.add(newPlay);
           }
         }
-
-        print('New Playlists $_allPlaylists');
+        print('Retreived playlists images ${newPlaylists.length}');
+        print('New Playlists w/ images ${_allPlaylists.length}');
       } 
       
     }
@@ -647,7 +718,7 @@ class SpotifyRequests extends GetxController{
 
       int index = _allPlaylists.indexWhere((_) => _.id == _playlistId);
       _allPlaylists[index].tracks = _playlistTracks;
-      currentPlaylist = _allPlaylists[index];
+      _currentPlaylist = _allPlaylists[index];
       _loadedIds.addIf(!_loadedIds.contains(_playlistId), _playlistId);
       _errorLoading.remove(_playlistId);
     }
@@ -661,7 +732,7 @@ class SpotifyRequests extends GetxController{
   /// 
   /// Adds each track to '_playlistsTracks' variable as a new track.
   void _getTrackImages(Map<String, dynamic> responseTracks) {
-    _playlistTracks = [];
+    _playlistTracks.value = [];
 
     try{
       //The chosen image url
@@ -817,6 +888,10 @@ class SpotifyRequests extends GetxController{
       }
       int index = _allPlaylists.indexWhere((_) => _.id == playlist.id);
       _allPlaylists[index] = playlist;
+
+      if(_currentPlaylist == playlist){
+        _playlistTracks.value = playlist.tracks;
+      }
     }
 
     await _cacheManager.cachePlaylists(allPlaylists)
@@ -828,7 +903,7 @@ class SpotifyRequests extends GetxController{
     // Remove the tracks from the apps Tracks.
     for(String trackId in _removeIds){
       int index = playlist.tracks.indexWhere((_) => _.id == trackId);
-      playlist.tracks[index]!.duplicates--;
+      playlist.tracks[index].duplicates--;
       
       // Remove the track when it is completely removed from a playlist.
       if (playlist.tracks[index].duplicates < 0){
@@ -839,6 +914,10 @@ class SpotifyRequests extends GetxController{
     int index = _allPlaylists.indexWhere((_) => _.id == _playlistId);
     _allPlaylists[index] = playlist;
     _removeIds = [];
+    
+    if(_currentPlaylist == playlist){
+      _playlistTracks.value = playlist.tracks;
+    }
 
     await _cacheManager.cachePlaylists(allPlaylists)
     .onError((Object? error, StackTrace stack) => _crashlytics.recordError(error, stack, reason: 'Failed to cache Playlists'));

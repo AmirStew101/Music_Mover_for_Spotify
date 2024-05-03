@@ -9,6 +9,8 @@ class UserModel{
   final bool subscribed;
   final int tier;
   final Timestamp expiration;
+  bool playlistAsc; 
+  bool tracksAsc;
   late final DocumentReference<Map<String, dynamic>> userDoc;
   
   /// Model for a Spotify User object.
@@ -19,6 +21,8 @@ class UserModel{
     this.subscribed = false,
     this.tier = 0,
     Timestamp? expiration,
+    this.playlistAsc = true,
+    this.tracksAsc = true,
     DocumentReference<Map<String, dynamic>>? userDocRef
   }) : expiration = expiration ?? Timestamp.fromDate(DateTime.now()){
     if(userDocRef != null){
@@ -34,6 +38,8 @@ class UserModel{
         'subscribed': subscribed,
         'tier': tier,
         'expiration': expiration,
+        'ascendingPlaylists': playlistAsc,
+        'ascendingTracks': tracksAsc
       };
   }
 

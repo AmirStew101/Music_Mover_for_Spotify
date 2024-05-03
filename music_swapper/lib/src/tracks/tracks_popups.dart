@@ -1,8 +1,4 @@
 
-import 'dart:async';
-
-import 'package:another_flushbar/flushbar.dart';
-import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:spotify_music_helper/src/utils/globals.dart';
 

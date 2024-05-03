@@ -4,7 +4,6 @@ import 'package:get/get.dart';
 import 'package:spotify_music_helper/src/tracks/tracks_view.dart';
 import 'package:spotify_music_helper/src/utils/analytics.dart';
 import 'package:spotify_music_helper/src/utils/backend_calls/spotify_requests.dart';
-import 'package:spotify_music_helper/src/utils/class%20models/custom_sort.dart';
 import 'package:spotify_music_helper/src/utils/globals.dart';
 import 'package:spotify_music_helper/src/utils/class%20models/playlist_model.dart';
 
@@ -20,14 +19,12 @@ class ImageGridWidget extends StatefulWidget{
 
 ///State view for the users Playlists showing each playlists image with its name under it.
 class ImageGridState extends State<ImageGridWidget> {
-  List<PlaylistModel> playlists = <PlaylistModel>[];
   late final SpotifyRequests _spotifyRequests;
 
   @override
   void initState(){
     super.initState();
     _spotifyRequests = widget.spotifyRequests;
-    playlists = widget.playlists;
   }
 
   /// Text under a playlists image giving its state.
@@ -49,23 +46,23 @@ class ImageGridState extends State<ImageGridWidget> {
     //Builds the Grid of Images with Playlist Names
     return Stack(
       children: <Widget>[
-        GridView.builder(
+        Obx(() => GridView.builder(
           gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount: 2, //Number of Col in the grid
             crossAxisSpacing: 8, //Spacing between Col
             mainAxisSpacing: 10, //Spacing between rows
           ),
-          itemCount: playlists.length+1,
+          itemCount: _spotifyRequests.allPlaylists.length+1,
           itemBuilder: (_, int index) {
             
-            if(index >= playlists.length){
+            if(index >= _spotifyRequests.allPlaylists.length){
               return const SizedBox(
                 height: 10,
               );
             }
             else{
               //Gets the Map items by index with the extra item in mind
-              final PlaylistModel currPlaylist = playlists[index];
+              final PlaylistModel currPlaylist = _spotifyRequests.allPlaylists[index];
               final String imageName = currPlaylist.title;
               String imageUrl = currPlaylist.imageUrl;
               
@@ -163,7 +160,7 @@ class ImageGridState extends State<ImageGridWidget> {
               ));
             }
           }
-        ),
+        )),
       ],
     );
   }// build Widget

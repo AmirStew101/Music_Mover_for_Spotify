@@ -1,12 +1,12 @@
 // ignore_for_file: use_build_context_synchronously
 
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:spotify_music_helper/src/login/start_screen.dart';
 import 'package:spotify_music_helper/src/utils/ads.dart';
 import 'package:spotify_music_helper/src/utils/auth.dart';
 import 'package:spotify_music_helper/src/utils/dev_global.dart';
-import 'package:spotify_music_helper/src/utils/exceptions.dart';
 import 'package:spotify_music_helper/src/utils/backend_calls/database_classes.dart';
 import 'package:spotify_music_helper/src/utils/global_classes/options_menu.dart';
 import 'package:spotify_music_helper/src/utils/globals.dart';
@@ -16,7 +16,6 @@ import 'package:url_launcher/link.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:spotify_music_helper/src/utils/class%20models/user_model.dart';
 
-const String _fileName = 'settings_view.dart';
 
 /// Displays the various settings that can be customized by the user.
 /// 
@@ -35,15 +34,13 @@ class SettingsViewWidget extends StatefulWidget{
 }
 
 class SettingsViewState extends State<SettingsViewWidget> with TickerProviderStateMixin{
-  late AnimationController syncController;
   late ScaffoldMessengerState scaffoldMessenger;
 
+  final FirebaseCrashlytics _crashlytics = FirebaseCrashlytics.instance;
   final DatabaseStorage _databaseStorage = Get.put(DatabaseStorage());
   final SecureStorage _secureStorage = Get.put(SecureStorage());
   
   late UserModel user;
-  bool syncing = false;
-  String allOption = 'all';
 
   @override
   void initState(){
@@ -58,21 +55,6 @@ class SettingsViewState extends State<SettingsViewWidget> with TickerProviderSta
       user = _secureStorage.secureUser!;
     }
 
-    if (!syncing){
-      //Initializes animation controller for Sync Icon
-      syncController = AnimationController(
-        vsync: this,
-        duration: const Duration(seconds: 3)
-      );
-    }
-
-  }
-
-  @override
-  void dispose(){
-    //Manually diposes the sync controller.
-    syncController.dispose();
-    super.dispose();
   }
 
   @override
@@ -285,11 +267,12 @@ class SettingsViewState extends State<SettingsViewWidget> with TickerProviderSta
         await _databaseStorage.removeUser();
         await SecureStorage().removeUser();
         await UserAuth().deleteUser();
+        await PlaylistsCacheManager().clearPlaylists();
         removeUserMessage();
       }
-      catch (e){
+      catch (error, stack){
         removeUserMessage(success: false);
-        throw CustomException(stack: StackTrace.current, fileName: _fileName, functionName: 'confirmationBox',  error: e);
+        _crashlytics.recordError(error, stack, reason: 'Failed to remove user data');
       }
     }
   }
@@ -314,43 +297,22 @@ class SettingsViewState extends State<SettingsViewWidget> with TickerProviderSta
       'subject': 'Music Mover Support',
       })
     );
-    debugPrint('Uri: ${supportUri.toString()}');
 
-    await launchUrl(supportUri)
-    .onError((Object? error, StackTrace stackTrace) {
-      throw CustomException(stack: StackTrace.current, fileName: _fileName, functionName: 'launchEmail',  error: error);
+    bool launched = await launchUrl(supportUri)
+    .onError((Object? error, StackTrace stack) {
+      _crashlytics.recordError(error, stack, reason: 'Failed to Launch email');
+      return false;
     });
 
+    if(!launched){
+      Get.snackbar(
+        'Error', 
+        'Failed to open email',
+        colorText: failedRed
+      );
+    }
   }
 
-  ///Animation Builder for the Sync Icons to rotate requiring [AnimationController] and [String] of which 
-  ///Sync Icon to rotate.
-  AnimatedBuilder rotatingSync(AnimationController controller, String option){
-    return AnimatedBuilder(
-      animation: controller,
-      builder: (BuildContext context, Widget? child) {
-        return Transform.rotate(
-          angle: controller.value * 2 * 3.14,
-          child: IconButton(
-            icon: const Icon(Icons.sync),
-            onPressed: () async {
-
-              setState(() {syncing = true;}); //Start rotating
-
-              if (mounted) controller.repeat(); //Start animation
-              
-              //await _spotifySync.startSyncAllTracks(scaffoldMessenger);
-            
-              if (mounted) controller.reset(); // Stop the animation when finished Syncing and app is on the same screen
-
-              setState(() {syncing = false;}); //stop rotation
-              
-            },
-          ),
-        );
-      },
-    );
-  }
 
   ///Creates popup for User depending on the success or failure of removing the
   ///users data.

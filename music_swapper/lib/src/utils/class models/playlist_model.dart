@@ -12,7 +12,7 @@ class PlaylistModel {
   final String imageUrl;
   final String snapshotId;
   final String title;
-  List<TrackModel> _tracks = [];
+  List<TrackModel> _tracks = <TrackModel>[];
 
   ///Model for a Spotify Playlist object.
   PlaylistModel({
@@ -22,7 +22,13 @@ class PlaylistModel {
     this.imageUrl = '',
     this.snapshotId = '',
     List<TrackModel>? tracks,
-  }) : _tracks = tracks ?? const <TrackModel>[]{
+  }){
+    if(tracks != null){
+      _tracks = tracks;
+    }
+    else{
+      _tracks = <TrackModel>[];
+    }
     _makeDuplicates();
   }
 
@@ -35,7 +41,7 @@ class PlaylistModel {
 
   bool get isNotEmpty{
     if(id == likedSongs){
-      return !tracks.isEmpty;
+      return _tracks.isNotEmpty;
     }
     return id != '' || link != '' || title != '' || tracks.isNotEmpty;
   }
@@ -141,7 +147,7 @@ class PlaylistModel {
   List<dynamic> _tracksToJson(){
     List<dynamic> jsonTracks = [];
 
-    for(TrackModel track in tracks){
+    for(TrackModel track in _tracks){
       jsonTracks.add(track.toJson());
     }
 

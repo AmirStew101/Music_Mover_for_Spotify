@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:spotify_music_helper/src/utils/class%20models/custom_sort.dart';
 import 'package:spotify_music_helper/src/utils/global_classes/global_objects.dart';
 import 'package:spotify_music_helper/src/utils/class%20models/playlist_model.dart';
 
-class PlaylistSearchDelegate extends SearchDelegate {
-  List<PlaylistModel> searchResults = [];
+class PlaylistSearchDelegate extends SearchDelegate{
+  List<PlaylistModel> searchResults = <PlaylistModel>[];
   late List<PlaylistModel> allplaylists;
 
   ///Search Constructor setting the search results to the Playlist image names and

@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:spotify_music_helper/src/utils/class%20models/playlist_model.dart';
 import 'package:spotify_music_helper/src/utils/class%20models/track_model.dart';
 import 'package:spotify_music_helper/src/utils/exceptions.dart';
 

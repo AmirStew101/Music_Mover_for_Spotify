@@ -3,7 +3,6 @@
 import 'dart:convert';
 
 import 'package:spotify_music_helper/src/utils/global_classes/global_objects.dart';
-import 'package:spotify_music_helper/src/utils/globals.dart';
 
 ///Model for Spotify Track object.
 class TrackModel extends Object{

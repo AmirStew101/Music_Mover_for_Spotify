@@ -43,9 +43,6 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
   late PlaylistModel currentPlaylist;
   late UserModel user;
 
-  /// All of a playlists tracks as a list that can be sorted to have different views.
-  List<TrackModel> sortedTracks = <TrackModel>[];
-
   /// All of the selected tracks.
   /// 
   /// key: Track ID
@@ -61,8 +58,7 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
   
   late TabController tabController;
 
-  String sortType = Sort().title;
-  bool ascending = true;
+  RxString sortType = Sort().title.obs;
 
   @override
   void initState(){
@@ -72,9 +68,9 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
       currentPlaylist = _spotifyRequests.currentPlaylist;
       print('Init Playlists: ${currentPlaylist.title}');
       print('Init Tracks: ${currentPlaylist.tracks}');
-      sortUpdate();
     }
     catch (e){
+      print('Error Tracks go Back $e');
       Get.back(result: false);
     }
 
@@ -91,25 +87,24 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
 
   /// Updates how the tracks are sorted.
   void sortUpdate() {
-    print('Sort: ${currentPlaylist.title} Requests Tracks ${currentPlaylist.tracks.length}');
-    print('Sort: ${currentPlaylist.title} Page Tracks ${sortedTracks.length}');
+    print('Sort: ${currentPlaylist.title} Requests Tracks ${_spotifyRequests.playlistTracks.length}');
 
     // Sorts the tracks based on the current sort type.
     if(sortType == Sort().addedAt){
-      sortedTracks = Sort().tracksListSort(playlist: currentPlaylist, addedAt: true, ascending: ascending);
+      _spotifyRequests.sortTracks(sortType.value, addedAt: true);
     }
     else if(sortType == Sort().artist){
-      sortedTracks = Sort().tracksListSort(playlist: currentPlaylist, artist: true, ascending: ascending);
+      _spotifyRequests.sortTracks(sortType.value, artist: true);
     }
     else if(sortType == Sort().type){
-      sortedTracks = Sort().tracksListSort(playlist: currentPlaylist, type: true, ascending: ascending);
+      _spotifyRequests.sortTracks(sortType.value, type: true);
     }
     // Default title sort
     else{
-      sortedTracks = Sort().tracksListSort(playlist: currentPlaylist, ascending: ascending);
+      _spotifyRequests.sortTracks(sortType.value);
     }
 
-    print('Sorted: ${currentPlaylist.title} Tracks ${sortedTracks.length}');
+    print('Sorted: ${currentPlaylist.title} Tracks ${_spotifyRequests.playlistTracks.length}');
   }
 
   ///Page state setup Function to setup the page.
@@ -260,6 +255,84 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
       backgroundColor: spotHelperGreen,
 
       actions: <Widget>[
+
+        // Filter button
+        IconButton(
+          onPressed: (){
+            Get.dialog(
+              AlertDialog.adaptive(
+                title: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      'Filters:',
+                      textAlign: TextAlign.center,
+                    ),
+                    Obx(() => IconButton(
+                      onPressed: () {
+                        _spotifyRequests.tracksAsc = !_spotifyRequests.tracksAsc;
+                        sortUpdate();
+                      }, 
+                      icon: _spotifyRequests.tracksAsc
+                      ? const Icon(
+                        Icons.arrow_upward_sharp,
+                        color: Colors.green,
+                      )
+                      : const Icon(Icons.arrow_downward_sharp,
+                        color: Colors.green,
+                      )
+                    )),
+                  ]
+                ),
+                actions: [
+                  Obx(() => SwitchListTile.adaptive(
+                    title: const Text('Title'),
+                    value: sortType == Sort().title,
+                    onChanged: (_) {
+                      print('Title Switch');
+                      sortType.value = Sort().title;
+                      sortUpdate();
+                    },
+                  )),
+
+                  Obx(() => SwitchListTile.adaptive(
+                    title: const Text('Artist'),
+
+                    value: sortType == Sort().artist,
+                    onChanged: (_) {
+                      print('Artist Switch');
+                      sortType.value = Sort().artist;
+                      sortUpdate();
+                    },
+                  )),
+
+                  Obx(() => SwitchListTile.adaptive(
+                    title: const Text('Added At'),
+
+                    value: sortType == Sort().addedAt,
+                    onChanged: (_) {
+                      print('Added At Switch');
+                      sortType.value = Sort().addedAt;
+                      sortUpdate();
+                    },
+                  )),
+
+                  Obx(() => SwitchListTile.adaptive(
+                    title: const Text('Type'),
+                    value: sortType == Sort().type,
+                    onChanged: (_) {
+                      print('Type Switch');
+                      sortType.value = Sort().type;
+                      sortUpdate();
+                    },
+                  )),
+                ],
+              )
+            );
+          }, 
+          icon: const Icon(Icons.filter_alt_rounded)
+        ),
+
         //Search Button
         IconButton(
           icon: const Icon(Icons.search),
@@ -339,10 +412,10 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
           children: <Widget>[
             Expanded(
               child: 
-              ListView.builder(
-                itemCount: sortedTracks.length,
+              Obx(() => ListView.builder(
+                itemCount: _spotifyRequests.playlistTracks.length,
                 itemBuilder: (_, int index) {
-                  final TrackModel currTrack = sortedTracks[index];
+                  final TrackModel currTrack = _spotifyRequests.playlistTracks[index];
 
                   //Alligns the songs as a Column
                   return Column(
@@ -425,14 +498,14 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
                       ),
 
                       //Makes space so last item isn't behind ad
-                      if (index == sortedTracks.length-1)
+                      if (index == _spotifyRequests.playlistTracks.length-1)
                         const SizedBox(
                           height: 90,
                         ),
                     ]
                   );
                 }
-              ),
+              )),
               
             ),
           ],
