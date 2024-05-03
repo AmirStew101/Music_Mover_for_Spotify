@@ -51,6 +51,7 @@ class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
   @override
   void initState() {
     super.initState();
+    _crashlytics.log('Init Select View Page');
     try{
       _spotifyRequests = SpotifyRequests.instance;
     }
@@ -76,7 +77,8 @@ class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
   Future<void> _checkPlaylists() async{
     try{
       if(mounted && !loaded && (_spotifyRequests.allPlaylists.isEmpty || refresh)){
-        await _spotifyRequests.requestPlaylists(refresh: refresh);
+        _crashlytics.log('Select View: Request Playlists');
+        await _spotifyRequests.requestPlaylists();
         selectedPlaylistList.clear();
       }
       
@@ -99,6 +101,7 @@ class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
     //Move tracks to Playlists
     if (option == 'move') {
       try{
+
         //Add tracks to selected playlists
         await _spotifyRequests.addTracks(selectedList, selectedTracksList);
 
@@ -108,9 +111,9 @@ class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
         //Finished moving tracks for the playlist
         adding = false;
       }
-      catch (e, stack){
+      catch (ee, stack){
         error = true;
-        throw CustomException(stack: stack, fileName: _fileName, functionName: 'handleOptionSelect', error: error);
+        _crashlytics.recordError(ee, stack, reason: 'handleOptionSelect Failed to edit Tracks');
       }
 
     }
@@ -124,15 +127,16 @@ class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
         //Finished adding tracks to 
         adding = false;
       }
-      catch (e, stack){
+      catch (ee, stack){
         error = true;
-        throw CustomException(stack: stack, fileName: _fileName, functionName: 'handleOptionSelect', error: error);
+        _crashlytics.recordError(ee, stack, reason: 'handleOptionSelect Failed to edit Tracks');
       }
 
     }
   }
 
   Future<void> refreshPlaylists() async{
+    _crashlytics.log('Refresh Playlists');
     loaded = false;
     refresh = true;
     selectedPlaylistList.clear();
@@ -157,7 +161,7 @@ class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
             children: <Widget>[
               IconButton(
                 onPressed: (){
-                  if (loaded){
+                  if (!_spotifyRequests.loading.value){
                     refreshPlaylists();
                   }
                 }, 
@@ -165,7 +169,7 @@ class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
               ),
               InkWell(
                 onTap: () {
-                  if (loaded){
+                  if (!_spotifyRequests.loading.value){
                     refreshPlaylists();
                   }
                 },
@@ -175,11 +179,12 @@ class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
         ),
         actions: <Widget>[
 
-          //Search Button
+          // Search Button
           IconButton(
               icon: const Icon(Icons.search),
               onPressed: () async {
                 if (loaded){
+                  _crashlytics.log('Search Selectable Playlists');
                   RxList<PlaylistModel> searchedPlaylists = _spotifyRequests.allPlaylists.obs;
 
                   Get.dialog(
@@ -303,9 +308,10 @@ class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
 
         return Column(
           children: <Widget>[
+            // Select Playlist
             InkWell(
               onTap: () {
-
+                _crashlytics.log('Select Playlist');
                 if(!selectedPlaylistList.contains(playModel)){
                   selectedPlaylistList.add(playModel);
                 }
@@ -319,7 +325,7 @@ class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
                   shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
                   value: selectedPlaylistList.contains(playModel),
                   onChanged: (_) {
-
+                    _crashlytics.log('Select Playlist');
                     if(!selectedPlaylistList.contains(playModel)){
                       selectedPlaylistList.add(playModel);
                     }
@@ -394,6 +400,7 @@ class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
                     });
 
                     await handleOptionSelect();
+                    _crashlytics.log('Playlists edited Go back');
                     Get.back(result: true);
 
                     if (!error){
@@ -434,6 +441,7 @@ class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
                       });
 
                       await handleOptionSelect();
+                      _crashlytics.log('Playlists edited Go back');
                       Get.back(result: true);
 
                       if(!popup){
@@ -458,6 +466,7 @@ class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
             child:
             InkWell(
               onTap: () {
+                _crashlytics.log('Select All');
                 if (selectedPlaylistList.length != _spotifyRequests.allPlaylists.length){
                   selectedPlaylistList.clear();
                   selectedPlaylistList.addAll(_spotifyRequests.allPlaylists);
@@ -473,6 +482,7 @@ class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
                     shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
                     value: selectedPlaylistList.length == _spotifyRequests.allPlaylists.length,
                     onChanged: (_) {
+                      _crashlytics.log('Select All');
                       if (selectedPlaylistList.length != _spotifyRequests.allPlaylists.length){
                         selectedPlaylistList.clear();
                         selectedPlaylistList.addAll(_spotifyRequests.allPlaylists);

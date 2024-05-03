@@ -20,6 +20,7 @@ Future<void> main() async {
   //Firebase initialization
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 
+  // Pass all uncaught "fatal" errors from the framework to Crashlytics
   FlutterError.onError = (FlutterErrorDetails errorDetails){
     FirebaseCrashlytics.instance.recordFlutterFatalError(errorDetails);
   };
@@ -29,6 +30,7 @@ Future<void> main() async {
     FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
     return true;
   };
+  
 
   FirebaseAppCheck.instance.activate();
 
@@ -44,7 +46,7 @@ Future<void> main() async {
   await MobileAds.instance.initialize();
   
   FirebaseAppCheck.instance.activate(
-    androidProvider: AndroidProvider.debug,
+    androidProvider: AndroidProvider.playIntegrity,
     appleProvider: AppleProvider.debug
   );
 

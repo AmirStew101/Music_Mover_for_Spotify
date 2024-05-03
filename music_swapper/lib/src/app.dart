@@ -68,51 +68,6 @@ class MyApp extends StatelessWidget {
             GetPage(name: '/tracks', page: () => const TracksView()),
             GetPage(name: '/info', page: () => const InfoView()),
           ],
-          // (RouteSettings routeSettings) {
-          //   return MaterialPageRoute<void>(
-          //     settings: routeSettings,
-          //     builder: (BuildContext context) {
-          //       switch (routeSettings.name) {
-
-          //         //User is not signed in goes to Start page
-          //         case StartViewWidget.routeName:
-          //           final reLogin = routeSettings.arguments as bool;
-          //           return StartViewWidget(reLogin: reLogin);
-
-          //         case SettingsViewWidget.routeName:
-          //           return SettingsViewWidget(controller: settingsController);
-
-          //         //Login to Spotify
-          //         case SpotLoginWidget.routeName:
-          //           bool reLogin = routeSettings.arguments as bool;
-          //           return SpotLoginWidget(reLogin: reLogin);
-
-          //         //View the users tracks
-          //         case TracksView.routeName:
-          //           final currentPlaylist = routeSettings.arguments as Map<String, dynamic>;
-          //           return TracksView(currentPLaylist: currentPlaylist);
-
-          //         //The Apps details page
-          //         case InfoView.routeName:
-          //           final user = routeSettings.arguments as Map<String, dynamic>;
-          //           return InfoView(user: user);
-
-          //         //Select playlists to move/add tracks to
-          //         case SelectPlaylistsViewWidget.routeName:
-          //           final trackArgs = routeSettings.arguments as Map<String, dynamic>;
-          //           return SelectPlaylistsViewWidget(trackArgs: trackArgs);
-
-          //         case HomeView.routeName:
-          //           return const HomeView(initial: false);
-
-          //         //View the users playlist
-          //         default:
-          //           return const HomeView(initial: true);
-                    
-          //       }
-          //     },
-          //   );
-          // },
         );
       },
     );

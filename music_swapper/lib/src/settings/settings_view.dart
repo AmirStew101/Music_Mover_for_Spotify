@@ -46,6 +46,7 @@ class SettingsViewState extends State<SettingsViewWidget> with TickerProviderSta
   void initState(){
     super.initState();
     
+    _crashlytics.log('Init Settings View Page');
     if(_secureStorage.secureUser == null){
       bool reLogin = true;
       Get.off(const StartViewWidget(), arguments: reLogin);
@@ -66,6 +67,7 @@ class SettingsViewState extends State<SettingsViewWidget> with TickerProviderSta
 
   ///Gets the name of the current theme, and returns it as a String.
   String getThemeName(){
+    _crashlytics.log('Get Theme');
     switch(settingsController.themeMode){
       case ThemeMode.system:
         return 'System Theme';
@@ -120,6 +122,8 @@ class SettingsViewState extends State<SettingsViewWidget> with TickerProviderSta
                   
                   //Theme options for the User to choose from
                   itemBuilder: (BuildContext context) {
+                    _crashlytics.log('Theme Selection');
+
                     return <PopupMenuItem>[
                       PopupMenuItem(
                         child: const Text(
@@ -170,7 +174,10 @@ class SettingsViewState extends State<SettingsViewWidget> with TickerProviderSta
                     uri: Uri.parse('https://discord.gg/2nRRFtkrhd'), 
                     builder: (BuildContext context, followLink) {
                       return TextButton(
-                        onPressed: followLink, 
+                        onPressed: () {
+                          _crashlytics.log('Open discord link');
+                          followLink;
+                        }, 
                         child: Text(
                           'Discord Link',
                           textScaler: const TextScaler.linear(1.1),
@@ -188,7 +195,10 @@ class SettingsViewState extends State<SettingsViewWidget> with TickerProviderSta
                     uri: Uri.parse('https://spot-helper-1688d.firebaseapp.com'), 
                     builder: (BuildContext context, followLink) {
                       return TextButton(
-                        onPressed: followLink,
+                        onPressed: () {
+                          _crashlytics.log('Open Privacy Policy');
+                          followLink;
+                        },
                         child: Text(
                           'Privacy Policy',
                           textScaler: const TextScaler.linear(1.1),
@@ -231,6 +241,7 @@ class SettingsViewState extends State<SettingsViewWidget> with TickerProviderSta
   ///Confirmation Popup box for deleting a users database data.
   Future<void> confirmationBox() async{
     bool confirmed = false;
+    _crashlytics.log('Open COnfiramtion box');
 
     await showDialog(
       context: context, 
@@ -244,6 +255,7 @@ class SettingsViewState extends State<SettingsViewWidget> with TickerProviderSta
           actions: <Widget>[
             TextButton(
               onPressed: () {
+                _crashlytics.log('Cancel Confirmation');
                 //Close Popup
                 Get.back();
               }, 
@@ -252,6 +264,8 @@ class SettingsViewState extends State<SettingsViewWidget> with TickerProviderSta
             TextButton(
               onPressed: () {
                 confirmed = true;
+                _databaseStorage.updateUser(user);
+                _crashlytics.log('Confirm Confirmation');
                 //Close Popup
                 Get.back();
               },
@@ -280,6 +294,8 @@ class SettingsViewState extends State<SettingsViewWidget> with TickerProviderSta
 
   ///Encode email creation parameters.
   String? encodeQueryParameters(Map<String, String> params) {
+    _crashlytics.log('Encode Parameters');
+
     return params.entries
         .map((MapEntry<String, String> e) =>
             '${Uri.encodeComponent(e.key)}=${Uri.encodeComponent(e.value)}')
@@ -288,6 +304,7 @@ class SettingsViewState extends State<SettingsViewWidget> with TickerProviderSta
 
   ///Opens the Users preferred email app to send an email to the Support email.
   Future<void> launchEmail() async{
+    _crashlytics.log('Launch Email');
     const String supportEmail = 'spotmusicmover@gmail.com';
 
     final Uri supportUri = Uri(
@@ -317,6 +334,8 @@ class SettingsViewState extends State<SettingsViewWidget> with TickerProviderSta
   ///Creates popup for User depending on the success or failure of removing the
   ///users data.
   void removeUserMessage({bool success = true}){
+    _crashlytics.log('Remove User Message');
+    
     if (success){
       scaffoldMessenger.showSnackBar(
         SnackBar(

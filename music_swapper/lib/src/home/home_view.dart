@@ -37,8 +37,6 @@ class _UiText{
 //State widget for the Home screen
 class HomeViewState extends State<HomeView> with SingleTickerProviderStateMixin{
 
-  late AnimationController _animationController;
-
   late SpotifyRequests _spotifyRequests;
   late DatabaseStorage _databaseStorage;
   late SecureStorage _secureStorage;
@@ -48,17 +46,18 @@ class HomeViewState extends State<HomeView> with SingleTickerProviderStateMixin{
 
   //bool loaded = false;
   bool error = false;
+
   bool refresh = false;
+  int refeshTimes = 0;
+  final int refreshLimit = 3;
+  bool timerStart = false;
 
   final ValueNotifier<bool> _loaded = ValueNotifier<bool>(false);
 
   @override
   void initState(){
     super.initState();
-    _animationController = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 3)
-    );
+    _crashlytics.log('InitState Home page');
 
     try{
       _spotifyRequests = SpotifyRequests.instance;
@@ -74,33 +73,24 @@ class HomeViewState extends State<HomeView> with SingleTickerProviderStateMixin{
     _checkLogin();
   }
 
-  @override
-  void dispose(){
-    _databaseStorage.dispose();
-    _secureStorage.dispose();
-    _animationController.dispose();
-    super.dispose();
-  }
-
   /// Updates how the tracks are sorted.
   void sortUpdate() {
-    print('Sort');
+    _crashlytics.log('Sorting Playlists');
     _spotifyRequests.sortPlaylists();
-    print('Finish Sort');
   }
 
   /// Check the saved Tokens & User on device and on successful confirmation get Users playlists.
   Future<void> _checkLogin() async {
     try{
       if(!_spotifyRequests.initialized || !_databaseStorage.initialized){
-        print('Check Login');
+        _crashlytics.log('Playlists Page Check Login');
         await _secureStorage.getUser();
         await _secureStorage.getTokens();
         
         // The saved User and Tokens are not corrupted.
         // Initialize the users database connection & spotify requests connection.
         if(_secureStorage.secureUser != null && _secureStorage.secureCallback != null){
-          print('Initialize Login');
+          _crashlytics.log('Initialize Login');
           user = _secureStorage.secureUser!;
 
           await _databaseStorage.initializeDatabase(user);
@@ -110,7 +100,7 @@ class HomeViewState extends State<HomeView> with SingleTickerProviderStateMixin{
           user = _spotifyRequests.user;
         }
         else{
-          print('Login corrupted');
+          _crashlytics.log('Login Corrupted');
           bool reLogin = true;
           Get.to(const StartViewWidget(), arguments: reLogin);
         }
@@ -119,22 +109,19 @@ class HomeViewState extends State<HomeView> with SingleTickerProviderStateMixin{
       //Fetches Playlists if page is not loaded and on this Page
       if (mounted && !_loaded.value){
         if(mounted && (_spotifyRequests.loadedIds.isEmpty || _spotifyRequests.errorIds.isNotEmpty || _spotifyRequests.allPlaylists.isEmpty) && !refresh){
-          print('Loaded Ids: ${_spotifyRequests.loadedIds.isEmpty} Error Ids: ${_spotifyRequests.errorIds.isNotEmpty} All Playlists: ${_spotifyRequests.allPlaylists.isEmpty}');
-          print('Request all Playlists & Tracks');
+          _crashlytics.log('Requesting all Playlists & Tracks');
           await _spotifyRequests.requestPlaylists();
-          _loaded.value = true;
           await _spotifyRequests.requestAllTracks();
-          print('Finished Requesting all Playlists & Tracks');
+          _loaded.value = true;
         }
         else if(mounted && refresh){
-          print('Request all Playlists');
-          await _spotifyRequests.requestPlaylists(refresh: refresh);
+          _crashlytics.log('Refresh Requesting all Playlists');
+          await _spotifyRequests.requestPlaylists();
           refresh = false;
           _loaded.value = true;
-          print('Finished Requesting all Playlists');
         }
         else{
-          print('Load cached Playlists');
+          _crashlytics.log('Load Cached Playlists');
           _loaded.value = true;
         }
       }
@@ -142,13 +129,13 @@ class HomeViewState extends State<HomeView> with SingleTickerProviderStateMixin{
     catch (e, stack){
       error = true;
       _loaded.value = true;
-      _crashlytics.recordError(e, stack, reason: 'Failed to Check Login', fatal: true);
+      _crashlytics.recordError(e, stack, reason: 'Failed during Check Login', fatal: true);
     }
   }//checkLogin
 
   /// Navigate to Tracks page for chosen Playlist
   void navigateToTracks(PlaylistModel playlist){
-    print('Navigate to Tracks');
+    _crashlytics.log('Navigate to Tracks');
     try{
       _spotifyRequests.currentPlaylist = playlist;
       // Navigate to the tracks page sending the chosen playlist.
@@ -160,22 +147,48 @@ class HomeViewState extends State<HomeView> with SingleTickerProviderStateMixin{
   }//navigateToTracks
 
   Future<void> refreshPage() async{
-    print('Refresh Page');
-    _loaded.value = false;
-    error = false;
-    refresh = true;
-    //_playlistsNotifier.value = {};
-    await _checkLogin();
-
-    // Rotate sync icon until syncing has stopped.
-    await Future.doWhile(() async{
-      while(_spotifyRequests.loading.isTrue){
-        await Future.delayed(const Duration(seconds: 1));
-      }
-      return true;
-    });
+    if(_shouldRefresh()){
+      _crashlytics.log('Refresh Playlists Page');
+      _loaded.value = false;
+      error = false;
+      refresh = true;
+      refeshTimes++;
+      await _checkLogin();
+    }
   }//refreshPage
 
+  /// Checks if the user has clicked refresh too many times.
+  bool _shouldRefresh(){
+    if(refeshTimes == refreshLimit && !timerStart){
+
+      Get.snackbar(
+        'Reached Refresh Limit',
+        'Refreshed too many times to quickly. Must wait before refreshing again.',
+        backgroundColor: snackBarGrey
+      );
+      timerStart = true;
+      
+      Timer.periodic(const Duration(seconds: 5), (timer) {
+        refeshTimes--;
+        if(refeshTimes == 0){
+          timerStart = false;
+          timer.cancel();
+        }
+      });
+      return false;
+    }
+    else if(refeshTimes == refreshLimit && timerStart){
+      Get.snackbar(
+        'Reached Refresh Limit',
+        'Refreshed too many times to quickly. Must wait before refreshing again',
+        backgroundColor: snackBarGrey
+      );
+      return false;
+    }
+    else{
+      return true;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -195,15 +208,21 @@ class HomeViewState extends State<HomeView> with SingleTickerProviderStateMixin{
                 ),
                 actionsAlignment: MainAxisAlignment.center,
                 actions: <Widget>[
+                  // Cancel exit button
                   TextButton(
                     onPressed: () {
+                      _crashlytics.log('Cancel exit pressed');
                       //Close Popup
                       Get.back();
                     }, 
                     child: const Text('Cancel')
                   ),
+                  // Confirm exit button
                   TextButton(
                     onPressed: () {
+                      _crashlytics.log('Exit app update User');
+                      user.playlistAsc = _spotifyRequests.playlistsAsc;
+                      _crashlytics.log('Exit app');
                       //Close App
                       exit(0);
                     },
@@ -217,61 +236,61 @@ class HomeViewState extends State<HomeView> with SingleTickerProviderStateMixin{
             valueListenable: _loaded, 
             builder: (_, __, ___) {
               if (_loaded.value && !error && _spotifyRequests.allPlaylists.isNotEmpty) {
-                return Stack(
-                  children: <Widget>[
-                    ImageGridWidget(playlists: _spotifyRequests.allPlaylists, spotifyRequests: _spotifyRequests,),
-                    if (!user.subscribed)
-                      Ads().setupAds(context, user)
-                  ],
-                );
+                return ImageGridWidget(playlists: _spotifyRequests.allPlaylists, spotifyRequests: _spotifyRequests,);
               }
               else if(!_loaded.value && !error) {
-                  return Stack(
-                    children: <Widget>[
-                      const Center( child:  CircularProgressIndicator(strokeWidth: 6)),
-                      if (!user.subscribed)
-                        Ads().setupAds(context, user),
+                return Center( 
+                  child:Obx(() => Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const CircularProgressIndicator(strokeWidth: 6),
+                      const SizedBox(height: 20),
+                      _spotifyRequests.requestingAll.value
+                      ? Text(
+                        'Loading ${_spotifyRequests.loadedIds.length}/${_spotifyRequests.allPlaylists.length}: ${_spotifyRequests.currentPlaylist.title}',
+                        textScaler: const TextScaler.linear(1.8),)
+                      : const Text(
+                        'Loading: Playlists',
+                        textScaler: TextScaler.linear(1.8)
+                      )
                     ],
-                  ) ;
+                  ))
+                );
               }
               else{
-                return Stack(
-                  alignment: Alignment.center,
-                  children: <Widget>[
-                    Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Text(
-                            error ? _UiText().error : _UiText().empty,
-                            textAlign: TextAlign.center,
-                            textScaler: const TextScaler.linear(2),
-                          ),
-                          const SizedBox(height: 10,), 
-                          IconButton(
-                            onPressed: () async{
-                              await refreshPage();
-                            }, 
-                            icon: const Icon(
-                              Icons.refresh_sharp,
-                              color: Colors.green,
-                              size: 50,
-                            ) 
-                          )
-                        ],
-                      )
-                    ),
-                    if (!user.subscribed)
-                      Ads().setupAds(context, user),
-                  ],
+                // No tracks were found or an error
+                return Center(
+                  child: Text(
+                    error ? _UiText().error : _UiText().empty,
+                    textAlign: TextAlign.center,
+                    textScaler: const TextScaler.linear(2),
+                  ),
                 );
               }
             },
           ),
-        )
+        ),
+
+        bottomNavigationBar: ValueListenableBuilder(
+          valueListenable: _loaded, 
+          builder: (_, __, ___) => bottomAds()
+        ),
     
     );
   }// build
+
+  /// Controlls if Ads are shown or not
+  Widget bottomAds(){
+    if(user.subscribed){
+      _crashlytics.log('Don\'t Show ads');
+      return const BottomAppBar(height: 0,);
+    }
+    else{
+      return BottomAppBar(
+        child: Ads().setupAds(context, user),
+      );
+    }
+  }
 
   AppBar homeAppbar(){
     return AppBar(
@@ -287,9 +306,35 @@ class HomeViewState extends State<HomeView> with SingleTickerProviderStateMixin{
         builder: (BuildContext context) => IconButton(
           icon: const Icon(Icons.menu), 
           onPressed: ()  {
+            _crashlytics.log('Open Options menu');
             Scaffold.of(context).openDrawer();
           },
         )
+      ),
+
+      // Refresh the page button
+      bottom: Tab(
+        child: InkWell(
+          onTap: () async {
+            if(!_spotifyRequests.loading.value){
+              await refreshPage();
+            }
+          },
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: <Widget>[ 
+              IconButton(
+                icon: const Icon(Icons.sync_sharp),
+                onPressed: () async {
+                  if(!_spotifyRequests.loading.value){
+                    await refreshPage();
+                  }
+                },
+              ),
+              const Text('Refresh'),
+            ],
+          ),
+        ),
       ),
         
       automaticallyImplyLeading: false, //Prevents back arrow
@@ -310,16 +355,19 @@ class HomeViewState extends State<HomeView> with SingleTickerProviderStateMixin{
             icon: const Icon(Icons.search),
             onPressed: () async {
               if (_loaded.value){
+                _crashlytics.log('Searching Playlists');
                 RxList<PlaylistModel> searchedPlaylists = _spotifyRequests.allPlaylists.obs;
 
                 Get.dialog(
                   Dialog.fullscreen(
                     child: Column(
                       children: [
+                        // Search box
                         SizedBox(
-                          height: 50,
+                          height: 70,
                           child: TextField(
                             decoration: InputDecoration(
+                              // Exit serach
                               prefixIcon: IconButton(
                                 onPressed: () => Get.back(), 
                                 icon: const Icon(Icons.arrow_back_sharp)
@@ -375,45 +423,5 @@ class HomeViewState extends State<HomeView> with SingleTickerProviderStateMixin{
       ],
     );
   }//homeAppbar
-
-
-  Widget tabRefresh(){
-    return Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: <Widget>[
-          IconButton(
-            color: Colors.black,
-            icon:  AnimatedBuilder(
-              animation: _animationController, 
-              builder: (_, __) => Transform.rotate(
-                angle: _animationController.value * 2 * 3.14,
-                child: const Icon(Icons.sync),
-              ),
-            ),
-            onPressed: () async {
-              print('Loaded: ${_loaded.value} Spot loading: ${_spotifyRequests.loading.value}');
-              if (_loaded.value && !_spotifyRequests.loading.value){
-                print('Refersh');
-                if(mounted) _animationController.repeat();
-                await refreshPage();
-                if(mounted) _animationController.reset();
-              }
-            },
-          ),
-          InkWell(
-            onTap: () async{
-              print('Loaded: ${_loaded.value} Spot loading: ${_spotifyRequests.loading.value}');
-              if (_loaded.value && !_spotifyRequests.loading.value){
-                print('Refersh');
-                if(mounted) _animationController.repeat();
-                await refreshPage();
-                if(mounted) _animationController.reset();
-              }
-            },
-            child: const Text('Refresh'),
-          ),
-        ],
-    );
-  }
 
 }//HomeViewState

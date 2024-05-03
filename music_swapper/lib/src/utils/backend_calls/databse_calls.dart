@@ -1,11 +1,14 @@
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:get/get.dart';
 import 'package:spotify_music_helper/src/utils/exceptions.dart';
 import 'package:spotify_music_helper/src/utils/class%20models/user_model.dart';
 
 const String _fileName = 'database_calls.dart';
 final FirebaseFirestore db = FirebaseFirestore.instance;
+final FirebaseCrashlytics _crashlytics = FirebaseCrashlytics.instance;
+
 
 /// Repository for the Users database interaction.
 /// 
@@ -18,10 +21,10 @@ class UserRepository extends GetxController{
   late UserModel _user;
   late String userId;
 
-  bool _new_user = false;
+  bool _newUser = false;
 
   get newUser{
-    return _new_user;
+    return _newUser;
   }
 
   get user{
@@ -36,9 +39,11 @@ class UserRepository extends GetxController{
   /// 
   /// Must be called before any of the other functions.
   Future<void> initializeUser(UserModel user) async{
+    _crashlytics.log('Initialize User');
     bool has = await _hasUser(user);
+
     if(!has){
-      _new_user = true;
+      _newUser = true;
       _user = user;
       _createUser();
     }
@@ -53,6 +58,7 @@ class UserRepository extends GetxController{
   /// 
   /// Must Initialize User before use.
   Future<void> removeUser() async{
+    _crashlytics.log('Remove User');
     _checkUserInitialized();
     
     await _user.userDoc.delete()
@@ -65,12 +71,20 @@ class UserRepository extends GetxController{
   ///
   /// Must Initialize User before use.
   Future<void> updateUser(UserModel user) async{
-    _checkUserInitialized();
+    _crashlytics.log('Update User');
     try{
-      final DocumentSnapshot<Map<String, dynamic>> databaseUser = await _user.userDoc.get();
+      final DocumentSnapshot<Map<String, dynamic>> databaseUser = await user.userDoc.get();
 
       if (databaseUser.exists){
-        await _user.userDoc.update(<Object, Object?>{'subscribed': user.subscribed, 'tier': user.tier, 'username': user.username, 'expiration': user.expiration, 'url': user.url});
+        await _user.userDoc.update({
+          'subscribed': user.subscribed, 
+          'tier': user.tier, 
+          'expiration': user.expiration, 
+          'url': user.url, 
+          'playlistAsc': user.playlistAsc,
+          'tracksAsc': user.tracksAsc,
+          'tracksSortType': user.tracksSortType
+        });
       }
     }
     catch (e, stack){
@@ -88,7 +102,8 @@ class UserRepository extends GetxController{
     try{
       _user.toFirestoreJson();
     }
-    catch (e, stack){
+    catch (ee, stack){
+      _crashlytics.recordError(ee, stack, reason: 'User not Initialized. Call the [initializeUser] function before calling other functions.');
       throw CustomException(stack: stack, fileName: _fileName, functionName: '_checkUserInitialized',  error: 'User not Initialized. Call the [initializeUser] function before calling other functions.');
     }
   }
@@ -96,6 +111,7 @@ class UserRepository extends GetxController{
   /// Checks if the user is in the database. 
   /// Returns true or false.
   Future<bool> _hasUser(UserModel user) async{
+    _crashlytics.log('Check Has User');
     try{
       final DocumentSnapshot<Map<String, dynamic>> userExists = await usersRef.doc(user.spotifyId).get();
 
@@ -104,25 +120,29 @@ class UserRepository extends GetxController{
       }
       return false;
     }
-    catch (e, stack){
-      throw CustomException(stack: stack, fileName: _fileName, functionName: 'hasUser',  error: e);
+    catch (ee, stack){
+      _crashlytics.recordError(ee, stack, reason: 'Failed checking if Has User');
+      throw CustomException(stack: stack, fileName: _fileName, functionName: 'hasUser',  error: ee);
     }
   }// hasUser
   
   /// Create a new user in the databse or sets an existing user to new values.
   Future<void> _createUser() async{
+    _crashlytics.log('Create User');
     try{
       await usersRef.doc(_user.spotifyId).set(_user.toFirestoreJson());
 
       _user.userDoc = usersRef.doc(_user.spotifyId);
     }
-    catch (e, stack){
-      throw CustomException(stack: stack, fileName: _fileName, functionName: 'createUser',  error: e);
+    catch (ee, stack){
+      _crashlytics.recordError(ee, stack, reason: 'Failed to Create User');
+      throw CustomException(stack: stack, fileName: _fileName, functionName: 'createUser',  error: ee);
     }
   }// createUser
 
   /// Get the user from the database and converts to a `UserModel`.
   Future<UserModel> _getUser(UserModel user) async{
+    _crashlytics.log('Get User');
     try{
       final DocumentSnapshot<Map<String, dynamic>> databaseUser = await usersRef.doc(user.spotifyId).get();
       
@@ -132,11 +152,11 @@ class UserRepository extends GetxController{
           subscribed: databaseUser.data()?['subscribed'],
           tier: databaseUser.data()?['tier'],
           url: databaseUser.data()?['url'],
-          username: databaseUser.data()?['username'],
           expiration: databaseUser.data()?['expiration'],
           userDocRef: usersRef.doc(user.spotifyId),
           playlistAsc: databaseUser.data()?['playlistAsc'],
           tracksAsc: databaseUser.data()?['tracksAsc'],
+          sortType: databaseUser.data()?['tracksSortType']
         );
 
         return retreivedUser;

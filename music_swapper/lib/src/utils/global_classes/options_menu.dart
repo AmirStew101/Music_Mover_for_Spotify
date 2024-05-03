@@ -2,6 +2,8 @@
 
 import 'dart:io';
 
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:spotify_music_helper/src/utils/backend_calls/storage.dart';
@@ -11,8 +13,12 @@ import 'package:spotify_music_helper/src/settings/settings_view.dart';
 import 'package:spotify_music_helper/src/utils/auth.dart';
 import 'package:spotify_music_helper/src/utils/globals.dart';
 
+final FirebaseCrashlytics _crashlytics = FirebaseCrashlytics.instance;
+
 ///Side menu for Navigating the app's pages.
 Drawer optionsMenu(BuildContext context){
+  _crashlytics.log('Open Options Drawer');
+
   return Drawer(
     elevation: 16,
     width: 200,
@@ -38,6 +44,7 @@ Drawer optionsMenu(BuildContext context){
             leading: const Icon(Icons.album),
             title: const Text('Playlists'),
             onTap: (){
+              _crashlytics.log('Navigate to Playlists Page');
               Get.to(const HomeView());
             },
           ),
@@ -47,6 +54,7 @@ Drawer optionsMenu(BuildContext context){
             leading: const Icon(Icons.question_mark),
             title: const Text('Info'),
             onTap: () async{
+              _crashlytics.log('Navigate to Info Page');
               Get.to(const InfoView());
             },
           ),
@@ -56,6 +64,7 @@ Drawer optionsMenu(BuildContext context){
             leading: const Icon(Icons.settings),
             title: const Text('Settings'),
             onTap: () {
+              _crashlytics.log('Navigate to Settings Page');
               Get.to(const SettingsViewWidget());
             },
           ),
@@ -65,6 +74,8 @@ Drawer optionsMenu(BuildContext context){
             leading: const Icon(Icons.switch_account),
             title: const Text('Sign Out'),
             onTap: () async{
+              _crashlytics.log('Sign Out User');
+
               await SecureStorage().removeTokens();
               await SecureStorage().removeUser();
               await UserAuth().signOutUser();
@@ -79,6 +90,7 @@ Drawer optionsMenu(BuildContext context){
             leading: const Icon(Icons.exit_to_app),
             title: const Text('Exit App'),
             onTap: () {
+              _crashlytics.log('Open Confirmation Box');
               Get.dialog(
                 AlertDialog.adaptive(
                   title: const Text(
@@ -89,6 +101,7 @@ Drawer optionsMenu(BuildContext context){
                   actions: <Widget>[
                     TextButton(
                       onPressed: () {
+                        _crashlytics.log('Cancel Exit');
                         //Close Popup
                         Get.back();
                       }, 
@@ -96,6 +109,7 @@ Drawer optionsMenu(BuildContext context){
                     ),
                     TextButton(
                       onPressed: () {
+                        _crashlytics.log('Confirm Exit');
                         //Close App
                         exit(0);
                       },

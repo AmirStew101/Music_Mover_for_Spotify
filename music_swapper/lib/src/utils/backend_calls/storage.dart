@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:get/get.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:spotify_music_helper/src/utils/class%20models/custom_sort.dart';
 import 'package:spotify_music_helper/src/utils/class%20models/playlist_model.dart';
 import 'package:spotify_music_helper/src/utils/exceptions.dart';
 import 'package:spotify_music_helper/src/utils/globals.dart';
@@ -84,11 +85,13 @@ class SecureStorage extends GetxController{
   // Storage for user info
 
   final String _userIdKey = 'userId';
-  final String _userNameKey = 'userName';
   final String _userUrlKey = 'userUrl';
   final String _subscribedKey = 'subscribed';
   final String _tierKey = 'tier';
   final String _expirationKey = 'expiration';
+  final String _playlistsAscKey = 'playlistsAscKey';
+  final String _tracksAscKey = 'tracksAsc';
+  final String _tracksSortKey = 'tracksSort';
 
   /// Save the Apps user info.
   Future<void> saveUser(UserModel user) async{
@@ -97,10 +100,9 @@ class SecureStorage extends GetxController{
     await _storage.write(key: _subscribedKey, value: user.subscribed.toString());
     await _storage.write(key: _tierKey, value: user.tier.toString());
     await _storage.write(key: _expirationKey, value: user.expiration.toString());
-
-    if (user.username != null){
-      await _storage.write(key: _userNameKey, value: user.username);
-    }
+    await _storage.write(key: _playlistsAscKey, value: user.playlistAsc.toString());
+    await _storage.write(key: _tracksAscKey, value: user.tracksAsc.toString());
+    await _storage.write(key: _tracksSortKey, value: user.tracksSortType);
     _secureUser = user;
   }
 
@@ -108,35 +110,28 @@ class SecureStorage extends GetxController{
   Future<void> getUser() async{
     try{
       final String? userId = await _storage.read(key: _userIdKey);
-      final String? userName = await _storage.read(key: _userNameKey);
       final String? userUri = await _storage.read(key: _userUrlKey);
       final String? subscribed = await _storage.read(key: _subscribedKey);
       final String? tier = await _storage.read(key: _tierKey);
       final String? expiration = await _storage.read(key: _expirationKey);
+      final String? playlistAsc = await _storage.read(key: _playlistsAscKey);
+      final String? tracksAsc = await _storage.read(key: _tracksAscKey);
+      final String? tracksSort = await _storage.read(key: _tracksSortKey);
     
 
       if (userId != null && userUri != null && subscribed != null && tier != null && expiration != null){
         Timestamp expTime = UserModel(expiration: Timestamp.now()).getTimestamp(expiration);
 
-        if (userName != null){
-          _secureUser = UserModel(
-            spotifyId: userId, 
-            url: userUri, 
-            username: userName, 
-            subscribed: bool.parse(subscribed), 
-            tier: int.parse(tier),
-            expiration: expTime,
-          );
-        }
-        else{
-          _secureUser = UserModel(
-            spotifyId: userId, 
-            url: userUri, 
-            subscribed: bool.parse(subscribed), 
-            tier: int.parse(tier),
-            expiration: expTime,
-          );
-        }
+        _secureUser = UserModel(
+          spotifyId: userId, 
+          url: userUri, 
+          subscribed: bool.parse(subscribed), 
+          tier: int.parse(tier),
+          expiration: expTime,
+          playlistAsc: bool.parse(playlistAsc ?? 'true'),
+          tracksAsc: bool.parse(tracksAsc ?? 'true'),
+          sortType: tracksSort
+        );
       }
     }
     catch (e){
@@ -147,7 +142,6 @@ class SecureStorage extends GetxController{
   ///Remove the Apps user info from secure _storage.
   Future<void> removeUser() async{
     await _storage.delete(key: _userIdKey);
-    await _storage.delete(key: _userNameKey);
     await _storage.delete(key: _userUrlKey);
     await _storage.delete(key: _subscribedKey);
     await _storage.delete(key: _tierKey);
@@ -268,7 +262,6 @@ class PlaylistsCacheManager extends GetxController{
 
   /// Cache a sorted list of playlists for the user.
   Future<void> cachePlaylists(List<PlaylistModel> playlists) async {
-    print('Cache Playlists');
     try{
       final SharedPreferences prefs = await SharedPreferences.getInstance();
 
@@ -277,13 +270,11 @@ class PlaylistsCacheManager extends GetxController{
       for(PlaylistModel playlist in playlists){
         storeList.add(playlist.toJson());
       }
-      print('Caching playlists: ${storeList.length}');
       await prefs.setString(_key, jsonEncode(storeList));
     }
     catch (error, stack){
       FirebaseCrashlytics.instance.recordError(error, stack, reason: 'Failed to cache Playlists');
     }
-    print('Finished Cached Playlists');
   }
 
   Future<void> clearPlaylists() async{
@@ -293,7 +284,6 @@ class PlaylistsCacheManager extends GetxController{
 
   /// Get the Playlists from cache.
   Future<List<PlaylistModel>?> getCachedPlaylists() async {
-    print('Get Cached Playlists');
     try{
       final SharedPreferences prefs = await SharedPreferences.getInstance();
       final jsonData = prefs.getString(_key);
@@ -309,7 +299,6 @@ class PlaylistsCacheManager extends GetxController{
         playlists.add(PlaylistModel.fromJson(item));
       }
       _storedPlaylists = playlists;
-      print('Retreived Cached Playlists: ${_storedPlaylists.length}');
       return playlists;
 
     }

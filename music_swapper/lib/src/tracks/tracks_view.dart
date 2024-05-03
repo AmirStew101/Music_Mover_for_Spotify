@@ -2,6 +2,7 @@
 
 import 'dart:async';
 
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
@@ -52,6 +53,10 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
   final ValueNotifier loaded = ValueNotifier(false);
 
   bool refresh = false;
+  int refeshTimes = 0;
+  final int refreshLimit = 3;
+  bool timerStart = false;
+
   bool error = false;
   bool removing = false;
   
@@ -62,14 +67,14 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
   @override
   void initState(){
     super.initState();
+    _crashlytics.log('Init Tracks View Page');
+
     try{
       _spotifyRequests = SpotifyRequests.instance;
       currentPlaylist = _spotifyRequests.currentPlaylist;
-      print('Init Playlists: ${currentPlaylist.title}');
-      print('Init Tracks: ${currentPlaylist.tracks}');
     }
     catch (e){
-      print('Error Tracks go Back $e');
+      _crashlytics.log('Error Tracks go Back');
       Get.back(result: false);
     }
 
@@ -86,7 +91,7 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
 
   /// Updates how the tracks are sorted.
   void sortUpdate() {
-    print('Sort: ${currentPlaylist.title} Requests Tracks ${_spotifyRequests.playlistTracks.length}');
+    _crashlytics.log('Sort Tracks Update');
 
     // Sorts the tracks based on the current sort type.
     if(sortType == Sort().addedAt){
@@ -102,8 +107,6 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
     else{
       _spotifyRequests.sortTracks(sortType.value);
     }
-
-    print('Sorted: ${currentPlaylist.title} Tracks ${_spotifyRequests.playlistTracks.length}');
   }
 
   ///Page state setup Function to setup the page.
@@ -113,25 +116,23 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
     if(!loaded.value){
       try{
         if (mounted && (currentPlaylist.tracks.isEmpty || refresh)){
-          print('Playlist empty: ${currentPlaylist.tracks}');
           await fetchSpotifyTracks();
         }
         else if(mounted){
-          print('Tracks Loaded');
           loaded.value = true;
         }
       }
       catch (e, stack){
-        print('Error Loading tracks');
         error = true;
         loaded.value = true;
         _crashlytics.recordError(e, stack, reason: 'Failed while Fetching Spotify Tracks', fatal: true);
       }
     }
-  }//checkLogin
+  }// checkLogin
 
   /// Gets the users tracks for the selected Playlist
   Future<void> fetchSpotifyTracks() async {
+    _crashlytics.log('fetchSpotifyTracks function');
     try{
       await _spotifyRequests.requestTracks(currentPlaylist.id);
       currentPlaylist = _spotifyRequests.currentPlaylist;
@@ -143,20 +144,18 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
         error = false;
       }
     }
-    catch (e){
-      throw CustomException(stack: StackTrace.current, fileName: _fileName, functionName: 'fetchSpotifyTracks',  error: e);
+    catch (ee, stack){
+      throw CustomException(stack: stack, fileName: _fileName, functionName: 'fetchSpotifyTracks',  error: ee);
     }
   }
 
   void handleSelectAll(){
-    print('Select All');
+    _crashlytics.log('Select All');
     if (selectedTracksList.length != currentPlaylist.tracks.length){
-      print('Add Tracks');
       selectedTracksList.clear();
       selectedTracksList.addAll(currentPlaylist.tracks);
     }
     else{
-      print('Remove Tracks');
       selectedTracksList.clear();
     }
   }
@@ -166,7 +165,7 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
   ///
   ///Clears the selected tracks to realign the view.
   Future<void> handleDeleteRefresh() async{
-    print('Delete Refresh');
+    _crashlytics.log('Delete Refresh');
     loaded.value = false;
     error = false;
     removing = false;
@@ -176,15 +175,54 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
     _checkTracks();
   }
 
-  ///Refreshes the page with function constraints to skip unnecessary steps on page refresh.
+  /// Refreshes the page with function constraints to skip unnecessary steps on page refresh.
   Future<void> handleRefresh() async{
-    print('Refresh');
-    refresh = true;
-    loaded.value = false;
-    error = false;
+    if (_checkRefresh()){
+      _crashlytics.log('Refresh');
+      refresh = true;
+      refeshTimes++;
+      loaded.value = false;
+      error = false;
 
-    selectedTracksList.clear();
-    _checkTracks();
+      selectedTracksList.clear();
+      _checkTracks();
+    }
+  }
+
+  /// Checks if the user has clicked refresh too many times.
+  bool _checkRefresh(){
+    _crashlytics.log('Check Refresh: Check if Refresh button can be pressed.');
+    if(refeshTimes == refreshLimit && !timerStart){
+
+      Get.snackbar(
+        'Reached Refresh Limit',
+        'Refreshed too many times to quickly. Must wait before refreshing again.',
+        backgroundColor: snackBarGrey
+      );
+      timerStart = true;
+      
+      Timer.periodic(const Duration(seconds: 5), (timer) {
+        refeshTimes--;
+        if(refeshTimes == 0){
+          timerStart = false;
+          timer.cancel();
+        }
+      });
+
+      return false;
+    }
+    else if(refeshTimes == refreshLimit && timerStart){
+      Get.snackbar(
+        'Reached Refresh Limit',
+        'Refreshed too many times to quickly. Must wait before refreshing again',
+        backgroundColor: snackBarGrey
+      );
+
+      return false;
+    }
+    else{
+      return true;
+    }
   }
 
   @override
@@ -272,6 +310,7 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
                     Obx(() => IconButton(
                       onPressed: () {
                         _spotifyRequests.tracksAsc = !_spotifyRequests.tracksAsc;
+                        user.tracksAsc = _spotifyRequests.tracksAsc;
                         sortUpdate();
                       }, 
                       icon: _spotifyRequests.tracksAsc
@@ -288,10 +327,12 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
                 actions: [
                   Obx(() => SwitchListTile.adaptive(
                     title: const Text('Title'),
-                    value: sortType == Sort().title,
+
+                    value: sortType.value == Sort().title,
                     onChanged: (_) {
-                      print('Title Switch');
+                      _crashlytics.log('Sort by Title');
                       sortType.value = Sort().title;
+                      user.tracksSortType = sortType.value;
                       sortUpdate();
                     },
                   )),
@@ -299,10 +340,11 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
                   Obx(() => SwitchListTile.adaptive(
                     title: const Text('Artist'),
 
-                    value: sortType == Sort().artist,
+                    value: sortType.value == Sort().artist,
                     onChanged: (_) {
-                      print('Artist Switch');
+                      _crashlytics.log('Sort by Artist');
                       sortType.value = Sort().artist;
+                      user.tracksSortType = sortType.value;
                       sortUpdate();
                     },
                   )),
@@ -310,20 +352,24 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
                   Obx(() => SwitchListTile.adaptive(
                     title: const Text('Added At'),
 
-                    value: sortType == Sort().addedAt,
+                    value: sortType.value == Sort().addedAt,
                     onChanged: (_) {
-                      print('Added At Switch');
+                      _crashlytics.log('Sort by Added At time');
                       sortType.value = Sort().addedAt;
+                      user.tracksSortType = sortType.value;
                       sortUpdate();
                     },
                   )),
 
                   Obx(() => SwitchListTile.adaptive(
                     title: const Text('Type'),
-                    value: sortType == Sort().type,
+                    subtitle: const Text('Track or Episode'),
+
+                    value: sortType.value == Sort().type,
                     onChanged: (_) {
-                      print('Type Switch');
+                      _crashlytics.log('Sort by Type');
                       sortType.value = Sort().type;
+                      user.tracksSortType = sortType.value;
                       sortUpdate();
                     },
                   )),
@@ -340,6 +386,7 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
 
           onPressed: () async {
             if (loaded.value){
+              _crashlytics.log('Search Tracks');
               RxList<TrackModel> searchedTracks = currentPlaylist.tracks.obs;
               String searchType = Sort().title;
               Rx<bool> artistFilter = false.obs;
@@ -497,16 +544,12 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
           //Refresh tracks for the current Paylist
           Tab(
             child: InkWell(
-              onTap: () async{
-                handleRefresh();
-              },
+              onTap: () => handleRefresh(),
               child: Row(
                 children: <Widget>[ 
                   IconButton(
                     icon: const Icon(Icons.sync_sharp),
-                    onPressed: () async{
-                      handleRefresh();
-                    },
+                    onPressed: () => handleRefresh(),
                   ),
                   const Text('Refresh'),
                 ],
@@ -517,18 +560,14 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
           //Select All checkbox.
           Tab(
             child: InkWell(
-              onTap: () {
-                handleSelectAll();
-              },
+              onTap: () => handleSelectAll(),
               child: Row(
                 children: <Widget>[
                    Obx(() => Checkbox(
                     materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                     shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
                     value: selectedTracksList.length == currentPlaylist.tracks.length && loaded.value,
-                    onChanged: (_) {
-                      handleSelectAll();
-                    },
+                    onChanged: (_) => handleSelectAll(),
                   )),
                   const Text('Select All'),
                 ],
@@ -609,8 +648,9 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
 
                                           if(!response) TracksViewPopups().errorLink('Track');
                                         }
-                                        catch (e){
+                                        catch (ee, stack){
                                           TracksViewPopups().errorLink('Track');
+                                          _crashlytics.recordError(ee, stack, reason: 'Failed to open Track Link');
                                         }
                                       },
                                       child: const Icon(
@@ -668,6 +708,7 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
           shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
           value: selectedTracksList.contains(track),
           onChanged: (_) {
+            _crashlytics.log('Select track');
             if (!selectedTracksList.contains(track)){
               selectedTracksList.add(track);
             }
@@ -684,8 +725,8 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
           //Name of the Track shown to user
           children: <Widget>[
             Text(
-              track.title.length > 20
-              ? '${track.title.substring(0, 20)}...'
+              track.title.length > 25
+              ? '${track.title.substring(0, 25)}...'
               : track.title,
               textScaler: const TextScaler.linear(1.2),
               overflow: TextOverflow.ellipsis,
@@ -702,9 +743,10 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
                       if(index == 0){
                         return Column(
                           children: [
-                            const Text(
-                              'Artists Links',
+                            Text(
+                              'Artists for ${track.title}',
                               textScaler: TextScaler.linear(1.2),
+                              textAlign: TextAlign.center,
                             ),
                             customDivider()
                           ]
@@ -719,8 +761,9 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
 
                                 if(!response) TracksViewPopups().errorLink('Artists');
                               }
-                              catch (e){
+                              catch (ee, stack){
                                 TracksViewPopups().errorLink('Artists');
+                                _crashlytics.recordError(ee, stack, reason: 'Failed to open Artists Link');
                               }
                             }, 
                             child: Text(
@@ -777,6 +820,8 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
 
           // Move to playlist(s) Index
           if (value == 0 && selectedTracksList.isNotEmpty && loaded.value) {
+            _crashlytics.log('Move Tracks');
+
             TrackArguments trackArgs = TrackArguments(selectedTracks: selectedTracksList, option: 'move');
 
             changes = await Get.to(const SelectPlaylistsViewWidget(), arguments: trackArgs);
@@ -785,6 +830,8 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
           }
           // Add to playlist(s) index
           else if (value == 1 && selectedTracksList.isNotEmpty && loaded.value) {
+            _crashlytics.log('Add Tracks');
+
             TrackArguments trackArgs = TrackArguments(selectedTracks: selectedTracksList, option: 'add');
 
             changes = await Get.to(const SelectPlaylistsViewWidget(), arguments: trackArgs);
@@ -792,6 +839,8 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
           } 
           //Removes track(s) from current playlist
           else if (value == 2 && selectedTracksList.isNotEmpty && loaded.value){
+            _crashlytics.log('Remove Tracks');
+
             bool confirmed = false;
 
             await showDialog(
@@ -806,6 +855,7 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
                   actions: <Widget>[
                     TextButton(
                       onPressed: () {
+                        _crashlytics.log('Cancel Remove Tracks');
                         //Close Popup
                         Get.back();
                       }, 
@@ -814,6 +864,7 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
                     TextButton(
                       onPressed: () {
                         confirmed = true;
+                        _crashlytics.log('Confirm Remove Tracks');
                         //Close Popup
                         Get.back();
                       },

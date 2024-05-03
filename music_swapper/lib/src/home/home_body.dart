@@ -1,4 +1,5 @@
 
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:spotify_music_helper/src/tracks/tracks_view.dart';
@@ -12,7 +13,7 @@ class ImageGridWidget extends StatefulWidget{
   const ImageGridWidget({required this.playlists, required this.spotifyRequests,super.key});
   final List<PlaylistModel> playlists;
   final SpotifyRequests spotifyRequests;
-
+  
   @override
   State<ImageGridWidget> createState() => ImageGridState();
 }
@@ -20,6 +21,7 @@ class ImageGridWidget extends StatefulWidget{
 ///State view for the users Playlists showing each playlists image with its name under it.
 class ImageGridState extends State<ImageGridWidget> {
   late final SpotifyRequests _spotifyRequests;
+  final FirebaseCrashlytics _crashlytics = FirebaseCrashlytics.instance;
 
   @override
   void initState(){
@@ -44,23 +46,15 @@ class ImageGridState extends State<ImageGridWidget> {
   @override
   Widget build(BuildContext context) {
     //Builds the Grid of Images with Playlist Names
-    return Stack(
-      children: <Widget>[
-        Obx(() => GridView.builder(
+    return Obx(() => GridView.builder(
           gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount: 2, //Number of Col in the grid
             crossAxisSpacing: 8, //Spacing between Col
             mainAxisSpacing: 10, //Spacing between rows
           ),
-          itemCount: _spotifyRequests.allPlaylists.length+1,
+          itemCount: _spotifyRequests.allPlaylists.length,
           itemBuilder: (_, int index) {
-            
-            if(index >= _spotifyRequests.allPlaylists.length){
-              return const SizedBox(
-                height: 10,
-              );
-            }
-            else{
+
               //Gets the Map items by index with the extra item in mind
               final PlaylistModel currPlaylist = _spotifyRequests.allPlaylists[index];
               final String imageName = currPlaylist.title;
@@ -72,14 +66,13 @@ class ImageGridState extends State<ImageGridWidget> {
                   InkWell(
                     onTap: () async {
                       if(_spotifyRequests.loadedIds.contains(currPlaylist.id)){
-                        if (currPlaylist.title == 'Liked_Songs'){
-                          await AppAnalytics().trackLikedSongs();
-                        }
 
                         _spotifyRequests.currentPlaylist = currPlaylist;
+                        _crashlytics.log('Navigate to Playlist Tracks');
                         bool? success = await Get.to(const TracksView());
 
                         if(success != null && !success){
+                          _crashlytics.log('Home Body Request Tracks: TracksView returned false');
                           _spotifyRequests.requestTracks(currPlaylist.id);
                         }
                       }
@@ -89,6 +82,8 @@ class ImageGridState extends State<ImageGridWidget> {
                         crossAxisAlignment: CrossAxisAlignment.center,
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: <Widget>[
+
+                          // Error loading playlist Tracks
                           if(_spotifyRequests.errorIds.contains(currPlaylist.id) && !_spotifyRequests.loading.value)
                           ...<Widget>[
                             SizedBox(
@@ -96,6 +91,7 @@ class ImageGridState extends State<ImageGridWidget> {
                               width: 155,
                               child: IconButton(
                                 onPressed: () async{
+                                  _crashlytics.log('Refresh Playlist in Error Ids');
                                   await _spotifyRequests.requestTracks(currPlaylist.id);
                                 }, 
                                 icon: const Icon(Icons.refresh)
@@ -104,39 +100,34 @@ class ImageGridState extends State<ImageGridWidget> {
                             const Text('Retry')
                           ],
 
-                          if(!_spotifyRequests.errorIds.contains(currPlaylist.id) || _spotifyRequests.loading.value)
-                          ColorFiltered(
-                              colorFilter: _spotifyRequests.loadedIds.contains(currPlaylist.id)
-                              ? const ColorFilter.mode(Colors.transparent, BlendMode.srcOver)
-                              : const ColorFilter.mode(Colors.grey, BlendMode.saturation),
-
-                              child: imageUrl.contains('asset')
+                          // Successfully loaded Playlist Tracks
+                          if(_spotifyRequests.loadedIds.contains(currPlaylist.id))
+                          imageUrl.contains('asset')
                               //Playlist doesn't have an image from Spotify
                           ?  Image(
-                                image: AssetImage(imageUrl),
-                                fit: BoxFit.cover,
-                                height: 154,
-                                width: 155,
-                              )
+                              image: AssetImage(imageUrl),
+                              fit: BoxFit.cover,
+                              height: 154,
+                              width: 155,
+                            )
                           
                           // Playlist has an image from Spotify.
                           // Grey image when not loaded
                           : Image.network(
-                                imageUrl,
+                              imageUrl,
+                              fit: BoxFit.cover,
+                              height: 154,
+                              width: 155,
+
+                              // Error connecting to the images URL
+                              // Use the No image asset
+                              errorBuilder: (_, __, ___) => const Image(
+                                image: AssetImage(assetNoImage),
                                 fit: BoxFit.cover,
                                 height: 154,
                                 width: 155,
-
-                                // Error connecting to the images URL
-                                // Use the No image asset
-                                errorBuilder: (_, __, ___) => const Image(
-                                  image: AssetImage(assetNoImage),
-                                  fit: BoxFit.cover,
-                                  height: 154,
-                                  width: 155,
-                                ),
+                              ),
                             ),
-                          ),
                           
                           // Playlist Name
                           Text(
@@ -159,10 +150,7 @@ class ImageGridState extends State<ImageGridWidget> {
                 ]
               ));
             }
-          }
-        )),
-      ],
-    );
+        ));
   }// build Widget
 
 }// ImageGridState

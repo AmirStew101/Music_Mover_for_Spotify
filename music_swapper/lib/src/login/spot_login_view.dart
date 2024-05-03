@@ -2,6 +2,7 @@
 
 import 'dart:convert';
 
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:spotify_music_helper/src/utils/analytics.dart';
@@ -32,6 +33,7 @@ class SpotLoginState extends State<SpotLoginWidget> {
   late DatabaseStorage _databaseStorage;
   late SecureStorage _secureStorage;
   late PlaylistsCacheManager _cacheManager;
+  final FirebaseCrashlytics _crashlytics = FirebaseCrashlytics.instance;
 
   @override
   void initState(){
@@ -62,6 +64,7 @@ class SpotLoginState extends State<SpotLoginWidget> {
   Future<WebViewController> initiateLogin(BuildContext context, bool reLogin) async {
     late final String loginURL;
 
+    _crashlytics.log('Set login Url');
     if (reLogin){
       //Ask user if they are signed into the correct account.
       loginURL = '$hosted/get-auth-url-dialog';
@@ -71,23 +74,25 @@ class SpotLoginState extends State<SpotLoginWidget> {
       loginURL = '$hosted/get-auth-url-no-dialog';
     }
 
-    late final dynamic responseDecode;
+    //The authorization url to get Spotify access.
+    late final String authUrl;
 
     try{
+      _crashlytics.log('Request AuthUrl');
       final http.Response response = await http.get(Uri.parse(loginURL));
       
       if (response.statusCode != 200){
+        _crashlytics.recordError(response.body, StackTrace.current, reason: 'Failed to retrieve Request Url');
         loginIssue();
       }
-      responseDecode = json.decode(response.body);
+      authUrl = json.decode(response.body);
     }
-    catch (e){
+    catch (error, stack){
+      _crashlytics.recordError(error, stack, reason: 'Failed to retrieve Request Url');
       loginIssue();
     }
 
-    //The authorization url to get Spotify access.
-    final String authUrl = responseDecode;
-
+    _crashlytics.log('Set authUri');
     // Makes a Web controller to login to Spotify and redirect back to app.
     final Uri authUri = Uri.parse(authUrl);
 
@@ -109,12 +114,16 @@ class SpotLoginState extends State<SpotLoginWidget> {
           onNavigationRequest: (NavigationRequest request) async {
             //Spotify sent the callback tokens.
             if (request.url.startsWith('$hosted/callback')) {
+              _crashlytics.log('Spot Login Initialize SpotifyRequests');
               await _spotifyRequests.initializeRequests(callRequest: request.url);
 
+              _crashlytics.log('Spot Login Sign in User');
               await UserAuth().signInUser(_spotifyRequests.user.spotifyId);
 
+              _crashlytics.log('Spot Login Initialize DatabaseStorage');
               await _databaseStorage.initializeDatabase(_spotifyRequests.user);
 
+              _crashlytics.log('Storage setup and Retreival');
               await _secureStorage.saveTokens(_spotifyRequests.callback);
               await _secureStorage.saveUser(_spotifyRequests.user);
               await _cacheManager.getCachedPlaylists();
@@ -123,10 +132,12 @@ class SpotLoginState extends State<SpotLoginWidget> {
               await AppAnalytics().trackSpotifyLogin(_spotifyRequests.user);
 
               if(_databaseStorage.newUser){
+                _crashlytics.log('Go to Turotrial page');
                 // Navigate to Tutorial screen for new Users and remove previous routes
                 Get.offAllNamed('/tutorial');
               }
               else{
+                _crashlytics.log('Go to Home page');
                 // Navigate to Home and remove previous routes
                 Get.offAllNamed('/');
               }
@@ -161,7 +172,7 @@ class SpotLoginState extends State<SpotLoginWidget> {
 
   /// Creates an error Notification for the User and Returns to the Start Screen.
   void loginIssue({bool loginReset = true, bool missingAccount = false, bool facebook = false}){
-    
+    _crashlytics.log('Login Issue');
     /// Returns to start screen when not a Fascebook or Missing account error.
     if (!facebook && !missingAccount) Get.back();
 
