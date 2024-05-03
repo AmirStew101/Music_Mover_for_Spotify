@@ -2,6 +2,8 @@
 import 'dart:convert';
 
 import 'package:spotify_music_helper/src/utils/class%20models/track_model.dart';
+import 'package:spotify_music_helper/src/utils/global_classes/global_objects.dart';
+import 'package:spotify_music_helper/src/utils/globals.dart';
 
 ///Model for Spotify Playlist object.
 class PlaylistModel {
@@ -22,6 +24,20 @@ class PlaylistModel {
     List<TrackModel>? tracks,
   }) : _tracks = tracks ?? const <TrackModel>[]{
     _makeDuplicates();
+  }
+
+  bool get isEmpty{
+    if(id == likedSongs){
+      return tracks.isEmpty;
+    }
+    return id == '' || link == '' || title == '' || tracks.isEmpty;
+  }
+
+  bool get isNotEmpty{
+    if(id == likedSongs){
+      return !tracks.isEmpty;
+    }
+    return id != '' || link != '' || title != '' || tracks.isNotEmpty;
   }
 
   List<TrackModel> get tracks{
@@ -88,6 +104,9 @@ class PlaylistModel {
   }
 
   factory PlaylistModel.fromJson(Map<String, dynamic> json){
+    List<String> keys = ['id', 'link', 'imageUrl', 'snapshotId', 'title', 'tracks'];
+    mapKeysCheck(keys, json, 'PlaylistModel.fromJson');
+
     List<dynamic> jsonTracks = json['tracks'];
     List<TrackModel> tracksList = [];
 
@@ -138,7 +157,6 @@ class PlaylistModel {
     return other.id == id 
     && other.title == title
     && other.imageUrl == imageUrl
-    && other.snapshotId == snapshotId
     && other.link == link;
   }
   
@@ -147,7 +165,6 @@ class PlaylistModel {
   id.hashCode 
   ^ title.hashCode
   ^ imageUrl.hashCode
-  ^ snapshotId.hashCode
   ^ link.hashCode;
 
   @override

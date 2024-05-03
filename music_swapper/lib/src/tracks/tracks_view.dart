@@ -70,6 +70,9 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
     try{
       _spotifyRequests = SpotifyRequests.instance;
       currentPlaylist = _spotifyRequests.currentPlaylist;
+      print('Init Playlists: ${currentPlaylist.title}');
+      print('Init Tracks: ${currentPlaylist.tracks}');
+      sortUpdate();
     }
     catch (e){
       Get.back(result: false);
@@ -88,6 +91,8 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
 
   /// Updates how the tracks are sorted.
   void sortUpdate() {
+    print('Sort: ${currentPlaylist.title} Requests Tracks ${currentPlaylist.tracks.length}');
+    print('Sort: ${currentPlaylist.title} Page Tracks ${sortedTracks.length}');
 
     // Sorts the tracks based on the current sort type.
     if(sortType == Sort().addedAt){
@@ -103,6 +108,8 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
     else{
       sortedTracks = Sort().tracksListSort(playlist: currentPlaylist, ascending: ascending);
     }
+
+    print('Sorted: ${currentPlaylist.title} Tracks ${sortedTracks.length}');
   }
 
   ///Page state setup Function to setup the page.
@@ -111,16 +118,17 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
     // Keeps from repeating functions
     if(!loaded.value){
       try{
-
         if (mounted && (currentPlaylist.tracks.isEmpty || refresh)){
+          print('Playlist empty: ${currentPlaylist.tracks}');
           await fetchSpotifyTracks();
         }
         else if(mounted){
-          sortUpdate();
+          print('Tracks Loaded');
           loaded.value = true;
         }
       }
       catch (e, stack){
+        print('Error Loading tracks');
         error = true;
         loaded.value = true;
         _crashlytics.recordError(e, stack, reason: 'Failed while Fetching Spotify Tracks', fatal: true);
@@ -147,6 +155,7 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
   }
 
   void handleSelectAll(){
+    print('Select All');
     if (selectedTracksList.length != currentPlaylist.tracks.length){
       selectedTracksList.clear();
       selectedTracksList.addAll(currentPlaylist.tracks);
@@ -161,6 +170,7 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
   ///
   ///Clears the selected tracks to realign the view.
   Future<void> handleDeleteRefresh() async{
+    print('Delete Refresh');
     loaded.value = false;
     error = false;
     removing = false;
@@ -172,6 +182,7 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
 
   ///Refreshes the page with function constraints to skip unnecessary steps on page refresh.
   Future<void> handleRefresh() async{
+    print('Refresh');
     refresh = true;
     loaded.value = false;
     error = false;

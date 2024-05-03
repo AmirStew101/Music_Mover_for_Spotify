@@ -113,11 +113,12 @@ class SpotLoginState extends State<SpotLoginWidget> {
 
               await UserAuth().signInUser(_spotifyRequests.user.spotifyId);
 
-              _databaseStorage.initializeDatabase(_spotifyRequests.user);
+              await _databaseStorage.initializeDatabase(_spotifyRequests.user);
 
               await _secureStorage.saveTokens(_spotifyRequests.callback);
               await _secureStorage.saveUser(_spotifyRequests.user);
               await _cacheManager.getCachedPlaylists();
+              _spotifyRequests.allPlaylists = _cacheManager.storedPlaylists;
 
               await AppAnalytics().trackSpotifyLogin(_spotifyRequests.user);
 

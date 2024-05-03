@@ -2,6 +2,9 @@
 
 import 'dart:convert';
 
+import 'package:spotify_music_helper/src/utils/global_classes/global_objects.dart';
+import 'package:spotify_music_helper/src/utils/globals.dart';
+
 ///Model for Spotify Track object.
 class TrackModel extends Object{
   final String id;
@@ -110,7 +113,7 @@ class TrackModel extends Object{
   /// 
   /// Ignores the type, addedAt, liked, and duplicates values since their values are always set.
   bool get isEmpty{
-    return (id == '' && imageUrl == '' && _artists.isEmpty && title == '' && _album.isEmpty);
+    return id == '' && imageUrl == '' && _artists.isEmpty && title == '' && _album.isEmpty;
   }
 
   /// True if the track does have values.
@@ -161,8 +164,10 @@ class TrackModel extends Object{
 
   /// Converts a Json track to a TrackModel
   factory TrackModel.fromJson(Map<String, dynamic> json) {
+    List<String> keys = ['id', 'title', 'imageUrl', 'previewUrl', 'artists', 'album', 'addedAt', 'duplicates', 'dupeId', 'type'];
+    mapKeysCheck(keys, json, 'PlaylistModel.fromJson');
+
     String encodedArtists = jsonEncode(json['artists']);
-    encodedArtists = jsonEncode(json['artists']);
     final String encodeAlbum = jsonEncode(json['album']);
 
     Map<String, dynamic> artists = jsonDecode(encodedArtists);

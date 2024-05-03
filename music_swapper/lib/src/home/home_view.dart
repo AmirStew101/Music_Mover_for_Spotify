@@ -89,20 +89,23 @@ class HomeViewState extends State<HomeView> with SingleTickerProviderStateMixin{
 
   /// Updates how the tracks are sorted.
   void sortUpdate() {
-    // Sorts Playlists in ascending or descending order based on the current sort type.
-    _spotifyRequests.allPlaylists = Sort().playlistsListSort(_spotifyRequests.allPlaylists, ascending: ascending);
+    print('Sort');
+    _spotifyRequests.sortPlaylists(ascending: ascending);
+    print('Finish Sort');
   }
 
   /// Check the saved Tokens & User on device and on successful confirmation get Users playlists.
   Future<void> _checkLogin() async {
     try{
       if(!_spotifyRequests.initialized || !_databaseStorage.initialized){
+        print('Check Login');
         await _secureStorage.getUser();
         await _secureStorage.getTokens();
         
         // The saved User and Tokens are not corrupted.
         // Initialize the users database connection & spotify requests connection.
         if(_secureStorage.secureUser != null && _secureStorage.secureCallback != null){
+          print('Initialize Login');
           user = _secureStorage.secureUser!;
 
           await _databaseStorage.initializeDatabase(user);
@@ -112,6 +115,7 @@ class HomeViewState extends State<HomeView> with SingleTickerProviderStateMixin{
           user = _spotifyRequests.user;
         }
         else{
+          print('Login corrupted');
           bool reLogin = true;
           Get.to(const StartViewWidget(), arguments: reLogin);
         }
@@ -119,24 +123,26 @@ class HomeViewState extends State<HomeView> with SingleTickerProviderStateMixin{
 
       //Fetches Playlists if page is not loaded and on this Page
       if (mounted && !_loaded.value){
-        if(mounted && _spotifyRequests.cacheLoaded){
+        if(mounted && (_spotifyRequests.loadedIds.isEmpty || _spotifyRequests.errorIds.isNotEmpty || _spotifyRequests.allPlaylists.isEmpty) && !refresh){
+          print('Loaded Ids: ${_spotifyRequests.loadedIds.isEmpty} Error Ids: ${_spotifyRequests.errorIds.isNotEmpty} All Playlists: ${_spotifyRequests.allPlaylists.isEmpty}');
+          print('Request all Playlists & Tracks');
           await _spotifyRequests.requestPlaylists();
           sortUpdate();
           _loaded.value = true;
-        }
-        if(mounted && (_spotifyRequests.loadedIds.isEmpty || _spotifyRequests.errorIds.isNotEmpty) && !refresh){
-          await _spotifyRequests.requestPlaylists();
-          sortUpdate();
-          _loaded.value = true;
-          _spotifyRequests.requestAllTracks();
+          await _spotifyRequests.requestAllTracks();
+          print('Finished Requesting all Playlists & Tracks');
         }
         else if(mounted && refresh){
-          await _spotifyRequests.requestPlaylists(refresh: true);
+          print('Request all Playlists');
+          await _spotifyRequests.requestPlaylists(refresh: refresh);
           sortUpdate();
           refresh = false;
           _loaded.value = true;
+          print('Finished Requesting all Playlists');
         }
         else{
+          print('Load cached Playlists');
+          sortUpdate();
           _loaded.value = true;
         }
       }
@@ -150,6 +156,7 @@ class HomeViewState extends State<HomeView> with SingleTickerProviderStateMixin{
 
   /// Navigate to Tracks page for chosen Playlist
   void navigateToTracks(PlaylistModel playlist){
+    print('Navigate to Tracks');
     try{
       _spotifyRequests.currentPlaylist = playlist;
       // Navigate to the tracks page sending the chosen playlist.
@@ -161,6 +168,7 @@ class HomeViewState extends State<HomeView> with SingleTickerProviderStateMixin{
   }//navigateToTracks
 
   Future<void> refreshPage() async{
+    print('Refresh Page');
     _loaded.value = false;
     error = false;
     refresh = true;
@@ -236,6 +244,7 @@ class HomeViewState extends State<HomeView> with SingleTickerProviderStateMixin{
               }
               else{
                 return Stack(
+                  alignment: Alignment.center,
                   children: <Widget>[
                     Column(
                       mainAxisAlignment: MainAxisAlignment.center,

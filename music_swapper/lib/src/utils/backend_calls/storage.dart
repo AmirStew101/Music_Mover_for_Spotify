@@ -268,6 +268,7 @@ class PlaylistsCacheManager extends GetxController{
 
   /// Cache a sorted list of playlists for the user.
   Future<void> cachePlaylists(List<PlaylistModel> playlists) async {
+    print('Cache Playlists');
     try{
       final SharedPreferences prefs = await SharedPreferences.getInstance();
 
@@ -276,11 +277,13 @@ class PlaylistsCacheManager extends GetxController{
       for(PlaylistModel playlist in playlists){
         storeList.add(playlist.toJson());
       }
+      print('Caching playlists: ${storeList.length}');
       await prefs.setString(_key, jsonEncode(storeList));
     }
     catch (error, stack){
       FirebaseCrashlytics.instance.recordError(error, stack, reason: 'Failed to cache Playlists');
     }
+    print('Finished Cached Playlists');
   }
 
   Future<void> clearPlaylists() async{
@@ -290,6 +293,7 @@ class PlaylistsCacheManager extends GetxController{
 
   /// Get the Playlists from cache.
   Future<List<PlaylistModel>?> getCachedPlaylists() async {
+    print('Get Cached Playlists');
     try{
       final SharedPreferences prefs = await SharedPreferences.getInstance();
       final jsonData = prefs.getString(_key);
@@ -305,6 +309,7 @@ class PlaylistsCacheManager extends GetxController{
         playlists.add(PlaylistModel.fromJson(item));
       }
       _storedPlaylists = playlists;
+      print('Retreived Cached Playlists: ${_storedPlaylists.length}');
       return playlists;
 
     }

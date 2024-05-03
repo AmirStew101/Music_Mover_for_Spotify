@@ -15,15 +15,17 @@ class Sort{
   /// Sorts a Map or List of playlists in ascending or descending order based on their Title.
   /// Trows an error if no Map or List is given.
   List<PlaylistModel> playlistsListSort(List<PlaylistModel> playlistsList,{bool ascending = true}){
+    List<PlaylistModel> sortedList = [];
+    sortedList.addAll(playlistsList);
 
     if(ascending){
-      playlistsList.sort((PlaylistModel a, PlaylistModel b) => a.title.compareTo(b.title));
+      sortedList.sort((PlaylistModel a, PlaylistModel b) => a.title.compareTo(b.title) * -1);
     }
     else{
-      playlistsList.sort((PlaylistModel a, PlaylistModel b) => a.title.compareTo(b.title) * -1);
+      sortedList.sort((PlaylistModel a, PlaylistModel b) => a.title.compareTo(b.title));
     }
 
-    return playlistsList;
+    return sortedList;
   }
 
   /// Sort a Map of tracks from a given playlist.
@@ -37,13 +39,13 @@ class Sort{
   /// 
   /// Tracks can be sorted in ascending or descending order based on the value of [ascending]. Defaults to true.
   List<TrackModel> tracksListSort({PlaylistModel? playlist, List<TrackModel>? tracksList, bool artist = false, bool type = false, bool addedAt = false, bool id = false, bool ascending = true}){
-    List<TrackModel> tracks;
+    List<TrackModel> tracks = [];
 
     if(playlist != null){
-      tracks = playlist.tracks;
+      tracks.addAll(playlist.tracks);
     }
     else if(tracksList != null){
-      tracks = tracksList;
+      tracks.addAll(tracksList);
     }
     else{
       throw CustomException(error: 'Missing PlaylistModel or List of TrackModels');
@@ -52,42 +54,42 @@ class Sort{
 
     if(artist){
       if(ascending){
-        tracks.sort((TrackModel a, TrackModel b) => a.artistNames[0].compareTo(b.artistNames[0]));
+        tracks.sort((TrackModel a, TrackModel b) => a.artistNames[0].compareTo(b.artistNames[0]) * -1);
       }
       else{
-        tracks.sort((TrackModel a, TrackModel b) => a.artistNames[0].compareTo(b.artistNames[0]) * -1);
+        tracks.sort((TrackModel a, TrackModel b) => a.artistNames[0].compareTo(b.artistNames[0]));
       }
     }
     else if(type){
       if (ascending){
-        tracks.sort((TrackModel a, TrackModel b) => a.type.compareTo(b.type));
+        tracks.sort((TrackModel a, TrackModel b) => a.type.compareTo(b.type) * -1);
       }
       else{
-        tracks.sort((TrackModel a, TrackModel b) => a.type.compareTo(b.type) * -1);
+        tracks.sort((TrackModel a, TrackModel b) => a.type.compareTo(b.type));
       }
     }
     else if(addedAt){
       if (ascending){
-        tracks.sort((TrackModel a, TrackModel b) => a.addedAt.compareTo(b.addedAt));
+        tracks.sort((TrackModel a, TrackModel b) => a.addedAt.compareTo(b.addedAt) * -1);
       }
       else{
-        tracks.sort((TrackModel a, TrackModel b) => a.addedAt.compareTo(b.addedAt) * -1);
+        tracks.sort((TrackModel a, TrackModel b) => a.addedAt.compareTo(b.addedAt));
       }
     }
     else if(id){
       if (ascending){
-        tracks.sort((TrackModel a, TrackModel b) => a.id.compareTo(b.id));
+        tracks.sort((TrackModel a, TrackModel b) => a.id.compareTo(b.id) * -1);
       }
       else{
-        tracks.sort((TrackModel a, TrackModel b) => a.id.compareTo(b.id) * -1);
+        tracks.sort((TrackModel a, TrackModel b) => a.id.compareTo(b.id));
       }
     }
     else{
       if(ascending){
-        tracks.sort((TrackModel a, TrackModel b) => a.title.compareTo(b.title));
+        tracks.sort((TrackModel a, TrackModel b) => a.title.compareTo(b.title) * -1);
       }
       else{
-        tracks.sort((TrackModel a, TrackModel b) => a.title.compareTo(b.title) * -1);
+        tracks.sort((TrackModel a, TrackModel b) => a.title.compareTo(b.title));
       }
     }
 

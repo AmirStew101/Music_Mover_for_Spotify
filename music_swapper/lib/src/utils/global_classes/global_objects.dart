@@ -1,6 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:spotify_music_helper/src/utils/class%20models/playlist_model.dart';
 import 'package:spotify_music_helper/src/utils/class%20models/track_model.dart';
+import 'package:spotify_music_helper/src/utils/exceptions.dart';
+
+/// Checks if the map has the neccessary keys.
+void mapKeysCheck(List<String> keys, Map<String, dynamic> mapCheck, String functionName){
+  for(String key in keys){
+    if(!keys.contains(key)){
+      throw CustomException(stack: StackTrace.current, functionName: functionName, error: 'Map is missing the required key \'$key\'.');
+    }
+  }
+}
 
 /// Removes the modified underscore and duplicate number from a track
 /// ```dart

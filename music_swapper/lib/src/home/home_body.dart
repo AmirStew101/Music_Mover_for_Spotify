@@ -35,7 +35,7 @@ class ImageGridState extends State<ImageGridWidget> {
     if(_spotifyRequests.loadedIds.contains(id)){
       return playlistName;
     }
-    else if(!_spotifyRequests.errorIds.contains(id)){
+    else if(!_spotifyRequests.errorIds.contains(id) && _spotifyRequests.loading.value){
       return 'Loading $playlistName';
     }
     else{
@@ -92,14 +92,14 @@ class ImageGridState extends State<ImageGridWidget> {
                         crossAxisAlignment: CrossAxisAlignment.center,
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: <Widget>[
-                          if(_spotifyRequests.errorIds.contains(currPlaylist.id))
+                          if(_spotifyRequests.errorIds.contains(currPlaylist.id) && !_spotifyRequests.loading.value)
                           ...<Widget>[
                             SizedBox(
                               height: 154,
                               width: 155,
                               child: IconButton(
-                                onPressed: () {
-                                  _spotifyRequests.requestTracks(currPlaylist.id);
+                                onPressed: () async{
+                                  await _spotifyRequests.requestTracks(currPlaylist.id);
                                 }, 
                                 icon: const Icon(Icons.refresh)
                               )
@@ -107,7 +107,7 @@ class ImageGridState extends State<ImageGridWidget> {
                             const Text('Retry')
                           ],
 
-                          if(!_spotifyRequests.errorIds.contains(currPlaylist.id))
+                          if(!_spotifyRequests.errorIds.contains(currPlaylist.id) || _spotifyRequests.loading.value)
                           ColorFiltered(
                               colorFilter: _spotifyRequests.loadedIds.contains(currPlaylist.id)
                               ? const ColorFilter.mode(Colors.transparent, BlendMode.srcOver)

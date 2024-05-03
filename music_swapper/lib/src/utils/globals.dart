@@ -4,6 +4,7 @@ const String status = 'status';
 const String success = 'Success';
 const String failed = 'Failed';
 const String statusMessage = 'message';
+const String likedSongs = 'Liked_Songs';
 
 const String assetLikedSongs = 'assets/images/spotify_liked_songs.jpg';
 const String assetNoImage = 'assets/images/no_image.png';
