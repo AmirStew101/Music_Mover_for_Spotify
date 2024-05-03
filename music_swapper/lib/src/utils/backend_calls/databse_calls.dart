@@ -149,7 +149,7 @@ class UserRepository extends GetxController{
       if (databaseUser.exists){
         UserModel retreivedUser = UserModel(
           spotifyId: databaseUser.id,
-          subscribed: databaseUser.data()?['subscribed'],
+          subscribe: databaseUser.data()?['subscribed'],
           tier: databaseUser.data()?['tier'],
           url: databaseUser.data()?['url'],
           expiration: databaseUser.data()?['expiration'],

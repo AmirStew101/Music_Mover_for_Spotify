@@ -2,7 +2,6 @@
 
 import 'dart:async';
 
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
@@ -70,7 +69,7 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
     _crashlytics.log('Init Tracks View Page');
 
     try{
-      _spotifyRequests = SpotifyRequests.instance;
+      _spotifyRequests = Get.arguments;
       currentPlaylist = _spotifyRequests.currentPlaylist;
     }
     catch (e){

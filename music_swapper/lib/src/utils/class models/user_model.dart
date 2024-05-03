@@ -8,7 +8,7 @@ import 'package:spotify_music_helper/src/utils/class%20models/custom_sort.dart';
 class UserModel{
   final String spotifyId;
   final String url;
-  final bool subscribed;
+  final Rx<bool> subscribed = false.obs;
   final int tier;
   final Timestamp expiration;
   bool _playlistAsc; 
@@ -22,7 +22,7 @@ class UserModel{
   UserModel({
     this.spotifyId = '',
     this.url = '',
-    this.subscribed = false,
+    bool subscribe = false,
     this.tier = 0,
     Timestamp? expiration,
     bool playlistAsc = true,
@@ -33,6 +33,8 @@ class UserModel{
   : expiration = expiration ?? Timestamp.fromDate(DateTime.now()),
   _playlistAsc = playlistAsc
   {
+    subscribed.value = subscribe;
+
     if(userDocRef != null){
       userDoc = userDocRef;
     }

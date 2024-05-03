@@ -3,7 +3,6 @@ import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:spotify_music_helper/src/tracks/tracks_view.dart';
-import 'package:spotify_music_helper/src/utils/analytics.dart';
 import 'package:spotify_music_helper/src/utils/backend_calls/spotify_requests.dart';
 import 'package:spotify_music_helper/src/utils/globals.dart';
 import 'package:spotify_music_helper/src/utils/class%20models/playlist_model.dart';
@@ -65,14 +64,15 @@ class ImageGridState extends State<ImageGridWidget> {
                   // Displays Images that can be clicked
                   InkWell(
                     onTap: () async {
-                      if(_spotifyRequests.loadedIds.contains(currPlaylist.id)){
+                      if(_spotifyRequests.loadedIds.contains(currPlaylist.id) && !_spotifyRequests.loading.value){
 
                         _spotifyRequests.currentPlaylist = currPlaylist;
                         _crashlytics.log('Navigate to Playlist Tracks');
-                        bool? success = await Get.to(const TracksView());
+                        bool? success = await Get.to(const TracksView(), arguments: _spotifyRequests);
 
                         if(success != null && !success){
                           _crashlytics.log('Home Body Request Tracks: TracksView returned false');
+                          _spotifyRequests.loadedIds.remove(currPlaylist.id);
                           _spotifyRequests.requestTracks(currPlaylist.id);
                         }
                       }

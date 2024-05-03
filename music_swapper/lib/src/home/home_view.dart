@@ -42,7 +42,7 @@ class HomeViewState extends State<HomeView> with SingleTickerProviderStateMixin{
   late SecureStorage _secureStorage;
   final FirebaseCrashlytics _crashlytics = FirebaseCrashlytics.instance;
 
-  UserModel user = UserModel(subscribed: true);
+  UserModel user = UserModel(subscribe: true);
 
   //bool loaded = false;
   bool error = false;
@@ -271,26 +271,17 @@ class HomeViewState extends State<HomeView> with SingleTickerProviderStateMixin{
           ),
         ),
 
-        bottomNavigationBar: ValueListenableBuilder(
-          valueListenable: _loaded, 
-          builder: (_, __, ___) => bottomAds()
-        ),
+        bottomNavigationBar: Obx(() => BottomAppBar(
+          height: user.subscribed.value
+          ? 0
+          : 70,
+          child: Ads().setupAds(context, user),
+        )),
     
     );
   }// build
 
-  /// Controlls if Ads are shown or not
-  Widget bottomAds(){
-    if(user.subscribed){
-      _crashlytics.log('Don\'t Show ads');
-      return const BottomAppBar(height: 0,);
-    }
-    else{
-      return BottomAppBar(
-        child: Ads().setupAds(context, user),
-      );
-    }
-  }
+
 
   AppBar homeAppbar(){
     return AppBar(
@@ -306,7 +297,6 @@ class HomeViewState extends State<HomeView> with SingleTickerProviderStateMixin{
         builder: (BuildContext context) => IconButton(
           icon: const Icon(Icons.menu), 
           onPressed: ()  {
-            _crashlytics.log('Open Options menu');
             Scaffold.of(context).openDrawer();
           },
         )

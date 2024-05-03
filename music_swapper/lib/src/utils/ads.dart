@@ -1,8 +1,6 @@
 
 import 'dart:io';
 
-import 'package:firebase_core/firebase_core.dart';
-import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/widgets.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
@@ -11,11 +9,10 @@ import 'package:spotify_music_helper/src/utils/class%20models/user_model.dart';
 
 /// Controls the Ad view for users.
 class Ads{
-  final FirebaseCrashlytics _crashlytics = FirebaseCrashlytics.instance;
 
   /// Setup the type of ad to be displayed depending on the page route name received.
   Widget setupAds(BuildContext context, UserModel user){
-    if(user.subscribed){
+    if(user.subscribed.value){
       return Container();
     }
     else{

@@ -7,7 +7,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:get/get.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:spotify_music_helper/src/utils/class%20models/custom_sort.dart';
 import 'package:spotify_music_helper/src/utils/class%20models/playlist_model.dart';
 import 'package:spotify_music_helper/src/utils/exceptions.dart';
 import 'package:spotify_music_helper/src/utils/globals.dart';
@@ -125,7 +124,7 @@ class SecureStorage extends GetxController{
         _secureUser = UserModel(
           spotifyId: userId, 
           url: userUri, 
-          subscribed: bool.parse(subscribed), 
+          subscribe: bool.parse(subscribed), 
           tier: int.parse(tier),
           expiration: expTime,
           playlistAsc: bool.parse(playlistAsc ?? 'true'),
