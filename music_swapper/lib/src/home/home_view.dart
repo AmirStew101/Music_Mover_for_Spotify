@@ -6,10 +6,10 @@ import 'dart:io';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:spotify_music_helper/src/home/home_search.dart';
 import 'package:spotify_music_helper/src/login/start_screen.dart';
 import 'package:spotify_music_helper/src/utils/ads.dart';
 import 'package:spotify_music_helper/src/utils/backend_calls/spotify_requests.dart';
+import 'package:spotify_music_helper/src/utils/global_classes/global_objects.dart';
 import 'package:spotify_music_helper/src/utils/globals.dart';
 import 'package:spotify_music_helper/src/home/home_body.dart';
 import 'package:spotify_music_helper/src/tracks/tracks_view.dart';
@@ -310,15 +310,65 @@ class HomeViewState extends State<HomeView> with SingleTickerProviderStateMixin{
             icon: const Icon(Icons.search),
             onPressed: () async {
               if (_loaded.value){
-                //Gets search result to user selected playlist
-                final result = await showSearch(
-                    context: context,
-                    delegate: PlaylistSearchDelegate(_spotifyRequests.allPlaylists));
+                RxList<PlaylistModel> searchedPlaylists = _spotifyRequests.allPlaylists.obs;
 
-                //Checks if user selected a playlist before search closed
-                if (result != null) {
-                  navigateToTracks(result);
-                }
+                Get.dialog(
+                  Dialog.fullscreen(
+                    child: Column(
+                      children: [
+                        SizedBox(
+                          height: 50,
+                          child: TextField(
+                            decoration: InputDecoration(
+                              prefixIcon: IconButton(
+                                onPressed: () => Get.back(), 
+                                icon: const Icon(Icons.arrow_back_sharp)
+                              ),
+                              hintText: 'Search'
+                            ),
+                            onChanged: (String query) {
+                              searchedPlaylists.value = _spotifyRequests.allPlaylists.where((playlist){
+                                final String result;
+                                result = playlist.title.toLowerCase();
+                                
+                                final String input = modifyBadQuery(query).toLowerCase();
+
+                                return result.contains(input);
+                              }).toList();
+                            },
+                          )
+                        ),
+
+                        Expanded(
+                          child: Obx(() => ListView.builder(
+                            itemCount: searchedPlaylists.length,
+                            itemBuilder: (context, index) {
+                              PlaylistModel currPlaylist = searchedPlaylists[index];
+                              String playImage = currPlaylist.imageUrl;
+
+                              return ListTile(
+                                onTap: () {
+                                  Get.back();
+                                  navigateToTracks(currPlaylist);
+                                },
+
+                                // Playlist name and Artist
+                                title: Text(
+                                  currPlaylist.title, 
+                                  textScaler: const TextScaler.linear(1.2)
+                                ),
+                                
+                                trailing: playImage.contains('asset')
+                                ?Image.asset(playImage)
+                                :Image.network(playImage),
+                              );
+                            }
+                          ))
+                        )
+                      ],
+                    ),
+                  )
+                );
               }
             }
         ),

@@ -13,7 +13,6 @@ import 'package:spotify_music_helper/src/utils/exceptions.dart';
 import 'package:spotify_music_helper/src/utils/global_classes/global_objects.dart';
 import 'package:spotify_music_helper/src/utils/globals.dart';
 import 'package:spotify_music_helper/src/utils/backend_calls/spotify_requests.dart';
-import 'package:spotify_music_helper/src/tracks/tracks_search.dart';
 import 'package:spotify_music_helper/src/utils/global_classes/options_menu.dart';
 import 'package:spotify_music_helper/src/utils/class%20models/playlist_model.dart';
 import 'package:spotify_music_helper/src/utils/class%20models/track_model.dart';
@@ -152,10 +151,12 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
   void handleSelectAll(){
     print('Select All');
     if (selectedTracksList.length != currentPlaylist.tracks.length){
+      print('Add Tracks');
       selectedTracksList.clear();
       selectedTracksList.addAll(currentPlaylist.tracks);
     }
     else{
+      print('Remove Tracks');
       selectedTracksList.clear();
     }
   }
@@ -339,14 +340,148 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
 
           onPressed: () async {
             if (loaded.value){
-              final queryResult = await showSearch(
-                  context: context,
-                  delegate: TracksSearchDelegate(currentPlaylist, selectedTracksList)
+              RxList<TrackModel> searchedTracks = currentPlaylist.tracks.obs;
+              String searchType = Sort().title;
+              Rx<bool> artistFilter = false.obs;
+
+              Get.dialog(
+                Dialog.fullscreen(
+                  child: Column(
+                    children: [
+                      SizedBox(
+                        height: 50,
+                        child: TextField(
+                          decoration: InputDecoration(
+                            prefixIcon: IconButton(
+                              onPressed: () => Get.back(), 
+                              icon: const Icon(Icons.arrow_back_sharp)
+                            ),
+                            hintText: 'Search'
+                          ),
+                          onChanged: (String query) {
+                            searchedTracks.value = currentPlaylist.tracks.where((track){
+                              final String result;
+
+                              if(searchType == Sort().artist){
+                                result = track.artistNames[0].toLowerCase();
+                              }
+                              else{
+                                result = track.title.toLowerCase();
+                              }
+                              
+                              final String input = modifyBadQuery(query).toLowerCase();
+
+                              return result.contains(input);
+                            }).toList();
+                          },
+                        )
+                      ),
+
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceAround,
+                        children: [
+                          Obx(() => FilterChip(
+                            backgroundColor: Colors.grey,
+                            label: const Text('Search Artists'),
+
+                            selected: artistFilter.value,
+                            selectedColor: spotHelperGreen,
+
+                            onSelected: (_) {
+                              artistFilter.value = !artistFilter.value;
+                              if(artistFilter.value){
+                                searchType = Sort().artist;
+                              }
+                              else{
+                                searchType = Sort().title;
+                              }
+                            },
+                          )),
+                          const SizedBox(width: 5,),
+
+                          // Select all button
+                          Obx(() => FilterChip(
+                            backgroundColor: Colors.grey,
+                            label: const Text('Select All'),
+
+                            selected: selectedTracksList.length == searchedTracks.length,
+                            selectedColor: spotHelperGreen,
+
+                            onSelected: (_) {
+                              if(selectedTracksList.length != searchedTracks.length){
+                                selectedTracksList.clear();
+                                selectedTracksList.addAll(currentPlaylist.tracks);
+                              }
+                              else{
+                                selectedTracksList.clear();
+                              }
+                            },
+                          )),
+                        ],
+                      ),
+
+                      Expanded(
+                        child: Obx(() => ListView.builder(
+                          itemCount: searchedTracks.length,
+                          itemBuilder: (context, index) {
+                            TrackModel currTrack = searchedTracks[index];
+
+                            String getArtistText(){
+                              String artistText = '';
+
+                              if(currTrack.artists.length > 1){
+                                artistText = 'By: ${currTrack.artistNames[0]}...';
+                              }
+                              else{
+                                artistText = 'By: ${currTrack.artistNames[0]}';
+                              }
+
+                              return artistText;
+                            }
+
+                            return ListTile(
+                              onTap: () {
+                                setState(() {
+                                  if(!selectedTracksList.contains(currTrack)){
+                                    selectedTracksList.add(currTrack);
+                                  }
+                                  else{
+                                    selectedTracksList.remove(currTrack);
+                                  }
+                                });
+                              },
+
+                              leading: Obx(() => Checkbox(
+                                value: selectedTracksList.contains(currTrack), 
+                                onChanged: (_) {
+                                  if(!selectedTracksList.contains(currTrack)){
+                                    selectedTracksList.add(currTrack);
+                                  }
+                                  else{
+                                    selectedTracksList.remove(currTrack);
+                                  }
+                                }
+                              )),
+
+                              //Track name and Artist
+                              title: Text(
+                                currTrack.title, 
+                                textScaler: const TextScaler.linear(1.2)
+                              ),
+
+                              subtitle: Text(getArtistText(),
+                                  textScaler: const TextScaler.linear(0.8)
+                              ),
+                              
+                              trailing: Image.network(currTrack.imageUrl),
+                            );
+                          }
+                        ))
+                      )
+                    ],
+                  ),
+                )
               );
-              
-              if (queryResult != null){
-                selectedTracksList = queryResult;
-              }
             }
           }
         ),
@@ -638,19 +773,22 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
           ),
         ],
         onTap: (int value) async {
+          bool? changes;
+
           // Move to playlist(s) Index
           if (value == 0 && selectedTracksList.isNotEmpty && loaded.value) {
             TrackArguments trackArgs = TrackArguments(selectedTracks: selectedTracksList, option: 'move');
 
-            await Get.to(const SelectPlaylistsViewWidget(), arguments: trackArgs);
-            await handleDeleteRefresh();
+            changes = await Get.to(const SelectPlaylistsViewWidget(), arguments: trackArgs);
+
+            if(changes != null && changes) await handleDeleteRefresh();
           }
           // Add to playlist(s) index
           else if (value == 1 && selectedTracksList.isNotEmpty && loaded.value) {
             TrackArguments trackArgs = TrackArguments(selectedTracks: selectedTracksList, option: 'add');
 
-            await Get.to(const SelectPlaylistsViewWidget(), arguments: trackArgs);
-            await handleRefresh();
+            changes = await Get.to(const SelectPlaylistsViewWidget(), arguments: trackArgs);
+            if(changes != null && changes) await handleRefresh();
           } 
           //Removes track(s) from current playlist
           else if (value == 2 && selectedTracksList.isNotEmpty && loaded.value){
