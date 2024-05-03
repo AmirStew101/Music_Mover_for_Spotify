@@ -61,13 +61,26 @@ class HomeViewState extends State<HomeView> with SingleTickerProviderStateMixin{
 
     try{
       _spotifyRequests = SpotifyRequests.instance;
+    }
+    catch (error, stack){
+      _spotifyRequests = Get.put(SpotifyRequests());
+      _crashlytics.recordError(error, stack, reason: 'Failed to Get Instance of Spotify Requests');
+    }
+
+    try{
       _databaseStorage = DatabaseStorage.instance;
+    }
+    catch (error, stack){
+      _databaseStorage = Get.put(DatabaseStorage());
+      _crashlytics.recordError(error, stack, reason: 'Failed to Get Instance of Database Storage');
+    }
+
+    try{
       _secureStorage = SecureStorage.instance;
     }
-    catch (e){
-      _spotifyRequests = Get.put(SpotifyRequests());
-      _databaseStorage = Get.put(DatabaseStorage());
+    catch (error, stack){
       _secureStorage = Get.put(SecureStorage());
+      _crashlytics.recordError(error, stack, reason: 'Failed to Get Instance of Secure Storage');
     }
 
     _checkLogin();
@@ -102,7 +115,7 @@ class HomeViewState extends State<HomeView> with SingleTickerProviderStateMixin{
         else{
           _crashlytics.log('Login Corrupted');
           bool reLogin = true;
-          Get.to(const StartViewWidget(), arguments: reLogin);
+          Get.offAll(const StartViewWidget(), arguments: reLogin);
         }
       }
 

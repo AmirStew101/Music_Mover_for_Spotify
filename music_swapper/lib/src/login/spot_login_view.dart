@@ -38,19 +38,11 @@ class SpotLoginState extends State<SpotLoginWidget> {
   @override
   void initState(){
     super.initState();
-    try{
-      _secureStorage = SecureStorage.instance;
-      _cacheManager = PlaylistsCacheManager.instance;
-      _spotifyRequests = SpotifyRequests.instance;
-      _databaseStorage = DatabaseStorage.instance;
-      
-    }
-    catch (e){
-      _secureStorage = Get.put(SecureStorage());
-      _cacheManager = Get.put(PlaylistsCacheManager());
-      _spotifyRequests = Get.put(SpotifyRequests());
-      _databaseStorage = Get.put(DatabaseStorage());
-    }
+    _crashlytics.log('Init Spot login Page');
+    _secureStorage = Get.put(SecureStorage());
+    _cacheManager = Get.put(PlaylistsCacheManager());
+    _spotifyRequests = Get.put(SpotifyRequests());
+    _databaseStorage = Get.put(DatabaseStorage());
   }
 
   @override
@@ -114,13 +106,13 @@ class SpotLoginState extends State<SpotLoginWidget> {
           onNavigationRequest: (NavigationRequest request) async {
             //Spotify sent the callback tokens.
             if (request.url.startsWith('$hosted/callback')) {
-              _crashlytics.log('Spot Login Initialize SpotifyRequests');
+              _crashlytics.log('Spot Login: Initialize SpotifyRequests');
               await _spotifyRequests.initializeRequests(callRequest: request.url);
 
-              _crashlytics.log('Spot Login Sign in User');
+              _crashlytics.log('Spot Login: Sign in User');
               await UserAuth().signInUser(_spotifyRequests.user.spotifyId);
 
-              _crashlytics.log('Spot Login Initialize DatabaseStorage');
+              _crashlytics.log('Spot Login: Initialize DatabaseStorage');
               await _databaseStorage.initializeDatabase(_spotifyRequests.user);
 
               _crashlytics.log('Storage setup and Retreival');
