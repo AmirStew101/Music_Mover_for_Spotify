@@ -68,7 +68,7 @@ class InfoView extends StatelessWidget {
               ),
             ],
           ),
-          if (!_secureStorage.secureUser!.subscribed.value)
+          if (!_secureStorage.secureUser!.subscribed)
             Ads().setupAds(context, _secureStorage.secureUser!)
         ],
       )

@@ -38,12 +38,16 @@ class DatabaseStorage extends GetxController{
   /// 
   /// Must Initialize Database before use.
   Future<void> removeUser() async{
-    
-    await _userRepository.removeUser()
-    .onError((Object? error, StackTrace stack)  {
-      _crashlytics.recordError(error, stack, reason: 'Failed to Remove User');
-      throw CustomException(stack: StackTrace.current, fileName: _fileName, functionName: 'removeUser',  error: error);
-    });
+    if(initialized){
+      await _userRepository.removeUser()
+      .onError((Object? error, StackTrace stack)  {
+        _crashlytics.recordError(error, stack, reason: 'Failed to Remove User');
+        throw CustomException(stack: StackTrace.current, fileName: _fileName, functionName: 'removeUser',  error: error);
+      });
+    }
+    else{
+      throw CustomException(stack: StackTrace.current, fileName: _fileName, functionName: 'removeUser',  error: 'Not initialized');
+    }
   }
 
   Future<void> updateUser(UserModel newUser) async{

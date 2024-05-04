@@ -42,8 +42,6 @@ class HomeViewState extends State<HomeView> with SingleTickerProviderStateMixin{
   late SecureStorage _secureStorage;
   final FirebaseCrashlytics _crashlytics = FirebaseCrashlytics.instance;
 
-  UserModel user = UserModel(subscribe: true);
-
   //bool loaded = false;
   bool error = false;
 
@@ -89,7 +87,7 @@ class HomeViewState extends State<HomeView> with SingleTickerProviderStateMixin{
   /// Updates how the tracks are sorted.
   void sortUpdate() {
     _crashlytics.log('Sorting Playlists');
-    _spotifyRequests.sortPlaylists(user);
+    _spotifyRequests.sortPlaylists();
   }
 
   /// Check the saved Tokens & User on device and on successful confirmation get Users playlists.
@@ -104,13 +102,10 @@ class HomeViewState extends State<HomeView> with SingleTickerProviderStateMixin{
         // Initialize the users database connection & spotify requests connection.
         if(_secureStorage.secureUser != null && _secureStorage.secureCallback != null){
           _crashlytics.log('Initialize Login');
-          user = _secureStorage.secureUser!;
 
-          await _databaseStorage.initializeDatabase(user);
+          await _databaseStorage.initializeDatabase(_secureStorage.secureUser!);
           await _spotifyRequests.initializeRequests(callback: _secureStorage.secureCallback!, savedUser: _databaseStorage.user);
           await _secureStorage.saveUser(_spotifyRequests.user);
-
-          user = _spotifyRequests.user;
         }
         else{
           _crashlytics.log('Login Corrupted');
@@ -121,7 +116,7 @@ class HomeViewState extends State<HomeView> with SingleTickerProviderStateMixin{
 
       //Fetches Playlists if page is not loaded and on this Page
       if (mounted && !_loaded.value){
-        if(mounted && (_spotifyRequests.loadedIds.isEmpty || _spotifyRequests.errorIds.isNotEmpty || _spotifyRequests.allPlaylists.isEmpty) && !refresh){
+        if(mounted && (_spotifyRequests.allPlaylists.isEmpty || _spotifyRequests.loadedIds.length != _spotifyRequests.allPlaylists.length) && !refresh){
           _crashlytics.log('Requesting all Playlists & Tracks');
           await _spotifyRequests.requestPlaylists();
           await _spotifyRequests.requestAllTracks();
@@ -205,6 +200,15 @@ class HomeViewState extends State<HomeView> with SingleTickerProviderStateMixin{
 
   @override
   Widget build(BuildContext context) {
+    String loadingText(){
+      if(_spotifyRequests.allPlaylists.isEmpty){
+        return 'Loading';
+      }
+      else{
+        return 'Loading ${_spotifyRequests.loadedIds.length}/${_spotifyRequests.allPlaylists.length}: ${_spotifyRequests.currentPlaylist.title}';
+      }
+    }
+
     return Scaffold(
         appBar: homeAppbar(),
 
@@ -234,7 +238,6 @@ class HomeViewState extends State<HomeView> with SingleTickerProviderStateMixin{
                   TextButton(
                     onPressed: () {
                       _crashlytics.log('Exit app update User');
-                      user.playlistAsc = _spotifyRequests.playlistsAsc;
                       _crashlytics.log('Exit app');
                       //Close App
                       exit(0);
@@ -248,7 +251,7 @@ class HomeViewState extends State<HomeView> with SingleTickerProviderStateMixin{
           child: ValueListenableBuilder(
             valueListenable: _loaded, 
             builder: (_, __, ___) {
-              if (_loaded.value && !error && _spotifyRequests.allPlaylists.isNotEmpty) {
+              if (_loaded.value && !error && _spotifyRequests.allLoaded) {
                 return ImageGridWidget(playlists: _spotifyRequests.allPlaylists, spotifyRequests: _spotifyRequests,);
               }
               else if(!_loaded.value && !error) {
@@ -259,7 +262,7 @@ class HomeViewState extends State<HomeView> with SingleTickerProviderStateMixin{
                       const CircularProgressIndicator(strokeWidth: 6),
                       const SizedBox(height: 20),
                       Text(
-                        'Loading ${_spotifyRequests.loadedIds.length}/${_spotifyRequests.allPlaylists.length}: ${_spotifyRequests.currentPlaylist.title}',
+                        loadingText(),
                         textScaler: const TextScaler.linear(1.8),
                       )
                     ],
@@ -281,10 +284,10 @@ class HomeViewState extends State<HomeView> with SingleTickerProviderStateMixin{
         ),
 
         bottomNavigationBar: Obx(() => BottomAppBar(
-          height: user.subscribed.value
+          height: _spotifyRequests.user.subscribed
           ? 0
           : 70,
-          child: Ads().setupAds(context, user),
+          child: Ads().setupAds(context, _spotifyRequests.user),
         )),
     
     );
@@ -343,10 +346,9 @@ class HomeViewState extends State<HomeView> with SingleTickerProviderStateMixin{
         Obx(() => IconButton(
           onPressed: () {
             _spotifyRequests.playlistsAsc = !_spotifyRequests.playlistsAsc;
-            user.playlistAsc = _spotifyRequests.playlistsAsc;
             sortUpdate();
           }, 
-          icon: _spotifyRequests.playlistsAsc
+          icon: _spotifyRequests.playlistsAsc == true
           ? const Icon(Icons.arrow_upward_sharp)
           : const Icon(Icons.arrow_downward_sharp)
         )),

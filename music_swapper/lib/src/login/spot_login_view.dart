@@ -118,7 +118,9 @@ class SpotLoginState extends State<SpotLoginWidget> {
               _crashlytics.log('Storage setup and Retreival');
               await _secureStorage.saveTokens(_spotifyRequests.callback);
               await _secureStorage.saveUser(_spotifyRequests.user);
+
               if(!reLogin){
+                _crashlytics.log('Get Cahced Playlists');
                 await _cacheManager.getCachedPlaylists();
                 _spotifyRequests.allPlaylists = _cacheManager.storedPlaylists;
               }

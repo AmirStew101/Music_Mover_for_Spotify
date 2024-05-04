@@ -40,7 +40,6 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
   late SpotifyRequests _spotifyRequests;
 
   late PlaylistModel currentPlaylist;
-  UserModel user = UserModel();
 
   /// All of the selected tracks.
   /// 
@@ -61,8 +60,6 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
   
   late TabController tabController;
 
-  RxString sortType = Sort().title.obs;
-
   @override
   void initState(){
     super.initState();
@@ -71,8 +68,6 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
     try{
       _spotifyRequests = Get.arguments;
       currentPlaylist = _spotifyRequests.currentPlaylist;
-      user = _spotifyRequests.user;
-      sortType.value = user.tracksSortType;
     }
     catch (e){
       _crashlytics.log('Error Tracks go Back');
@@ -94,19 +89,21 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
     _crashlytics.log('Sort Tracks Update');
 
     // Sorts the tracks based on the current sort type.
-    if(sortType.value == Sort().addedAt){
-      _spotifyRequests.sortTracks(user, addedAt: true);
+    if(_spotifyRequests.tracksSortType == Sort().addedAt){
+      _spotifyRequests.sortTracks( addedAt: true);
     }
-    else if(sortType.value == Sort().artist){
-      _spotifyRequests.sortTracks(user, artist: true);
+    else if(_spotifyRequests.tracksSortType == Sort().artist){
+      _spotifyRequests.sortTracks(artist: true);
     }
-    else if(sortType.value == Sort().type){
-      _spotifyRequests.sortTracks(user, type: true);
+    else if(_spotifyRequests.tracksSortType == Sort().type){
+      _spotifyRequests.sortTracks(type: true);
     }
     // Default title sort
     else{
-      _spotifyRequests.sortTracks(user);
+      _spotifyRequests.sortTracks();
     }
+
+    setState(() {});
   }
 
   ///Page state setup Function to setup the page.
@@ -245,8 +242,8 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
                 return Stack(
                   children: <Widget>[
                     tracksViewBody(),
-                    if(!user.subscribed.value)
-                    Ads().setupAds(context, user)
+                    if(!_spotifyRequests.user.subscribed)
+                    Ads().setupAds(context, _spotifyRequests.user)
                   ],
                 );
               }
@@ -260,8 +257,8 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
                         textAlign: TextAlign.center,
                       )
                     ),
-                    if(!user.subscribed.value)
-                    Ads().setupAds(context, user)
+                    if(!_spotifyRequests.user.subscribed)
+                    Ads().setupAds(context, _spotifyRequests.user)
                   ],
                 );
               }
@@ -310,7 +307,6 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
                     Obx(() => IconButton(
                       onPressed: () {
                         _spotifyRequests.tracksAsc = !_spotifyRequests.tracksAsc;
-                        user.tracksAsc = _spotifyRequests.tracksAsc;
                         sortUpdate();
                       }, 
                       icon: _spotifyRequests.tracksAsc
@@ -328,11 +324,10 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
                   Obx(() => SwitchListTile.adaptive(
                     title: const Text('Title'),
 
-                    value: sortType.value == Sort().title,
+                    value: _spotifyRequests.tracksSortType == Sort().title,
                     onChanged: (_) {
                       _crashlytics.log('Sort by Title');
-                      sortType.value = Sort().title;
-                      user.tracksSortType = sortType.value;
+                      _spotifyRequests.tracksSortType = Sort().title;
                       sortUpdate();
                     },
                   )),
@@ -340,11 +335,10 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
                   Obx(() => SwitchListTile.adaptive(
                     title: const Text('Artist'),
 
-                    value: sortType.value == Sort().artist,
+                    value: _spotifyRequests.tracksSortType == Sort().artist,
                     onChanged: (_) {
                       _crashlytics.log('Sort by Artist');
-                      sortType.value = Sort().artist;
-                      user.tracksSortType = sortType.value;
+                      _spotifyRequests.tracksSortType = Sort().artist;
                       sortUpdate();
                     },
                   )),
@@ -352,11 +346,10 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
                   Obx(() => SwitchListTile.adaptive(
                     title: const Text('Added At'),
 
-                    value: sortType.value == Sort().addedAt,
+                    value: _spotifyRequests.tracksSortType == Sort().addedAt,
                     onChanged: (_) {
                       _crashlytics.log('Sort by Added At time');
-                      sortType.value = Sort().addedAt;
-                      user.tracksSortType = sortType.value;
+                      _spotifyRequests.tracksSortType = Sort().addedAt;
                       sortUpdate();
                     },
                   )),
@@ -365,11 +358,10 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
                     title: const Text('Type'),
                     subtitle: const Text('Track or Episode'),
 
-                    value: sortType.value == Sort().type,
+                    value: _spotifyRequests.tracksSortType == Sort().type,
                     onChanged: (_) {
                       _crashlytics.log('Sort by Type');
-                      sortType.value = Sort().type;
-                      user.tracksSortType = sortType.value;
+                      _spotifyRequests.tracksSortType = Sort().type;
                       sortUpdate();
                     },
                   )),

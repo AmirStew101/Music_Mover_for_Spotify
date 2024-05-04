@@ -2,21 +2,23 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:get/get.dart';
 import 'package:spotify_music_helper/src/utils/backend_calls/database_classes.dart';
+import 'package:spotify_music_helper/src/utils/backend_calls/storage.dart';
 import 'package:spotify_music_helper/src/utils/class%20models/custom_sort.dart';
 
 /// Model for Spotify User object.
 class UserModel{
   final String spotifyId;
   final String url;
-  final Rx<bool> subscribed = false.obs;
+  final Rx<bool> _subscribed = false.obs;
   final int tier;
   Timestamp expiration;
   final Rx<bool> _playlistAsc = true.obs; 
   final Rx<bool> _tracksAsc = true.obs;
-  String _tracksSortType = Sort().title;
+  final Rx<String> _tracksSortType = Sort().title.obs;
   late final DocumentReference<Map<String, dynamic>> userDoc;
 
   late final DatabaseStorage _databaseStorage;
+  final SecureStorage _secureStorage = SecureStorage();
   
   /// Model for a Spotify User object.
   UserModel({
@@ -32,21 +34,35 @@ class UserModel{
   }) 
   : expiration = expiration ?? Timestamp.fromDate(DateTime.now())
   {
-    subscribed.value = subscribe;
-    _playlistAsc.value = playlistAsc;
-    _tracksAsc.value = tracksAsc;
-    tracksSortType = sortType ?? Sort().title;
-
-    if(userDocRef != null){
-      userDoc = userDocRef;
-    }
-
     try{
       _databaseStorage = DatabaseStorage.instance;
     }
     catch (e){
       _databaseStorage = Get.put(DatabaseStorage());
     }
+
+    _subscribed.value = subscribe;
+    _playlistAsc.value = playlistAsc;
+    _tracksAsc.value = tracksAsc;
+
+    if(sortType == Sort().artist){
+      _tracksSortType.value = Sort().artist;
+    }
+    else if(sortType == Sort().addedAt){
+      _tracksSortType.value = Sort().addedAt;
+    }
+    else if(sortType == Sort().type){
+      _tracksSortType.value = Sort().type;
+    }
+    else{
+      _tracksSortType.value = Sort().title;
+    }
+
+    if(userDocRef != null){
+      userDoc = userDocRef;
+    }
+
+
   }
 
   /// Returns the day for the Subscription expiration.
@@ -62,6 +78,7 @@ class UserModel{
   set playlistAsc(bool ascending){
     _playlistAsc.value = ascending;
     _databaseStorage.updateUser(this);
+    _secureStorage.saveUser(this);
   }
 
   bool get tracksAsc{
@@ -71,25 +88,39 @@ class UserModel{
   set tracksAsc(bool ascending){
     _tracksAsc.value = ascending;
     _databaseStorage.updateUser(this);
+    _secureStorage.saveUser(this);
   }
 
   String get tracksSortType{
-    return _tracksSortType;
+    return _tracksSortType.value;
   }
 
   set tracksSortType(String sortType){
     if(sortType == Sort().artist){
-        _tracksSortType = Sort().artist;
-      }
-      else if(sortType == Sort().addedAt){
-        _tracksSortType = Sort().addedAt;
-      }
-      else if(sortType == Sort().type){
-        _tracksSortType = Sort().type;
-      }
-      else{
-        _tracksSortType = Sort().title;
-      }
+      _tracksSortType.value = Sort().artist;
+    }
+    else if(sortType == Sort().addedAt){
+      _tracksSortType.value = Sort().addedAt;
+    }
+    else if(sortType == Sort().type){
+      _tracksSortType.value = Sort().type;
+    }
+    else{
+      _tracksSortType.value = Sort().title;
+    }
+
+    _databaseStorage.updateUser(this);
+    _secureStorage.saveUser(this);
+  }
+
+  bool get subscribed{
+    return _subscribed.value;
+  }
+
+  set subscribed(bool subed){
+    _subscribed.value = subed;
+    _databaseStorage.updateUser(this);
+    _secureStorage.saveUser(this);
   }
 
 
@@ -100,9 +131,9 @@ class UserModel{
         'subscribed': subscribed,
         'tier': tier,
         'expiration': expiration,
-        'playlistAsc': _playlistAsc.value,
-        'tracksAsc': _tracksAsc.value,
-        'tracksSortType': _tracksSortType
+        'playlistAsc': playlistAsc,
+        'tracksAsc': tracksAsc,
+        'tracksSortType': tracksSortType
       };
   }
 

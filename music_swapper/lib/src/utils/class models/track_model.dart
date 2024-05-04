@@ -117,7 +117,7 @@ class TrackModel extends Object{
   ///
   /// Ignores the type, addedAt, liked, and duplicates values since their values are always set.
   bool get isNotEmpty{
-    return !(id == '' && imageUrl == '' && _artists.isEmpty && title == '' && _album.isEmpty);
+    return id != '' && imageUrl != '' && _artists.isNotEmpty && title != '' && _album.isNotEmpty && dupeId != '';
   }
 
   bool get isTrack{

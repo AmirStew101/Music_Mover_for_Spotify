@@ -12,7 +12,7 @@ class Ads{
 
   /// Setup the type of ad to be displayed depending on the page route name received.
   Widget setupAds(BuildContext context, UserModel user){
-    if(user.subscribed.value){
+    if(user.subscribed){
       return Container();
     }
     else{

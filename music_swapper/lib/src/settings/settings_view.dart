@@ -230,7 +230,7 @@ class SettingsViewState extends State<SettingsViewWidget> with TickerProviderSta
               ]
             ),
             
-            if (!user.subscribed.value)
+            if (!user.subscribed)
               Ads().setupAds(context, user),
           ]
         ),

@@ -146,7 +146,8 @@ class PlaylistModel {
     'imageUrl': imageUrl,
     'snapshotId': snapshotId,
     'title': title,
-    'tracks': _tracksToJson()
+    'tracks': _tracksToJson(),
+    'loaded': loaded
   };
 
   List<dynamic> _tracksToJson(){

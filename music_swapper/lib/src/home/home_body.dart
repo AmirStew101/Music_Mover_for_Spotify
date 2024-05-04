@@ -33,7 +33,7 @@ class ImageGridState extends State<ImageGridWidget> {
     if(_spotifyRequests.loadedIds.contains(id)){
       return playlistName;
     }
-    else if(!_spotifyRequests.errorIds.contains(id) && _spotifyRequests.loading.value){
+    else if(!_spotifyRequests.loadedIds.contains(id) && _spotifyRequests.loading.value){
       return 'Loading $playlistName';
     }
     else{
@@ -84,7 +84,7 @@ class ImageGridState extends State<ImageGridWidget> {
                         children: <Widget>[
 
                           // Error loading playlist Tracks
-                          if(_spotifyRequests.errorIds.contains(currPlaylist.id) && !_spotifyRequests.loading.value)
+                          if(!currPlaylist.loaded && !_spotifyRequests.loading.value)
                           ...<Widget>[
                             SizedBox(
                               height: 154,
@@ -101,7 +101,7 @@ class ImageGridState extends State<ImageGridWidget> {
                           ],
 
                           // Successfully loaded Playlist Tracks
-                          if(_spotifyRequests.loadedIds.contains(currPlaylist.id))
+                          if(currPlaylist.loaded)
                           imageUrl.contains('asset')
                               //Playlist doesn't have an image from Spotify
                           ?  Image(

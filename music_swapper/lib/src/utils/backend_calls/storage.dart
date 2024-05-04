@@ -22,6 +22,8 @@ IOSOptions getIOSOptions() => const IOSOptions(accessibility: KeychainAccessibil
 /// Secure Storage access variable.
 final FlutterSecureStorage _storage = FlutterSecureStorage(aOptions: getAndroidOptions(), iOptions: getIOSOptions());
 
+final FirebaseCrashlytics _crashlytics = FirebaseCrashlytics.instance;
+
 /// Handles app storage of important User and Spotify information.
 ///
 /// Stores the Spotify access token, refresh token, access token expiration time, and the users UserModel information.
@@ -47,14 +49,19 @@ class SecureStorage extends GetxController{
 
   /// Save the Spotify tokens info.
   Future<void> saveTokens(CallbackModel tokensModel) async {
-    await _storage.write(key: _accessTokenKey, value: tokensModel.accessToken);
-    await _storage.write(key: _refreshTokenKey, value: tokensModel.refreshToken);
-    await _storage.write(key: _expiresAtKey, value: tokensModel.expiresAt.toString());
+    try{
+      await _storage.write(key: _accessTokenKey, value: tokensModel.accessToken);
+      await _storage.write(key: _refreshTokenKey, value: tokensModel.refreshToken);
+      await _storage.write(key: _expiresAtKey, value: tokensModel.expiresAt.toString());
+    }
+    catch (error, stack){
+      _crashlytics.recordError(error, stack, reason: 'Failed to Save Tokens');
+    }
     _secureCall = tokensModel;
   }
 
   /// Retreives the Spotify tokens info from secure _storage.
-  Future<void> getTokens() async {
+  Future<CallbackModel?> getTokens() async {
     try{
       final String? accessToken = await _storage.read(key: _accessTokenKey);
       final String? refreshToken = await _storage.read(key: _refreshTokenKey);
@@ -63,21 +70,28 @@ class SecureStorage extends GetxController{
       if (accessToken != null && refreshToken != null && expiresAtStr != null) {
         double expiresAt = double.parse(expiresAtStr);
         _secureCall = CallbackModel(expiresAt: expiresAt, accessToken: accessToken, refreshToken: refreshToken);
+        return _secureCall;
       } 
       else {
         errorCheck();
       }
     }
-    catch (e){
-      throw CustomException(stack: StackTrace.current, fileName: _fileName, functionName: 'getTokens',  error: e);
+    catch (error, stack){
+      _crashlytics.recordError(error, stack, reason: 'Failed to Get Tokens');
     }
+    return null;
   }
 
   /// Remove Spotify tokens info from secure _storage.
   Future<void> removeTokens() async{
-    await _storage.delete(key: _accessTokenKey);
-    await _storage.delete(key: _expiresAtKey);
-    await _storage.delete(key: _refreshTokenKey);
+    try{
+      await _storage.delete(key: _accessTokenKey);
+      await _storage.delete(key: _expiresAtKey);
+      await _storage.delete(key: _refreshTokenKey);
+    }
+    catch (error, stack){
+      _crashlytics.recordError(error, stack, reason: 'Failed to Remove Tokens');
+    }
     _secureCall = null;
   }
 
@@ -94,19 +108,24 @@ class SecureStorage extends GetxController{
 
   /// Save the Apps user info.
   Future<void> saveUser(UserModel user) async{
-    await _storage.write(key: _userIdKey, value: user.spotifyId);
-    await _storage.write(key: _userUrlKey, value: user.url);
-    await _storage.write(key: _subscribedKey, value: user.subscribed.toString());
-    await _storage.write(key: _tierKey, value: user.tier.toString());
-    await _storage.write(key: _expirationKey, value: user.expiration.toString());
-    await _storage.write(key: _playlistsAscKey, value: user.playlistAsc.toString());
-    await _storage.write(key: _tracksAscKey, value: user.tracksAsc.toString());
-    await _storage.write(key: _tracksSortKey, value: user.tracksSortType);
+    try{
+      await _storage.write(key: _userIdKey, value: user.spotifyId);
+      await _storage.write(key: _userUrlKey, value: user.url);
+      await _storage.write(key: _subscribedKey, value: user.subscribed.toString());
+      await _storage.write(key: _tierKey, value: user.tier.toString());
+      await _storage.write(key: _expirationKey, value: user.expiration.toString());
+      await _storage.write(key: _playlistsAscKey, value: user.playlistAsc.toString());
+      await _storage.write(key: _tracksAscKey, value: user.tracksAsc.toString());
+      await _storage.write(key: _tracksSortKey, value: user.tracksSortType);
+    }
+    catch (error, stack){
+      _crashlytics.recordError(error, stack, reason: 'Failed to Save User to Secure Storage');
+    }
     _secureUser = user;
   }
 
   /// Retreives the Apps user info from secure _storage.
-  Future<void> getUser() async{
+  Future<UserModel?> getUser() async{
     try{
       final String? userId = await _storage.read(key: _userIdKey);
       final String? userUri = await _storage.read(key: _userUrlKey);
@@ -131,20 +150,29 @@ class SecureStorage extends GetxController{
           tracksAsc: bool.parse(tracksAsc ?? 'true'),
           sortType: tracksSort
         );
+
+        return _secureUser;
       }
     }
-    catch (e){
-      throw CustomException(stack: StackTrace.current, fileName: _fileName, functionName: 'getUser',  error: e);
+    catch (error, stack){
+      _crashlytics.recordError(error, stack, reason: 'Failed to Get user from Secure Storage');
     }
+
+    return null;
   }
 
   ///Remove the Apps user info from secure _storage.
   Future<void> removeUser() async{
-    await _storage.delete(key: _userIdKey);
-    await _storage.delete(key: _userUrlKey);
-    await _storage.delete(key: _subscribedKey);
-    await _storage.delete(key: _tierKey);
-    await _storage.delete(key: _expirationKey);
+    try{
+      await _storage.delete(key: _userIdKey);
+      await _storage.delete(key: _userUrlKey);
+      await _storage.delete(key: _subscribedKey);
+      await _storage.delete(key: _tierKey);
+      await _storage.delete(key: _expirationKey);
+    }
+    catch (error, stack){
+      _crashlytics.recordError(error, stack, reason: 'Failed to Remove User from Secure Storage');
+    }
     _secureUser = null;
   }
 
@@ -272,13 +300,18 @@ class PlaylistsCacheManager extends GetxController{
       await prefs.setString(_key, jsonEncode(storeList));
     }
     catch (error, stack){
-      FirebaseCrashlytics.instance.recordError(error, stack, reason: 'Failed to cache Playlists');
+      _crashlytics.recordError(error, stack, reason: 'Failed to cache Playlists');
     }
   }
 
   Future<void> clearPlaylists() async{
-    final SharedPreferences prefs = await SharedPreferences.getInstance();
-    await prefs.remove(_key);
+    try{
+      final SharedPreferences prefs = await SharedPreferences.getInstance();
+      await prefs.remove(_key);
+    }
+    catch (error, stack){
+      _crashlytics.recordError(error, stack, reason: 'Failed to Clear Cached Playlists');
+    }
   }
 
   /// Get the Playlists from cache.
@@ -302,7 +335,7 @@ class PlaylistsCacheManager extends GetxController{
 
     }
     catch (error, stack){
-      FirebaseCrashlytics.instance.recordError(error, stack, reason: 'Error Cache Decoding');
+      _crashlytics.recordError(error, stack, reason: 'Error Cache Decoding');
       return null;
     }
   }

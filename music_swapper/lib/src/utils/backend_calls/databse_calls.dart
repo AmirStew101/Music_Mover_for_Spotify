@@ -60,9 +60,16 @@ class UserRepository extends GetxController{
   Future<void> removeUser() async{
     _crashlytics.log('Remove User');
     _checkUserInitialized();
-    
-    await _user.userDoc.delete()
-    .onError((Object? error, StackTrace stackTrace) => throw CustomException(stack: stackTrace, fileName: _fileName, functionName: 'removeUser',  error: error));
+
+    try{
+    await _user.userDoc.delete();
+    }
+    catch (e){
+      if(_user.spotifyId == '') throw CustomException(stack: StackTrace.current, fileName: _fileName, functionName: 'removeUser',  error: 'User Id is Empty');
+
+      await usersRef.doc(_user.spotifyId).delete()
+      .onError((Object? error, StackTrace stackTrace) => throw CustomException(stack: stackTrace, fileName: _fileName, functionName: 'removeUser',  error: error));
+    }
 
     _user = UserModel();
   }//removeUser
@@ -73,11 +80,18 @@ class UserRepository extends GetxController{
   Future<void> updateUser(UserModel user) async{
     _crashlytics.log('Update User');
     try{
-      final DocumentSnapshot<Map<String, dynamic>> databaseUser = await user.userDoc.get();
+      late final DocumentSnapshot<Map<String, dynamic>> databaseUser;
+
+      try{
+        databaseUser = await user.userDoc.get();
+      }
+      catch (e){
+        databaseUser = await usersRef.doc(user.spotifyId).get();
+      }
 
       if (databaseUser.exists){
         await _user.userDoc.update({
-          'subscribed': user.subscribed.value, 
+          'subscribed': user.subscribed, 
           'tier': user.tier, 
           'expiration': user.expiration, 
           'url': user.url, 

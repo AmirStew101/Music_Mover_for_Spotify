@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:ffi';
 import 'dart:io';
 
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
@@ -33,7 +34,7 @@ class SpotifyRequests extends GetxController{
   late CallbackModel _callback;
 
   /// Contains the Users id and other information.
-  late UserModel user;
+  UserModel user = UserModel(subscribe: true);
 
   /// All of a Users Spotify Playlists.
   /// 
@@ -99,14 +100,21 @@ class SpotifyRequests extends GetxController{
     return user.tracksAsc;
   }
 
+  String get tracksSortType{
+    return user.tracksSortType;
+  }
+
+
   set playlistsAsc(bool ascending){
-    user.playlistAsc = ascending;
     user.playlistAsc = ascending;
   }
 
   set tracksAsc(bool ascending){
     user.tracksAsc = ascending;
-    user.tracksAsc = ascending;
+  }
+
+  set tracksSortType(String sortType){
+    user.tracksSortType = sortType;
   }
 
   /// List of playlists that have finished loading tracks.
@@ -128,15 +136,9 @@ class SpotifyRequests extends GetxController{
     return loaded;
   }
 
-  /// List of playlists that failed to load.
-  List<String> get errorIds{
-    List<String> errorIds = [];
-
-    for (var element in allPlaylists) {
-      loadedIds.addIf(!element.loaded, element.id);
-    }
-
-    return errorIds;
+  /// True when all playlists are Loaded and False otherwise.
+  bool get allLoaded{
+    return _allPlaylists.length == loadedIds.length;
   }
 
 
@@ -184,18 +186,16 @@ class SpotifyRequests extends GetxController{
   /// Get the instance of the User Repository.
   static SpotifyRequests get instance => Get.find();
 
-  void sortPlaylists(UserModel newUser){
+  void sortPlaylists(){
     _crashlytics.log('Spotify Requests: Sort Playlists');
-    user = newUser;
 
     // Sorts Playlists in ascending or descending order based on the current sort type.
     _allPlaylists.assignAll(Sort().playlistsListSort(_allPlaylists, ascending: user.playlistAsc));
     _checkTracks(_allPlaylists);
   }
 
-  List<TrackModel> sortTracks(UserModel newUser, {bool artist = false, bool type = false, bool addedAt = false, bool id = false}){
+  List<TrackModel> sortTracks({bool artist = false, bool type = false, bool addedAt = false, bool id = false}){
     _crashlytics.log('Spotify Requests: Sort Tracks');
-    user = newUser;
 
     if(user.tracksSortType == Sort().addedAt){
       _currentPlaylist.value.tracks.assignAll(Sort().tracksListSort(tracksList: _currentPlaylist.value.tracks, addedAt: true, ascending: user.tracksAsc));
@@ -219,6 +219,11 @@ class SpotifyRequests extends GetxController{
   Future<void> initializeRequests({CallbackModel? callback, UserModel? savedUser, String? callRequest}) async{
     _crashlytics.log('Spotify Requests: Initialize Requests');
     loading.value = true;
+
+    if(isInitialized){
+      isInitialized = false;
+      _allPlaylists.clear();
+    }
 
     if(callRequest != null){
       await _getTokens(callRequest);
@@ -365,7 +370,7 @@ class SpotifyRequests extends GetxController{
       }
     }
 
-    sortPlaylists(user);
+    sortPlaylists();
 
     await _cacheManager.cachePlaylists(allPlaylists.where((element) => element.loaded).toList())
     .onError((Object? error, StackTrace stack) async =>
@@ -588,7 +593,7 @@ class SpotifyRequests extends GetxController{
     }
 
     //Converts user from Spotify to Firestore user
-    user = UserModel(spotifyId: userInfo['id'], url: userInfo['url'], playlistAsc: user.playlistAsc, tracksAsc: user.tracksAsc);
+    user = UserModel(spotifyId: userInfo['id'], url: userInfo['url']);
   }//getUser
 
   /// Gives each playlist the image size based on current platform.
@@ -621,16 +626,14 @@ class SpotifyRequests extends GetxController{
             imageUrl = assetLikedSongs;
           }
 
-          PlaylistModel newPlaylist = PlaylistModel(
+          // Add playlists to a temp List for comparison
+          newPlaylists.add(PlaylistModel(
             title: item.value['title'], 
             id: item.key, 
             link: item.value['link'], 
             imageUrl: imageUrl, 
             snapshotId: item.value['snapshotId']
-          );
-
-          // Add playlists to a temp List for comparison
-          newPlaylists.add(newPlaylist);
+          ));
         }
 
         // Remove Playlists that have been deleted on Spotify
