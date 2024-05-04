@@ -258,13 +258,9 @@ class HomeViewState extends State<HomeView> with SingleTickerProviderStateMixin{
                     children: [
                       const CircularProgressIndicator(strokeWidth: 6),
                       const SizedBox(height: 20),
-                      _spotifyRequests.requestingAll.value
-                      ? Text(
+                      Text(
                         'Loading ${_spotifyRequests.loadedIds.length}/${_spotifyRequests.allPlaylists.length}: ${_spotifyRequests.currentPlaylist.title}',
-                        textScaler: const TextScaler.linear(1.8),)
-                      : const Text(
-                        'Loading: Playlists',
-                        textScaler: TextScaler.linear(1.8)
+                        textScaler: const TextScaler.linear(1.8),
                       )
                     ],
                   ))

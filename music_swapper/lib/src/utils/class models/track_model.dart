@@ -53,6 +53,8 @@ class TrackModel extends Object{
   _album = album ?? const <String, dynamic>{},
   _addedAt = addedAt ?? DateTime.now()
   {
+    this.dupeId = dupeId ?? id;
+
     if(_artists.isNotEmpty){
       _artists.forEach((String key, dynamic value) {
         _artistNames.add(key);
@@ -72,10 +74,6 @@ class TrackModel extends Object{
     }
     else{
       _type = type;
-    }
-
-    if(dupeId != null){
-      this.dupeId = dupeId;
     }
   }
 

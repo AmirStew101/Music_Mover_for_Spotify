@@ -10,9 +10,9 @@ class UserModel{
   final String url;
   final Rx<bool> subscribed = false.obs;
   final int tier;
-  final Timestamp expiration;
-  bool _playlistAsc; 
-  bool tracksAsc;
+  Timestamp expiration;
+  final Rx<bool> _playlistAsc = true.obs; 
+  final Rx<bool> _tracksAsc = true.obs;
   String _tracksSortType = Sort().title;
   late final DocumentReference<Map<String, dynamic>> userDoc;
 
@@ -26,21 +26,19 @@ class UserModel{
     this.tier = 0,
     Timestamp? expiration,
     bool playlistAsc = true,
-    this.tracksAsc = true,
+    bool tracksAsc = true,
     String? sortType,
     DocumentReference<Map<String, dynamic>>? userDocRef
   }) 
-  : expiration = expiration ?? Timestamp.fromDate(DateTime.now()),
-  _playlistAsc = playlistAsc
+  : expiration = expiration ?? Timestamp.fromDate(DateTime.now())
   {
     subscribed.value = subscribe;
+    _playlistAsc.value = playlistAsc;
+    _tracksAsc.value = tracksAsc;
+    tracksSortType = sortType ?? Sort().title;
 
     if(userDocRef != null){
       userDoc = userDocRef;
-    }
-
-    if(sortType != null){
-      tracksSortType = sortType;
     }
 
     try{
@@ -58,11 +56,20 @@ class UserModel{
   }
 
   bool get playlistAsc{
-    return _playlistAsc;
+    return _playlistAsc.value;
   }
 
   set playlistAsc(bool ascending){
-    _playlistAsc = ascending;
+    _playlistAsc.value = ascending;
+    _databaseStorage.updateUser(this);
+  }
+
+  bool get tracksAsc{
+    return _tracksAsc.value;
+  }
+
+  set tracksAsc(bool ascending){
+    _tracksAsc.value = ascending;
     _databaseStorage.updateUser(this);
   }
 
@@ -85,6 +92,7 @@ class UserModel{
       }
   }
 
+
   /// Firestore Json representation of this object.
   Map<String, dynamic> toFirestoreJson(){
     return <String, dynamic>{
@@ -92,8 +100,8 @@ class UserModel{
         'subscribed': subscribed,
         'tier': tier,
         'expiration': expiration,
-        'playlistAsc': _playlistAsc,
-        'tracksAsc': tracksAsc,
+        'playlistAsc': _playlistAsc.value,
+        'tracksAsc': _tracksAsc.value,
         'tracksSortType': _tracksSortType
       };
   }

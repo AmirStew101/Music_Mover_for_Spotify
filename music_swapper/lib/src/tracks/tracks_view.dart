@@ -817,7 +817,7 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
         onTap: (int value) async {
           bool? changes;
 
-          // Move to playlist(s) Index
+          // Move to playlist(s)
           if (value == 0 && selectedTracksList.isNotEmpty && loaded.value) {
             _crashlytics.log('Move Tracks');
 
@@ -827,7 +827,7 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
 
             if(changes != null && changes) await handleDeleteRefresh();
           }
-          // Add to playlist(s) index
+          // Add to playlist(s)
           else if (value == 1 && selectedTracksList.isNotEmpty && loaded.value) {
             _crashlytics.log('Add Tracks');
 
@@ -879,7 +879,7 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
 
               int tracksDeleted = selectedTracksList.length;
               loaded.value = false;
-              await _spotifyRequests.removeTracks(selectedTracksList, currentPlaylist, currentPlaylist.snapshotId);
+              await _spotifyRequests.removeTracks(selectedTracksList, currentPlaylist.snapshotId);
               await handleDeleteRefresh();
 
               Get.closeAllSnackbars();

@@ -105,7 +105,7 @@ class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
         await _spotifyRequests.addTracks(selectedList, selectedTracksList);
 
         //Remove tracks from current playlist
-        await _spotifyRequests.removeTracks(selectedTracksList, currentPlaylist, currentPlaylist.snapshotId);
+        await _spotifyRequests.removeTracks(selectedTracksList, currentPlaylist.snapshotId);
 
         //Finished moving tracks for the playlist
         adding = false;

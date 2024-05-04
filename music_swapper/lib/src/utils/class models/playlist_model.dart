@@ -1,6 +1,7 @@
 
 import 'dart:convert';
 
+import 'package:get/get.dart';
 import 'package:spotify_music_helper/src/utils/class%20models/track_model.dart';
 import 'package:spotify_music_helper/src/utils/global_classes/global_objects.dart';
 import 'package:spotify_music_helper/src/utils/globals.dart';
@@ -12,6 +13,7 @@ class PlaylistModel {
   final String imageUrl;
   final String snapshotId;
   final String title;
+  bool loaded = false;
   List<TrackModel> _tracks = <TrackModel>[];
 
   ///Model for a Spotify Playlist object.
@@ -21,13 +23,14 @@ class PlaylistModel {
     this.link = '',
     this.imageUrl = '',
     this.snapshotId = '',
+    this.loaded = false,
     List<TrackModel>? tracks,
   }){
     if(tracks != null){
-      _tracks = tracks;
+      _tracks.assignAll(tracks);
     }
     else{
-      _tracks = <TrackModel>[];
+      _tracks.clear();
     }
     _makeDuplicates();
   }
@@ -51,7 +54,7 @@ class PlaylistModel {
   }
 
   set tracks(List<TrackModel> newTracks){
-    _tracks = newTracks;
+    _tracks.assignAll(newTracks);
     _makeDuplicates();
   }
 
@@ -61,6 +64,7 @@ class PlaylistModel {
     if(_tracks.contains(trackModel)){
       int index = _tracks.indexWhere((_) => _ == trackModel);
       _tracks[index].duplicates++;
+      _tracks.add(trackModel.copyWith(dupeId: '${trackModel.id}_${_tracks[index].duplicates}'));
     }
     else{
       _tracks.add(trackModel);
@@ -106,11 +110,11 @@ class PlaylistModel {
       }
     }
 
-    _tracks = newTracks;
+    _tracks.assignAll(newTracks);
   }
 
   factory PlaylistModel.fromJson(Map<String, dynamic> json){
-    List<String> keys = ['id', 'link', 'imageUrl', 'snapshotId', 'title', 'tracks'];
+    List<String> keys = ['id', 'link', 'imageUrl', 'snapshotId', 'title', 'loaded', 'tracks'];
     mapKeysCheck(keys, json, 'PlaylistModel.fromJson');
 
     List<dynamic> jsonTracks = json['tracks'];
@@ -131,6 +135,7 @@ class PlaylistModel {
       imageUrl: json['imageUrl'],
       snapshotId: json['snapshotId'],
       title: json['title'],
+      loaded: json['loaded'],
       tracks: tracksList,
     );
   }
