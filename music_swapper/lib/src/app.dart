@@ -1,24 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:get/get.dart';
 import 'package:spotify_music_helper/src/info/info_page.dart';
 import 'package:spotify_music_helper/src/home/home_view.dart';
 import 'package:spotify_music_helper/src/login/spot_login_view.dart';
 import 'package:spotify_music_helper/src/select_playlists/select_view.dart';
 import 'package:spotify_music_helper/src/tracks/tracks_view.dart';
 import 'package:spotify_music_helper/src/login/start_screen.dart';
+import 'package:spotify_music_helper/src/utils/dev_global.dart';
 
-import 'settings/settings_controller.dart';
 import 'settings/settings_view.dart';
 
 /// The Widget that configures the application.
 class MyApp extends StatelessWidget {
-  const MyApp({
-    super.key,
-    required this.settingsController,
-  });
-
-  final SettingsController settingsController;
+  const MyApp({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -29,24 +25,19 @@ class MyApp extends StatelessWidget {
     return ListenableBuilder(
       listenable: settingsController,
       builder: (BuildContext context, Widget? child) {
-        return MaterialApp(
+        return GetMaterialApp(
           debugShowCheckedModeBanner: false,
-
-          // Providing a restorationScopeId to restore the navigation stack when a user leaves and
-          // returns to the app after it has been killed while running in the
-          // background.
-          restorationScopeId: 'app',
 
           // Provide the generated AppLocalizations to the MaterialApp. This
           // allows descendant Widgets to display the correct translations
           // depending on the user's locale.
-          localizationsDelegates: const [
+          localizationsDelegates: const <LocalizationsDelegate>[
             AppLocalizations.delegate,
             GlobalMaterialLocalizations.delegate,
             GlobalWidgetsLocalizations.delegate,
             GlobalCupertinoLocalizations.delegate,
           ],
-          supportedLocales: const [
+          supportedLocales: const <Locale>[
             Locale('en', ''), // English, no country code
           ],
 
@@ -65,52 +56,18 @@ class MyApp extends StatelessWidget {
           darkTheme: ThemeData.dark(),
           themeMode: settingsController.themeMode,
 
+          initialRoute: '/',
+
           // Define a function to handle named routes
-          onGenerateRoute: (RouteSettings routeSettings) {
-            return MaterialPageRoute<void>(
-              settings: routeSettings,
-              builder: (BuildContext context) {
-                switch (routeSettings.name) {
-
-                  //User is not signed in goes to Start page
-                  case StartViewWidget.routeName:
-                    final reLogin = routeSettings.arguments as bool;
-                    return StartViewWidget(reLogin: reLogin);
-
-                  case SettingsViewWidget.routeName:
-                    return SettingsViewWidget(controller: settingsController);
-
-                  //Login to Spotify
-                  case SpotLoginWidget.routeName:
-                    bool reLogin = routeSettings.arguments as bool;
-                    return SpotLoginWidget(reLogin: reLogin);
-
-                  //View the users tracks
-                  case TracksView.routeName:
-                    final currentPlaylist = routeSettings.arguments as Map<String, dynamic>;
-                    return TracksView(currentPLaylist: currentPlaylist);
-
-                  //The Apps details page
-                  case InfoView.routeName:
-                    final user = routeSettings.arguments as Map<String, dynamic>;
-                    return InfoView(user: user);
-
-                  //Select playlists to move/add tracks to
-                  case SelectPlaylistsViewWidget.routeName:
-                    final trackArgs = routeSettings.arguments as Map<String, dynamic>;
-                    return SelectPlaylistsViewWidget(trackArgs: trackArgs);
-
-                  case HomeView.routeName:
-                    return const HomeView(initial: false);
-
-                  //View the users playlist
-                  default:
-                    return const HomeView(initial: true);
-                    
-                }
-              },
-            );
-          },
+          getPages: <GetPage>[
+            GetPage(name: '/', page: () => const HomeView()),
+            GetPage(name: '/start', page: () => const StartViewWidget()),
+            GetPage(name: '/login', page: () => const SpotLoginWidget()),
+            GetPage(name: '/settings', page: () => const SettingsViewWidget()),
+            GetPage(name: '/playlists', page: () => const SelectPlaylistsViewWidget()),
+            GetPage(name: '/tracks', page: () => const TracksView()),
+            GetPage(name: '/info', page: () => const InfoView()),
+          ],
         );
       },
     );

@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:spotify_music_helper/firebase_options.dart';
+import 'package:spotify_music_helper/src/utils/dev_global.dart';
 
 import 'src/app.dart';
 import 'src/settings/settings_controller.dart';
@@ -19,15 +20,17 @@ Future<void> main() async {
   //Firebase initialization
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 
-  FlutterError.onError = (errorDetails){
+  // Pass all uncaught "fatal" errors from the framework to Crashlytics
+  FlutterError.onError = (FlutterErrorDetails errorDetails){
     FirebaseCrashlytics.instance.recordFlutterFatalError(errorDetails);
   };
   
   // Pass all uncaught asynchronous errors that aren't handled by the Flutter framework to Crashlytics
-  PlatformDispatcher.instance.onError = (error, stack) {
+  PlatformDispatcher.instance.onError = (Object error, StackTrace stack) {
     FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
     return true;
   };
+  
 
   FirebaseAppCheck.instance.activate();
 
@@ -43,13 +46,13 @@ Future<void> main() async {
   await MobileAds.instance.initialize();
   
   FirebaseAppCheck.instance.activate(
-    androidProvider: AndroidProvider.debug,
+    androidProvider: AndroidProvider.playIntegrity,
     appleProvider: AppleProvider.debug
   );
 
   // Set up the SettingsController, which will glue user settings to multiple
   // Flutter Widgets.
-  final settingsController = SettingsController(SettingsService());
+  settingsController = SettingsController(SettingsService());
 
   // Load the user's preferred theme while the splash screen is displayed.
   // This prevents a sudden theme change when the app is first displayed.
@@ -58,5 +61,5 @@ Future<void> main() async {
   // Run the app and pass in the SettingsController. The app listens to the
   // SettingsController for changes, then passes it further down to the
   // SettingsView.
-  runApp(MyApp(settingsController: settingsController));
+  runApp(const MyApp());
 }

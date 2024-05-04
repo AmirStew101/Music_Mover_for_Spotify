@@ -1,330 +1,430 @@
 // ignore_for_file: use_build_context_synchronously
 
 import 'dart:async';
+import 'dart:io';
 
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/material.dart';
-import 'package:spotify_music_helper/src/home/home_appbar.dart';
+import 'package:get/get.dart';
 import 'package:spotify_music_helper/src/login/start_screen.dart';
-import 'package:spotify_music_helper/src/utils/analytics.dart';
 import 'package:spotify_music_helper/src/utils/ads.dart';
 import 'package:spotify_music_helper/src/utils/backend_calls/spotify_requests.dart';
-import 'package:spotify_music_helper/src/utils/global_classes/sync_services.dart';
+import 'package:spotify_music_helper/src/utils/global_classes/global_objects.dart';
 import 'package:spotify_music_helper/src/utils/globals.dart';
-import 'package:spotify_music_helper/src/utils/object_models.dart';
 import 'package:spotify_music_helper/src/home/home_body.dart';
 import 'package:spotify_music_helper/src/tracks/tracks_view.dart';
-import 'package:spotify_music_helper/src/utils/global_classes/database_classes.dart';
-import 'package:spotify_music_helper/src/utils/global_classes/secure_storage.dart';
-import 'package:spotify_music_helper/src/utils/global_classes/global_objects.dart';
+import 'package:spotify_music_helper/src/utils/backend_calls/database_classes.dart';
+import 'package:spotify_music_helper/src/utils/backend_calls/storage.dart';
 import 'package:spotify_music_helper/src/utils/global_classes/options_menu.dart';
+import 'package:spotify_music_helper/src/utils/class%20models/playlist_model.dart';
+import 'package:spotify_music_helper/src/utils/class%20models/user_model.dart';
 
 //Creates the state for the home screen to view/edit playlists
 class HomeView extends StatefulWidget {
-  static const routeName = '/Home';
-
-  //Class definition with the required callback data needed from Spotify
-  const HomeView({super.key, required this.initial});
-  final bool initial;
+  const HomeView({super.key});
 
   @override
   State<HomeView> createState() => HomeViewState();
 }
 
+class _UiText{
+  final String loading = 'Loading Playlists';
+  final String syncing = 'Syncing Playlists';
+  final String empty = 'No playlists to edit.';
+  final String error = 'Error retreiving Playlists. \nCheck connection and Refresh page.';
+}
+
 //State widget for the Home screen
 class HomeViewState extends State<HomeView> with SingleTickerProviderStateMixin{
-  late ScaffoldMessengerState _scaffoldMessengerState;
 
-  CallbackModel receivedCall = const CallbackModel(); //required passed callback variable
-  UserModel user = UserModel.defaultUser();
+  late SpotifyRequests _spotifyRequests;
+  late DatabaseStorage _databaseStorage;
+  late SecureStorage _secureStorage;
+  final FirebaseCrashlytics _crashlytics = FirebaseCrashlytics.instance;
 
-  Map<String, PlaylistModel> playlists = {}; //all the users playlists
-  bool loaded = false;
+  //bool loaded = false;
   bool error = false;
-  bool refresh = false;
-  bool checkedLogin = false;
 
-  late TabController tabController;
+  bool refresh = false;
+  int refeshTimes = 0;
+  final int refreshLimit = 3;
+  bool timerStart = false;
+
+  final ValueNotifier<bool> _loaded = ValueNotifier<bool>(false);
 
   @override
   void initState(){
     super.initState();
-    tabController = TabController(length: 2, vsync: this);
-  }
+    _crashlytics.log('InitState Home page');
 
-  @override
-  void didChangeDependencies(){
-    super.didChangeDependencies();
-    //Initializes the page ScaffoldMessenger before the page is loaded in the initial state.
-    _scaffoldMessengerState = ScaffoldMessenger.of(context);
-  }
-
-  Future<void> _checkLogin() async {
-    final refreshResponse = await SpotifyRequests().checkRefresh(receivedCall);
-
-    if (mounted && !checkedLogin || refreshResponse == null){
-      checkedLogin = true;
-      
-      //Make a function that returns a bool to check
-      CallbackModel? secureCall = await SecureStorage().getTokens();
-      UserModel? secureUser = await SecureStorage().getUser();
-      bool initial = widget.initial;
-
-      if (secureCall == null || secureUser == null){
-        checkedLogin = false;
-        bool reLogin = true;
-
-        Navigator.of(context).pushReplacementNamed(StartViewWidget.routeName, arguments: reLogin);
-
-        if (!initial){
-          SecureStorage().errorCheck(secureCall, secureUser, context: context);
-        }
-      }
-      else{
-        receivedCall = secureCall;
-        user = secureUser;
-      }
-
-      // Successful Login if User & Callback is in Storage
-      if (initial){
-        await AppAnalytics().trackSavedLogin(user);
-        initial = !initial;
-      }
+    try{
+      _spotifyRequests = SpotifyRequests.instance;
+    }
+    catch (error, stack){
+      _spotifyRequests = Get.put(SpotifyRequests());
+      _crashlytics.log('Failed to Get Instance of Spotify Requests');
     }
 
-    //Fetches Playlists if page is not loaded and on this Page
-    if (mounted && !loaded){
-      if (!refresh){
-        await fetchDatabasePlaylists()
-        .onError((error, stackTrace) {
-          //error = true;
-          throw Exception('home_view.dart line: ${getCurrentLine(offset: 3)} Caught Error $error');
-        });
+    try{
+      _databaseStorage = DatabaseStorage.instance;
+    }
+    catch (error, stack){
+      _databaseStorage = Get.put(DatabaseStorage());
+      _crashlytics.log('Failed to Get Instance of Database Storage');
+    }
+
+    try{
+      _secureStorage = SecureStorage.instance;
+    }
+    catch (error, stack){
+      _secureStorage = Get.put(SecureStorage());
+      _crashlytics.log('Failed to Get Instance of Secure Storage');
+    }
+
+    _checkLogin();
+  }
+
+  /// Updates how the tracks are sorted.
+  void sortUpdate() {
+    _crashlytics.log('Sorting Playlists');
+    _spotifyRequests.sortPlaylists();
+    setState(() {});
+  }
+
+  /// Check the saved Tokens & User on device and on successful confirmation get Users playlists.
+  Future<void> _checkLogin() async {
+    try{
+      if(!_spotifyRequests.initialized || !_databaseStorage.initialized){
+        _crashlytics.log('Playlists Page Check Login');
+        await _secureStorage.getUser();
+        await _secureStorage.getTokens();
+        
+        // The saved User and Tokens are not corrupted.
+        // Initialize the users database connection & spotify requests connection.
+        if(_secureStorage.secureUser != null && _secureStorage.secureCallback != null){
+          _crashlytics.log('Initialize Login');
+
+          await _databaseStorage.initializeDatabase(_secureStorage.secureUser!);
+          await _spotifyRequests.initializeRequests(callback: _secureStorage.secureCallback!, savedUser: _databaseStorage.user);
+          await _secureStorage.saveUser(_spotifyRequests.user);
+        }
+        else{
+          _crashlytics.log('Login Corrupted');
+          bool reLogin = true;
+          Get.offAll(const StartViewWidget(), arguments: reLogin);
+        }
       }
-      
-      if (mounted){
-        await fetchSpotifyPlaylists()
-        .onError((error, stackTrace) {
-          error = true;
-          throw Exception('home_view.dart line: ${getCurrentLine(offset: 3)} Caught Error $error');
-        });
+
+      //Fetches Playlists if page is not loaded and on this Page
+      if (mounted && !_loaded.value){
+        if(mounted && (_spotifyRequests.allPlaylists.isEmpty || _spotifyRequests.loadedIds.length != _spotifyRequests.allPlaylists.length) && !refresh){
+          _crashlytics.log('Requesting all Playlists & Tracks');
+          await _spotifyRequests.requestPlaylists();
+          await _spotifyRequests.requestAllTracks();
+          _loaded.value = true;
+        }
+        else if(mounted && refresh){
+          _crashlytics.log('Refresh Requesting all Playlists');
+          await _spotifyRequests.requestPlaylists();
+          refresh = false;
+          _loaded.value = true;
+        }
+        else{
+          _crashlytics.log('Load Cached Playlists');
+          _loaded.value = true;
+        }
       }
+    }
+    catch (e, stack){
+      error = true;
+      _loaded.value = true;
+      _crashlytics.recordError(e, stack, reason: 'Failed during Check Login', fatal: true);
     }
   }//checkLogin
 
-  Future<void> fetchDatabasePlaylists() async{
-    Map<String, PlaylistModel>? databasePlaylists = await DatabaseStorage().getDatabasePlaylists(user.spotifyId);
-
-    //More than just the Liked Songs playlist & not Refreshing the page
-    if (databasePlaylists != null && databasePlaylists.length > 1 && !refresh){
-      playlists = databasePlaylists;
-      loaded = true;
-    }
-    else if (mounted){
-      await fetchSpotifyPlaylists()
-      .onError((error, stackTrace) {
-          throw Exception('home_view.dart line: ${getCurrentLine(offset: 3)} Caught Error $error');
-      });
-    }
-
-  }//fetchDatabasePlaylists
-
-  //Gets all the Users Playlists and platform specific images
-  Future<void> fetchSpotifyPlaylists() async {
-
-      final playlistsSync = await SpotifySync().startPlaylistsSync(user, receivedCall, _scaffoldMessengerState)
-      .onError((error, stackTrace) {
-        checkedLogin = false;
-        throw Exception( exceptionText('home_view.dart', 'fetchSpotifyPLaylists', error) );
-      });
-
-      if (playlistsSync.callback == null){
-        checkedLogin = false;
-        throw Exception( exceptionText('home_view.dart', 'fetchSpotifyPLaylists', error, offset: 8) );
-      }
-
-      playlists = playlistsSync.playlists;
-      receivedCall = playlistsSync.callback!;
-      
-    refresh = false;
-    loaded = true; //Future methods have complete
-  }//fetchSpotifyPlaylists
-
-
-   //Navigate to Tracks page for chosen Playlist
-  void navigateToTracks(String playlistName){
+  /// Navigate to Tracks page for chosen Playlist
+  void navigateToTracks(PlaylistModel playlist){
+    _crashlytics.log('Navigate to Tracks');
     try{
-      MapEntry<String, PlaylistModel> currEntry = playlists.entries.firstWhere((element) => element.value.title == playlistName);
-      Map<String, dynamic> currPlaylist = currEntry.value.toJson();
-
-      Navigator.restorablePushNamed(context, TracksView.routeName, arguments: currPlaylist);
+      _spotifyRequests.currentPlaylist = playlist;
+      // Navigate to the tracks page sending the chosen playlist.
+      Get.to(const TracksView());
     }
-    catch (e){
-      throw Exception('Home_view line ${getCurrentLine()} caught error: $e');
+    catch (e, stack){
+      _crashlytics.recordError(e, stack, reason: 'Failed to Navigate to Tracks', fatal: true);
     }
   }//navigateToTracks
 
-
   Future<void> refreshPage() async{
-    loaded = false;
-    error = false;
-    refresh = true;
-    setState(() {
-      //update refresh variables
-    });
+    if(_shouldRefresh()){
+      _crashlytics.log('Refresh Playlists Page');
+      _loaded.value = false;
+      error = false;
+      refresh = true;
+      refeshTimes++;
+      await _checkLogin();
+    }
   }//refreshPage
 
-  //The main Widget for the page
+  /// Checks if the user has clicked refresh too many times.
+  bool _shouldRefresh(){
+    if(refeshTimes == refreshLimit && !timerStart){
+
+      Get.snackbar(
+        'Reached Refresh Limit',
+        'Refreshed too many times to quickly. Must wait before refreshing again.',
+        backgroundColor: snackBarGrey
+      );
+      timerStart = true;
+      
+      Timer.periodic(const Duration(seconds: 5), (timer) {
+        refeshTimes--;
+        if(refeshTimes == 0){
+          timerStart = false;
+          timer.cancel();
+        }
+      });
+      return false;
+    }
+    else if(refeshTimes == refreshLimit && timerStart){
+      Get.snackbar(
+        'Reached Refresh Limit',
+        'Refreshed too many times to quickly. Must wait before refreshing again',
+        backgroundColor: snackBarGrey
+      );
+      return false;
+    }
+    else{
+      return true;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    String loadingText(){
+      if(_spotifyRequests.allPlaylists.isEmpty){
+        return 'Loading';
+      }
+      else{
+        return 'Loading ${_spotifyRequests.loadedIds.length}/${_spotifyRequests.allPlaylists.length}: ${_spotifyRequests.currentPlaylist.title}';
+      }
+    }
+
     return Scaffold(
         appBar: homeAppbar(),
 
         drawer: optionsMenu(context),
 
         body: PopScope(
-          onPopInvoked: (didPop) => SpotifySync().stop(),
-          child: FutureBuilder<void>(
-            future: _checkLogin(),
-            builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.done && loaded && !error) {
-                return Stack(
-                  children: [
-                    ImageGridWidget(playlists: playlists, receivedCall: receivedCall, user: user),
-                    if (!user.subscribed)
-                      Ads().setupAds(context, user)
-                  ],
-                );
-              }
-              else if(refresh) {
-                  return Stack(
-                    children: [
-                      const Center(
-                        child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.center,
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              CircularProgressIndicator(strokeWidth: 6),
-                              Text(
-                                'Syncing Playlists',
-                                textScaler: TextScaler.linear(2)
-                              ),
-                            ]
-                        )
-                      ),
-                      if (!user.subscribed)
-                        Ads().setupAds(context, user),
-                    ],
-                  ) ;
-                }
-              else if(error && loaded){
-                return Stack(
-                  children: [
-                    const Center(
-                      child: Text(
-                        'Error retreiving Playlists from Spotify. Check connection and Refresh page.',
-                        textAlign: TextAlign.center,
-                        textScaler: TextScaler.linear(2),
-                      ),
-                    ),
-                    if (!user.subscribed)
-                      Ads().setupAds(context, user),
-                  ],
-                );
-              }
-              else{
-                  return Stack(
-                    children: [
-                      const Center(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.center,
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            CircularProgressIndicator(strokeWidth: 6,),
-                            Text(
-                              'Loading Playlists',
-                              textScaler: TextScaler.linear(2)
-                            ),
-                          ]
-                        )
-                      ),
-                      if (!user.subscribed)
-                        Ads().setupAds(context, user)
-                    ],
-                  );
-                }
-            },
-          ),
-        )
-      );
-  }//build
-
-  AppBar homeAppbar(){
-    return AppBar(
-        //Refresh Icon under Appbar
-        bottom: Tab( 
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  IconButton(
-                    color: Colors.black,
-                    icon: const Icon(Icons.refresh),
-                    onPressed: () async {
-                      if (loaded){
-                        await refreshPage();
-                      }
-                    },
+          canPop: false,
+          onPopInvoked: (_) {
+            Get.dialog(
+              AlertDialog.adaptive(
+                title: const Text(
+                  'Sure you want to exit the App?',
+                  textAlign: TextAlign.center,
+                ),
+                actionsAlignment: MainAxisAlignment.center,
+                actions: <Widget>[
+                  // Cancel exit button
+                  TextButton(
+                    onPressed: () {
+                      _crashlytics.log('Cancel exit pressed');
+                      //Close Popup
+                      Get.back();
+                    }, 
+                    child: const Text('Cancel')
                   ),
-                  InkWell(
-                    onTap: () async{
-                      if (loaded){
-                        await refreshPage();
-                      }
+                  // Confirm exit button
+                  TextButton(
+                    onPressed: () {
+                      _crashlytics.log('Exit app update User');
+                      _crashlytics.log('Exit app');
+                      //Close App
+                      exit(0);
                     },
-                    child: const Text('Sync Playlists'),
+                    child: const Text('Confirm'),
                   ),
                 ],
               )
-            ),
-
-        //The Options Menu containing other navigation options
-        leading: Builder(
-          builder: (context) => IconButton(
-            icon: const Icon(Icons.menu), 
-            onPressed: ()  {
-              Scaffold.of(context).openDrawer();
-            },
-          )
-        ),
-
-        centerTitle: true,
-        automaticallyImplyLeading: false, //Prevents back arrow
-        backgroundColor: spotHelperGreen,
-
-        title: const Text(
-          'Music Mover',
-          textAlign: TextAlign.center,
-        ),
-
-        actions: [
-          //Search Button
-          IconButton(
-              icon: const Icon(Icons.search),
-              onPressed: () async {
-                if (loaded){
-                  //Gets search result to user selected playlist
-                  final result = await showSearch(
-                      context: context,
-                      delegate: PlaylistSearchDelegate(playlists));
-
-                  //Checks if user selected a playlist before search closed
-                  if (result != null) {
-                    navigateToTracks(result);
-                  }
-                }
+            );
+          },
+          child: ValueListenableBuilder(
+            valueListenable: _loaded, 
+            builder: (_, __, ___) {
+              if (_loaded.value && !error && _spotifyRequests.allLoaded) {
+                return ImageGridWidget(playlists: _spotifyRequests.allPlaylists, spotifyRequests: _spotifyRequests,);
               }
+              else if(!_loaded.value && !error) {
+                return Center( 
+                  child:Obx(() => Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const CircularProgressIndicator(strokeWidth: 6),
+                      const SizedBox(height: 20),
+                      Text(
+                        loadingText(),
+                        textScaler: const TextScaler.linear(1.8),
+                      )
+                    ],
+                  ))
+                );
+              }
+              else{
+                // No tracks were found or an error
+                return Center(
+                  child: Text(
+                    error ? _UiText().error : _UiText().empty,
+                    textAlign: TextAlign.center,
+                    textScaler: const TextScaler.linear(2),
+                  ),
+                );
+              }
+            },
           ),
-        ],
-      );
+        ),
+
+        bottomNavigationBar: Obx(() => BottomAppBar(
+          height: _spotifyRequests.user.subscribed
+          ? 0
+          : 70,
+          child: Ads().setupAds(context, _spotifyRequests.user),
+        )),
+    
+    );
+  }// build
+
+
+
+  AppBar homeAppbar(){
+    return AppBar(
+      
+      title: const Text(
+        'Music Mover',
+        textAlign: TextAlign.center,
+      ),
+      centerTitle: true,
+
+      //The Options Menu containing other navigation options
+      leading: Builder(
+        builder: (BuildContext context) => IconButton(
+          icon: const Icon(Icons.menu), 
+          onPressed: ()  {
+            Scaffold.of(context).openDrawer();
+          },
+        )
+      ),
+
+      // Refresh the page button
+      bottom: Tab(
+        child: InkWell(
+          onTap: () async {
+            if(!_spotifyRequests.loading.value){
+              await refreshPage();
+            }
+          },
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: <Widget>[ 
+              IconButton(
+                icon: const Icon(Icons.sync_sharp),
+                onPressed: () async {
+                  if(!_spotifyRequests.loading.value){
+                    await refreshPage();
+                  }
+                },
+              ),
+              const Text('Refresh'),
+            ],
+          ),
+        ),
+      ),
+        
+      automaticallyImplyLeading: false, //Prevents back arrow
+      backgroundColor: spotHelperGreen,
+
+      actions: <Widget>[
+        IconButton(
+          onPressed: () {
+            _spotifyRequests.playlistsAsc = !_spotifyRequests.playlistsAsc;
+            sortUpdate();
+          }, 
+          icon: _spotifyRequests.playlistsAsc == true
+          ? const Icon(Icons.arrow_upward_sharp)
+          : const Icon(Icons.arrow_downward_sharp)
+        ),
+        //Search Button
+        IconButton(
+            icon: const Icon(Icons.search),
+            onPressed: () async {
+              if (_loaded.value){
+                _crashlytics.log('Searching Playlists');
+                RxList<PlaylistModel> searchedPlaylists = _spotifyRequests.allPlaylists.obs;
+
+                Get.dialog(
+                  Dialog.fullscreen(
+                    child: Column(
+                      children: [
+                        // Search box
+                        SizedBox(
+                          height: 70,
+                          child: TextField(
+                            decoration: InputDecoration(
+                              // Exit serach
+                              prefixIcon: IconButton(
+                                onPressed: () => Get.back(), 
+                                icon: const Icon(Icons.arrow_back_sharp)
+                              ),
+                              hintText: 'Search'
+                            ),
+                            onChanged: (String query) {
+                              searchedPlaylists.value = _spotifyRequests.allPlaylists.where((playlist){
+                                final String result;
+                                result = playlist.title.toLowerCase();
+                                
+                                final String input = modifyBadQuery(query).toLowerCase();
+
+                                return result.contains(input);
+                              }).toList();
+                            },
+                          )
+                        ),
+
+                        Expanded(
+                          child: Obx(() => ListView.builder(
+                            itemCount: searchedPlaylists.length,
+                            itemBuilder: (context, index) {
+                              PlaylistModel currPlaylist = searchedPlaylists[index];
+                              String playImage = currPlaylist.imageUrl;
+
+                              return ListTile(
+                                onTap: () {
+                                  Get.back();
+                                  navigateToTracks(currPlaylist);
+                                },
+
+                                // Playlist name and Artist
+                                title: Text(
+                                  currPlaylist.title, 
+                                  textScaler: const TextScaler.linear(1.2)
+                                ),
+                                
+                                trailing: playImage.contains('asset')
+                                ?Image.asset(playImage)
+                                :Image.network(playImage),
+                              );
+                            }
+                          ))
+                        )
+                      ],
+                    ),
+                  )
+                );
+              }
+            }
+        ),
+      ],
+    );
   }//homeAppbar
 
 }//HomeViewState

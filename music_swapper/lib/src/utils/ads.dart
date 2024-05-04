@@ -5,39 +5,44 @@ import 'package:flutter/material.dart';
 import 'package:flutter/widgets.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:spotify_music_helper/src/utils/dev_global.dart';
-import 'package:spotify_music_helper/src/utils/object_models.dart';
+import 'package:spotify_music_helper/src/utils/class%20models/user_model.dart';
 
-///Controls the Ad view for users.
+/// Controls the Ad view for users.
 class Ads{
 
-  ///Setup the type of ad to be displayed depending on the page route name received.
+  /// Setup the type of ad to be displayed depending on the page route name received.
   Widget setupAds(BuildContext context, UserModel user){
-    late final String adUnit;
-
-    if (Platform.isAndroid){
-      adUnit = androidBannerAd;
-    }
-    else if (Platform.isIOS){
-      adUnit = iosBannerAd;
-    }
-    else{
+    if(user.subscribed){
       return Container();
     }
+    else{
+      late final String adUnit;
 
-    return _bannerAdRow(context, user, adUnit);
+      if (Platform.isAndroid){
+        adUnit = androidBannerAd;
+      }
+      else if (Platform.isIOS){
+        adUnit = iosBannerAd;
+      }
+      else{
+        return Container();
+      }
+
+      return _bannerAdRow(context, adUnit);
+    }
     
   }
   
-  //Banner Ad setup for Playlist
-  Widget _bannerAdRow(BuildContext context, UserModel user, String adUnit){
-    final width = MediaQuery.of(context).size.width;
+  /// Banner Ad setup
+  Widget _bannerAdRow(BuildContext context, String adUnit){
+    final double width = MediaQuery.of(context).size.width;
 
     final BannerAd bannerAd = BannerAd(
       size: AdSize.banner, 
       adUnitId: adUnit, 
       listener: BannerAdListener(
-        onAdLoaded: (ad) => debugPrint('Ad Loaded\n'),
-        onAdClicked: (ad) => debugPrint('Ad Clicked\n'),), 
+        onAdLoaded: (Ad ad) => debugPrint('Ad Loaded\n'),
+        onAdClicked: (Ad ad) => debugPrint('Ad Clicked\n'),), 
       request: const AdRequest(),
     );
 

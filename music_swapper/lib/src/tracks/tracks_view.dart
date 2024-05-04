@@ -2,80 +2,80 @@
 
 import 'dart:async';
 
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/material.dart';
-import 'package:spotify_music_helper/src/login/start_screen.dart';
+import 'package:get/get.dart';
 import 'package:spotify_music_helper/src/select_playlists/select_view.dart';
 import 'package:spotify_music_helper/src/utils/ads.dart';
 import 'package:spotify_music_helper/src/tracks/tracks_popups.dart';
-import 'package:spotify_music_helper/src/utils/dev_global.dart';
-import 'package:spotify_music_helper/src/utils/global_classes/sync_services.dart';
-import 'package:spotify_music_helper/src/utils/globals.dart';
-import 'package:spotify_music_helper/src/utils/object_models.dart';
-import 'package:spotify_music_helper/src/utils/backend_calls/spotify_requests.dart';
-import 'package:spotify_music_helper/src/tracks/tracks_search.dart';
-import 'package:spotify_music_helper/src/utils/global_classes/database_classes.dart';
-import 'package:spotify_music_helper/src/utils/global_classes/secure_storage.dart';
+import 'package:spotify_music_helper/src/utils/class%20models/custom_sort.dart';
+import 'package:spotify_music_helper/src/utils/exceptions.dart';
 import 'package:spotify_music_helper/src/utils/global_classes/global_objects.dart';
+import 'package:spotify_music_helper/src/utils/globals.dart';
+import 'package:spotify_music_helper/src/utils/backend_calls/spotify_requests.dart';
 import 'package:spotify_music_helper/src/utils/global_classes/options_menu.dart';
-import 'package:spotify_music_helper/src/home/home_view.dart';
+import 'package:spotify_music_helper/src/utils/class%20models/playlist_model.dart';
+import 'package:spotify_music_helper/src/utils/class%20models/track_model.dart';
+import 'package:spotify_music_helper/src/utils/class%20models/user_model.dart';
+import 'package:url_launcher/url_launcher.dart';
+
+const String _fileName = 'tracks_view.dart';
 
 class TracksView extends StatefulWidget {
-  static const routeName = '/tracksView';
-
-  const TracksView({super.key, required this.currentPLaylist});
-
-  final Map<String, dynamic> currentPLaylist;
+  const TracksView({super.key});
 
   @override
   State<TracksView> createState() => TracksViewState();
 }
 
+class _UiText{
+  final String loading = 'Loading Tracks';
+  final String syncing = 'Syncing Tracks';
+  final String empty = 'No tracks in Playlist.';
+  final String error = 'Error retreiving Tracks. \nCheck connection and Refresh page.';
+}
+
 class TracksViewState extends State<TracksView> with SingleTickerProviderStateMixin{
-  late ScaffoldMessengerState _scaffoldMessengerState;
-  PlaylistModel currentPlaylist = const PlaylistModel();
+  final FirebaseCrashlytics _crashlytics = FirebaseCrashlytics.instance;
+  late SpotifyRequests _spotifyRequests;
 
-  CallbackModel receivedCall = const CallbackModel();
-  UserModel user = UserModel.defaultUser();
+  late PlaylistModel currentPlaylist;
 
-  ///Tracks for the chosen playlist
-  Map<String, TrackModel> allTracks = {};
-  List<TrackModel> allTracksList = [];
+  /// All of the selected tracks.
+  /// 
+  /// key: Track ID
+  /// 
+  /// values: TrackModel {Id, Track Title, Artist, Image Url, PreviewUrl}
+  RxList<TrackModel> selectedTracksList = <TrackModel>[].obs;
 
-  ///All of the selected tracks 
-  ///key: Track ID
-  ///values: TrackModel {Id, Track Title, Artist, Image Url, PreviewUrl}
-  Map<String, TrackModel> selectedTracksMap = {};
+  final ValueNotifier loaded = ValueNotifier(false);
 
-  ///List of all tracks with Key: ID and Value: if Chosen & Title
-  List<MapEntry<String, dynamic>> selectedTracksList = [];
-
-  int totalTracks = -1;
   bool refresh = false;
-  bool loaded = false; //Tracks loaded status
-  bool selectAll = false;
-  bool selectingAll = false;
+  int refeshTimes = 0;
+  final int refreshLimit = 3;
+  bool timerStart = false;
+
   bool error = false;
   bool removing = false;
   
   late TabController tabController;
 
-  bool checkedLogin = false;
-
-  bool showing = false;
-
-
   @override
   void initState(){
     super.initState();
-    currentPlaylist = const PlaylistModel().toPlaylistModel(widget.currentPLaylist);
-    tabController = TabController(length: 2, vsync: this);
-  }
+    _crashlytics.log('Init Tracks View Page');
 
-  @override
-  void didChangeDependencies(){
-    super.didChangeDependencies();
-    //Initializes the page ScaffoldMessenger before the page is loaded in the initial state.
-    _scaffoldMessengerState = ScaffoldMessenger.of(context);
+    try{
+      _spotifyRequests = Get.arguments;
+      currentPlaylist = _spotifyRequests.currentPlaylist;
+    }
+    catch (e){
+      _crashlytics.log('Error Tracks go Back');
+      Get.back(result: false);
+    }
+
+    tabController = TabController(length: 2, vsync: this);
+    _checkTracks();
   }
 
   @override
@@ -84,148 +84,75 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
     super.dispose();
   }
 
-  ///Creates a new [selectedTracksList] out of the old list
-  void selectListUpdate() {
-    //Sorts the tracks by their title
-    allTracksList = List.generate(allTracks.length, (index) => allTracks.entries.elementAt(index).value);
-    allTracksList.sort((a, b) => a.title.compareTo(b.title));
+  /// Updates how the tracks are sorted.
+  void sortUpdate() {
+    _crashlytics.log('Sort Tracks Update');
 
-    //Initializes the selected playlists
-    selectedTracksList = List.generate(allTracksList.length, (index) {
-      TrackModel currTrack = allTracksList[index];
-      //MapEntry<String, dynamic>? prevTrack = prevMap[currTrack.key];
+    // Sorts the tracks based on the current sort type.
+    if(_spotifyRequests.tracksSortType == Sort().addedAt){
+      _spotifyRequests.sortTracks( addedAt: true);
+    }
+    else if(_spotifyRequests.tracksSortType == Sort().artist){
+      _spotifyRequests.sortTracks(artist: true);
+    }
+    else if(_spotifyRequests.tracksSortType == Sort().type){
+      _spotifyRequests.sortTracks(type: true);
+    }
+    // Default title sort
+    else{
+      _spotifyRequests.sortTracks();
+    }
 
-      String trackTitle = currTrack.title;
-      String trackId = currTrack.id;
-      bool selected = false;
-
-      //If the track is already selected from past widget
-      if (selectedTracksMap.containsKey(trackId) || selectAll) {
-        selected = true;
-      }
-
-      Map<String, dynamic> selectMap = {
-        'chosen': selected,
-        'title': trackTitle
-      };
-
-      return MapEntry(trackId, selectMap);
-    });
-
-    selectingAll = false;
+    setState(() {});
   }
 
   ///Page state setup Function to setup the page.
-  Future<void> _checkLogin() async{
-    final response = await SpotifyRequests().checkRefresh(receivedCall);
+  Future<void> _checkTracks() async{
 
-    //Check if the user and callback are retreived correctly.
-    if (mounted && !checkedLogin || response == null){
-      CallbackModel? secureCall = await SecureStorage().getTokens();
-      UserModel? secureUser = await SecureStorage().getUser();
-
-      if (secureCall == null || secureUser == null){
-        checkedLogin = false;
-        bool reLogin = false;
-        
-        Navigator.of(context).pushReplacementNamed(StartViewWidget.routeName, arguments: reLogin);
-        SecureStorage().errorCheck(secureCall, secureUser, context: context);
+    // Keeps from repeating functions
+    if(!loaded.value){
+      try{
+        if (mounted && (currentPlaylist.tracks.isEmpty || refresh)){
+          await fetchSpotifyTracks();
+        }
+        else if(mounted){
+          loaded.value = true;
+        }
       }
-      else{
-        checkedLogin = true;
-        receivedCall = secureCall;
-        user = secureUser;
+      catch (e, stack){
+        error = true;
+        loaded.value = true;
+        _crashlytics.recordError(e, stack, reason: 'Failed while Fetching Spotify Tracks', fatal: true);
       }
     }
+  }// checkLogin
 
-    //Timer isn't running, still on the same page, loading the page, & not updating select List
-    //Keeps from repeating functions when setState is called
-    if(!loaded && !selectingAll && checkedLogin){
-
-      //Initial load of the page Starts the timer for Loading message change
-      if (!refresh && mounted){
-        await fetchDatabaseTracks()
-        .onError((error, stackTrace){
-          debugPrint('Database Failed');
-          error = true;
-        });
-      }
-      
-      //Sync load of the page Starts the timer for Sync message change
-      if (error || refresh && mounted){
-        error = false;
-
-        await fetchSpotifyTracks()
-        .onError((error, stackTrace){
-          error = true;
-        });
-      }
-    }
-  }//checkLogin
-
-  ///Gets the users tracks from the database for faste app behavior.
-  Future<void> fetchDatabaseTracks() async{
-    if (mounted){
-      //Fills Users tracks from the Database
-      final allTemp = await DatabaseStorage().getDatabaseTracks(user.spotifyId, currentPlaylist.id, context);
-      
-      //Database has found tracks so page is done loading
-      if (allTemp.isNotEmpty){
-        totalTracks = allTemp.length;
-        allTracks = SpotifyRequests().makeDuplicates(allTemp);
-      }
-      else{
-        totalTracks = allTracks.length;
-        allTracks = allTemp;
-      }
-
-      selectListUpdate();
-      loaded = true;
-
-      //Database has no tracks so check Spotify
-      if (mounted && allTracks.isEmpty){
-        await fetchSpotifyTracks()
-        .onError((error, stackTrace){
-          error = true;
-          throw Exception('Error when trying to fetchSpotifyTracks in tracks_view.dart: $error');
-        });
-      }
-    }
-
-  }
-
-  ///Gets the users tracks for the selected Playlist
+  /// Gets the users tracks for the selected Playlist
   Future<void> fetchSpotifyTracks() async {
+    _crashlytics.log('fetchSpotifyTracks function');
+    try{
+      await _spotifyRequests.requestTracks(currentPlaylist.id);
+      currentPlaylist = _spotifyRequests.currentPlaylist;
 
-    final tracksSync = await SpotifySync().startPlaylistsTracksSync(user, receivedCall, currentPlaylist, _scaffoldMessengerState)
-    .onError((error, stackTrace) {
-        checkedLogin = false;
-        throw Exception(exceptionText('tracks_view.dart', 'fetchSpotifyTracks', error) );
-    });
-
-    if (tracksSync.callback == null){
-      checkedLogin = false;
-      throw Exception(exceptionText('tracks_view.dart', 'fetchSpotifyTracks', error) );
-    }
-
-    late final allTemp = tracksSync.tracks;
-
-    if (allTemp.isNotEmpty && mounted){
-      allTracks = SpotifyRequests().makeDuplicates(allTemp);
-    }
-    else if(mounted){
-      allTracks = allTemp;
-      allTracksList = [];
-    }
-
-    if (mounted) selectListUpdate();
-
-    if (mounted) {
-      setState(() {
-        loaded = true; //Tracks if the tracks are loaded to be shown
+      if (mounted) {
+        loaded.value = true;
         refresh = false;
         error = false;
-      });
+      }
+    }
+    catch (ee, stack){
+      throw CustomException(stack: stack, fileName: _fileName, functionName: 'fetchSpotifyTracks',  error: ee);
+    }
+  }
+
+  void handleSelectAll(){
+    _crashlytics.log('Select All');
+    if (selectedTracksList.length != currentPlaylist.tracks.length){
+      selectedTracksList.clear();
+      selectedTracksList.addAll(currentPlaylist.tracks);
+    }
+    else{
+      selectedTracksList.clear();
     }
   }
 
@@ -233,52 +160,66 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
   ///Refreshes the page with function constraints to skip unnecessary steps on page refresh after deleteing tracks.
   ///
   ///Clears the selected tracks to realign the view.
-  Future<void> deleteRefresh() async{
-    loaded = false;
-    selectingAll = false;
+  Future<void> handleDeleteRefresh() async{
+    _crashlytics.log('Delete Refresh');
+    loaded.value = false;
     error = false;
     removing = false;
-    selectAll = false;
-    refresh = true;
 
-    selectedTracksMap.clear();
-
-    //Update Tracks
-    setState(() {});
+    selectedTracksList.clear();
+    _checkTracks();
   }
 
-  ///Refreshes the page with function constraints to skip unnecessary steps on page refresh.
-  Future<void> refreshTracks() async{
-    selectingAll = false;
-    refresh = true;
-    loaded = false;
-    error = false;
+  /// Refreshes the page with function constraints to skip unnecessary steps on page refresh.
+  Future<void> handleRefresh() async{
+    if (_checkRefresh()){
+      _crashlytics.log('Refresh');
+      refresh = true;
+      refeshTimes++;
+      loaded.value = false;
+      error = false;
 
-    //Refreshes the page
-    setState(() {});
+      selectedTracksList.clear();
+      _checkTracks();
+    }
   }
 
+  /// Checks if the user has clicked refresh too many times.
+  bool _checkRefresh(){
+    _crashlytics.log('Check Refresh: Check if Refresh button can be pressed.');
+    if(refeshTimes == refreshLimit && !timerStart){
 
-  ///Selects all of the Tracks and updates the users view.
-  void handleSelectAll(){
-    //Updates checkbox
-    selectAll = !selectAll;
+      Get.snackbar(
+        'Reached Refresh Limit',
+        'Refreshed too many times to quickly. Must wait before refreshing again.',
+        backgroundColor: snackBarGrey
+      );
+      timerStart = true;
+      
+      Timer.periodic(const Duration(seconds: 5), (timer) {
+        refeshTimes--;
+        if(refeshTimes == 0){
+          timerStart = false;
+          timer.cancel();
+        }
+      });
 
-    //Prevents Calls to Database and Spotify while selecting all
-    selectingAll = true;
-  
-    //Selects all the check boxes
-    if (selectAll) { selectedTracksMap.addAll(allTracks); }
-    else { selectedTracksMap.clear(); }
+      return false;
+    }
+    else if(refeshTimes == refreshLimit && timerStart){
+      Get.snackbar(
+        'Reached Refresh Limit',
+        'Refreshed too many times to quickly. Must wait before refreshing again',
+        backgroundColor: snackBarGrey
+      );
 
-    selectListUpdate();
-
-    setState(() {
-      //Updates selected tracks
-    });
+      return false;
+    }
+    else{
+      return true;
+    }
   }
 
-  //Main body of the page
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -286,10 +227,43 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
 
         drawer: optionsMenu(context),
 
-        //Loads the users tracks and its associated images after fetching them for user viewing
+        // Loads the users tracks and its associated images after fetching them for user viewing
         body: PopScope(
-          onPopInvoked: (didPop) => SpotifySync().stop(),
-          child: tracksBody()
+          child: ValueListenableBuilder<dynamic>(
+            valueListenable: loaded, 
+            builder: (_, __, ___) {
+              if (!loaded.value && !error){
+                return Center(
+                    child: CircularProgressIndicator(color: spotHelperGreen,)
+                );
+              }
+              // Playlist has tracks and Tracks finished loading
+              else if (loaded.value && currentPlaylist.tracks.isNotEmpty) {
+                return Stack(
+                  children: <Widget>[
+                    tracksViewBody(),
+                    if(!_spotifyRequests.user.subscribed)
+                    Ads().setupAds(context, _spotifyRequests.user)
+                  ],
+                );
+              }
+              else {
+                return Stack(
+                  children: <Widget>[
+                    Center(
+                      child: Text(
+                        error ? _UiText().error : _UiText().empty,
+                        textScaler: const TextScaler.linear(2),
+                        textAlign: TextAlign.center,
+                      )
+                    ),
+                    if(!_spotifyRequests.user.subscribed)
+                    Ads().setupAds(context, _spotifyRequests.user)
+                  ],
+                );
+              }
+            },
+          )
         ),
 
         bottomNavigationBar: tracksBottomBar(),
@@ -298,259 +272,338 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
 
   AppBar tracksAppBar(){
      return AppBar(
-            bottom: TabBar(
-              isScrollable: devMode,
-              tabAlignment: devMode ? TabAlignment.start :TabAlignment.center,
-              indicatorColor:spotHelperGreen,
-              controller: tabController,
-              indicatorSize: TabBarIndicatorSize.tab,
-              dividerColor: Colors.grey,
-              tabs: [
-                //Smart Sync tracks for PLaylist
-                Tab(
-                  child: InkWell(
-                    onTap: () async{
-                      if (!selectingAll && loaded || error){
-                        await refreshTracks();
-                      }
-                    },
-                    child: Row(
-                      children: [ 
-                        IconButton(
-                          icon: const Icon(Icons.sync_sharp),
-                          onPressed: () async{
-                            if (!selectingAll && loaded || error){
-                              await refreshTracks();
-                            }
-                          },
-                        ),
-                        const Text('Sync Tracks'),
-                      ],
-                    ),
-                  )
-                ),
-                
-                //Select All checkbox.
-                Tab(
-                  child: InkWell(
-                    onTap: () {
-                      if (!selectingAll && loaded){
-                        handleSelectAll();
-                      }
-                    },
-                    child: Row(
-                      children: [
-                        Checkbox(
-                          materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                          shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
-                          value: selectAll,
-                          onChanged: (value) {
-                            if (!selectingAll&& loaded){
-                              handleSelectAll();
-                            }
-                          },
-                        ),
-                        const Text('Select All'),
-                      ],
-                    ),
-                  )
-                ),
-              ]),
-            
-            leading: Builder(
-              builder: (context) => IconButton(
-                icon: const Icon(Icons.menu), 
-                onPressed: ()  {
-                  Scaffold.of(context).openDrawer();
-                },
-              )
-            ),
-
-            backgroundColor: spotHelperGreen,
-
-            title: Text(
-              //Playlist Name
-              currentPlaylist.title,
-              textAlign: TextAlign.center,
-            ),
-
-            actions: [
-              //Search Button
-              IconButton(
-                  icon: const Icon(Icons.search),
-
-                  onPressed: () async {
-                    if (loaded){
-                      final queryResult = await showSearch(
-                          context: context,
-                          delegate: TracksSearchDelegate(allTracks, selectedTracksMap)
-                      );
-                      
-                      if (queryResult != null){
-                        for (var result in queryResult){
-                          String trackId = result.key;
-                          if (result.value['chosen']){
-                            selectedTracksMap[trackId] = allTracks[trackId]!;
-                          }
-                          else{
-                            selectedTracksMap.remove(trackId);
-                          }
-                        }
-                      }
-
-                      if (selectedTracksMap.length == allTracks.length) selectAll = true;
-                      if (selectedTracksMap.isEmpty) selectAll = false;
-
-                      selectListUpdate();
-                      setState(() {});
-                    }
-                  }),
-            ],
-      );
-  }
-
-  Widget tracksBody(){
-    return FutureBuilder<void>(
-          future: _checkLogin().onError((error, stackTrace) => throw Exception('\nTracks_view.dart line ${getCurrentLine()} error in tracks_view: $error')),
-          builder: (context, snapshot) {
-
-            if (selectingAll || removing){
-              return Center(
-                  child: CircularProgressIndicator(color: spotHelperGreen,)
-              );
-            }
-            //Playlist has tracks and Tracks finished loading
-            else if (loaded && totalTracks > 0) {
-              return Stack(
-                children: [
-                  tracksViewBody(),
-                  if (!user.subscribed)
-                    Ads().setupAds(context, user)
-                ],
-              );
-            } 
-            //Playlist doesn't have Tracks
-            else if (loaded && totalTracks <= 0) {
-              return Stack(
-                children: [
-                  const Center(
-                    child: Text(
-                      'Playlist is empty no Tracks to Show',
-                      textScaler: TextScaler.linear(1.7),
-                      textAlign: TextAlign.center,
-                    )
-                  ),
-                  if (!user.subscribed)
-                    Ads().setupAds(context, user)
-                ],
-              );
-            }
-            else if(error){
-              return Stack(
-                children: [
-                  const Center(
-                    child: Text(
-                      'Error getting tracks',
-                      textScaler: TextScaler.linear(2),
-                      textAlign: TextAlign.center,
-                    )
-                  ),
-                  if (!user.subscribed)
-                    Ads().setupAds(context, user)
-                ],
-              );
-            }
-            else{
-              return Stack(
-                children: [
-                  Center(
-                    child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          const CircularProgressIndicator(strokeWidth: 6,),
-
-                          //Smart Sync was pressed
-                          if(refresh) 
-                            const Center(child: 
-                              Text(
-                                'Syncing Tracks',
-                                textScaler: TextScaler.linear(2),
-                                textAlign: TextAlign.center,
-                              )
-                            )
-                          //Just loaded page
-                          else
-                            const Center(child: 
-                              Text(
-                                'Loading Tracks',
-                                textScaler: TextScaler.linear(2),
-                                textAlign: TextAlign.center,
-                              )
-                            )
-                        ]
-                    )
-                  ),
-                  if (!user.subscribed)
-                    Ads().setupAds(context, user)
-                ],
-              );
-            }
+      leading: Builder(
+        builder: (BuildContext context) => IconButton(
+          icon: const Icon(Icons.menu), 
+          onPressed: ()  {
+            Scaffold.of(context).openDrawer();
           },
-        );
+        )
+      ),
+
+      title: Text(
+        //Playlist Name
+        currentPlaylist.title,
+        textAlign: TextAlign.center,
+      ),
+      centerTitle: true,
+
+      backgroundColor: spotHelperGreen,
+
+      actions: <Widget>[
+
+        // Filter button
+        IconButton(
+          onPressed: (){
+            Get.dialog(
+              AlertDialog.adaptive(
+                title: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      'Filters:',
+                      textAlign: TextAlign.center,
+                    ),
+                    Obx(() => IconButton(
+                      onPressed: () {
+                        _spotifyRequests.tracksAsc = !_spotifyRequests.tracksAsc;
+                        sortUpdate();
+                      }, 
+                      icon: _spotifyRequests.tracksAsc
+                      ? const Icon(
+                        Icons.arrow_upward_sharp,
+                        color: Colors.green,
+                      )
+                      : const Icon(Icons.arrow_downward_sharp,
+                        color: Colors.green,
+                      )
+                    )),
+                  ]
+                ),
+                actions: [
+                  Obx(() => SwitchListTile.adaptive(
+                    title: const Text('Title'),
+
+                    value: _spotifyRequests.tracksSortType == Sort().title,
+                    onChanged: (_) {
+                      _crashlytics.log('Sort by Title');
+                      _spotifyRequests.tracksSortType = Sort().title;
+                      sortUpdate();
+                    },
+                  )),
+
+                  Obx(() => SwitchListTile.adaptive(
+                    title: const Text('Artist'),
+
+                    value: _spotifyRequests.tracksSortType == Sort().artist,
+                    onChanged: (_) {
+                      _crashlytics.log('Sort by Artist');
+                      _spotifyRequests.tracksSortType = Sort().artist;
+                      sortUpdate();
+                    },
+                  )),
+
+                  Obx(() => SwitchListTile.adaptive(
+                    title: const Text('Added At'),
+
+                    value: _spotifyRequests.tracksSortType == Sort().addedAt,
+                    onChanged: (_) {
+                      _crashlytics.log('Sort by Added At time');
+                      _spotifyRequests.tracksSortType = Sort().addedAt;
+                      sortUpdate();
+                    },
+                  )),
+
+                  Obx(() => SwitchListTile.adaptive(
+                    title: const Text('Type'),
+                    subtitle: const Text('Track or Episode'),
+
+                    value: _spotifyRequests.tracksSortType == Sort().type,
+                    onChanged: (_) {
+                      _crashlytics.log('Sort by Type');
+                      _spotifyRequests.tracksSortType = Sort().type;
+                      sortUpdate();
+                    },
+                  )),
+                ],
+              )
+            );
+          }, 
+          icon: const Icon(Icons.filter_alt_rounded)
+        ),
+
+        //Search Button
+        IconButton(
+          icon: const Icon(Icons.search),
+
+          onPressed: () async {
+            if (loaded.value){
+              _crashlytics.log('Search Tracks');
+              RxList<TrackModel> searchedTracks = currentPlaylist.tracks.obs;
+              String searchType = Sort().title;
+              Rx<bool> artistFilter = false.obs;
+
+              Get.dialog(
+                Dialog.fullscreen(
+                  child: Column(
+                    children: [
+                      SizedBox(
+                        height: 50,
+                        child: TextField(
+                          decoration: InputDecoration(
+                            prefixIcon: IconButton(
+                              onPressed: () => Get.back(), 
+                              icon: const Icon(Icons.arrow_back_sharp)
+                            ),
+                            hintText: 'Search'
+                          ),
+                          onChanged: (String query) {
+                            searchedTracks.value = currentPlaylist.tracks.where((track){
+                              final String result;
+
+                              if(searchType == Sort().artist){
+                                result = track.artistNames[0].toLowerCase();
+                              }
+                              else{
+                                result = track.title.toLowerCase();
+                              }
+                              
+                              final String input = modifyBadQuery(query).toLowerCase();
+
+                              return result.contains(input);
+                            }).toList();
+                          },
+                        )
+                      ),
+
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceAround,
+                        children: [
+                          Obx(() => FilterChip(
+                            backgroundColor: Colors.grey,
+                            label: const Text('Search Artists'),
+
+                            selected: artistFilter.value,
+                            selectedColor: spotHelperGreen,
+
+                            onSelected: (_) {
+                              artistFilter.value = !artistFilter.value;
+                              if(artistFilter.value){
+                                searchType = Sort().artist;
+                              }
+                              else{
+                                searchType = Sort().title;
+                              }
+                            },
+                          )),
+                          const SizedBox(width: 5,),
+
+                          // Select all button
+                          Obx(() => FilterChip(
+                            backgroundColor: Colors.grey,
+                            label: const Text('Select All'),
+
+                            selected: selectedTracksList.length == currentPlaylist.tracks.length,
+                            selectedColor: spotHelperGreen,
+
+                            onSelected: (_) {
+                              if(selectedTracksList.length != searchedTracks.length){
+                                selectedTracksList.clear();
+                                selectedTracksList.addAll(currentPlaylist.tracks);
+                              }
+                              else{
+                                selectedTracksList.clear();
+                              }
+                            },
+                          )),
+                        ],
+                      ),
+
+                      Expanded(
+                        child: Obx(() => ListView.builder(
+                          itemCount: searchedTracks.length,
+                          itemBuilder: (context, index) {
+                            TrackModel currTrack = searchedTracks[index];
+
+                            String getArtistText(){
+                              String artistText = '';
+
+                              if(currTrack.artists.length > 1){
+                                artistText = 'By: ${currTrack.artistNames[0]}...';
+                              }
+                              else{
+                                artistText = 'By: ${currTrack.artistNames[0]}';
+                              }
+
+                              return artistText;
+                            }
+
+                            return ListTile(
+                              onTap: () {
+                                setState(() {
+                                  if(!selectedTracksList.contains(currTrack)){
+                                    selectedTracksList.add(currTrack);
+                                  }
+                                  else{
+                                    selectedTracksList.remove(currTrack);
+                                  }
+                                });
+                              },
+
+                              leading: Obx(() => Checkbox(
+                                value: selectedTracksList.contains(currTrack), 
+                                onChanged: (_) {
+                                  if(!selectedTracksList.contains(currTrack)){
+                                    selectedTracksList.add(currTrack);
+                                  }
+                                  else{
+                                    selectedTracksList.remove(currTrack);
+                                  }
+                                }
+                              )),
+
+                              //Track name and Artist
+                              title: Text(
+                                currTrack.title, 
+                                textScaler: const TextScaler.linear(1.2)
+                              ),
+
+                              subtitle: Text(getArtistText(),
+                                  textScaler: const TextScaler.linear(0.8)
+                              ),
+                              
+                              trailing: Image.network(currTrack.imageUrl),
+                            );
+                          }
+                        ))
+                      )
+                    ],
+                  ),
+                )
+              );
+            }
+          }
+        ),
+      ],
+
+      bottom: TabBar(
+        tabAlignment: TabAlignment.center,
+        indicatorColor:spotHelperGreen,
+        controller: tabController,
+        indicatorSize: TabBarIndicatorSize.tab,
+        dividerColor: Colors.grey,
+        tabs: <Widget>[
+          //Refresh tracks for the current Paylist
+          Tab(
+            child: InkWell(
+              onTap: () => handleRefresh(),
+              child: Row(
+                children: <Widget>[ 
+                  IconButton(
+                    icon: const Icon(Icons.sync_sharp),
+                    onPressed: () => handleRefresh(),
+                  ),
+                  const Text('Refresh'),
+                ],
+              ),
+            )
+          ),
+          
+          //Select All checkbox.
+          Tab(
+            child: InkWell(
+              onTap: () => handleSelectAll(),
+              child: Row(
+                children: <Widget>[
+                   Obx(() => Checkbox(
+                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
+                    value: selectedTracksList.length == currentPlaylist.tracks.length && loaded.value,
+                    onChanged: (_) => handleSelectAll(),
+                  )),
+                  const Text('Select All'),
+                ],
+              ),
+            )
+          ),
+        ]),
+    );
   }
 
   Widget tracksViewBody(){
     //Stack for the hovering select all button & tracks view
     return Stack(
-      children: [
+      children: <Widget>[
         Column(
-          children: [
+          children: <Widget>[
             Expanded(
               child: 
               ListView.builder(
-                itemCount: allTracksList.length,
-                itemBuilder: (context, index) {
-                  final trackModel = allTracksList[index];
-
-                  //Used for displaying track information
-                  final trackTitle = trackModel.title;
-                  final trackImage = trackModel.imageUrl;
-                  //final trackPrevUrl = trackMap.value.previewUrl ?? '';
-                  final trackArtist = trackModel.artist;
-                  final liked = trackModel.liked;
-
-                  //Used to update Selected Tracks
-                  bool chosen = selectedTracksList[index].value['chosen'];
-                  final trackId = selectedTracksList[index].key;
-                  final selectMap = {'chosen': !chosen, 'title': trackTitle};
+                itemCount: _spotifyRequests.playlistTracks.length,
+                itemBuilder: (_, int index) {
+                  final TrackModel currTrack = _spotifyRequests.playlistTracks[index];
 
                   //Alligns the songs as a Column
                   return Column(
-                    children: [
+                    children: <Widget>[
                       //Lets the entire left section with checkbox and Title be selected
                       InkWell(
                         onTap: () {
-                          selectedTracksList[index] = MapEntry(trackId, selectMap);
-
-                          if (!chosen){
-                            selectedTracksMap[trackId] = allTracks[trackId]!;
+                          if (!selectedTracksList.contains(currTrack)){
+                            selectedTracksList.add(currTrack);
                           }
                           else{
-                            selectedTracksMap.remove(trackId);
+                            selectedTracksList.remove(currTrack);
                           }
-                          
-                          setState(() {
-                            //updates selected Tracks List & Map
-                          });
                         },
                         //Container puts the Tracks image in the background
                         child: Container(
                           clipBehavior: Clip.hardEdge,
                           decoration: BoxDecoration(
+                            // Album Image for Track
                             image: DecorationImage(
                               alignment: Alignment.centerRight,
-                              image: NetworkImage(trackImage),
+                              image: NetworkImage(currTrack.imageUrl),
                               fit: BoxFit.contain,
                             ),
                             shape: BoxShape.rectangle
@@ -560,19 +613,46 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             mainAxisSize: MainAxisSize.max,
-                            children: [
-                              trackRows(index, trackTitle, trackArtist),
-                              if(liked)
-                                Padding(
-                                  padding: const EdgeInsets.only(right: 60),
-                                  child: Image.asset(
-                                    unlikeHeart,
-                                    width: 21.0,
-                                    height: 21.0,
-                                    color: Colors.green,
-                                    fit: BoxFit.cover,
+                            children: <Widget>[
+                              trackRows(index, currTrack),
+
+                              // The Liked Songs icon and Track link
+                              Row(
+                                children: <Widget>[
+                                  if(currTrack.liked)
+                                  Padding(
+                                    padding: const EdgeInsets.only(right: 10),
+                                    child: Image.asset(
+                                      unlikeHeart,
+                                      width: 21.0,
+                                      height: 21.0,
+                                      color: Colors.green,
+                                      fit: BoxFit.cover,
+                                    ),
                                   ),
-                                )
+
+                                  Padding(
+                                    padding: const EdgeInsets.only(right: 60),
+                                    child: InkWell(
+                                      onTap: () async{
+                                        try{
+                                          final bool response = await launchUrl(Uri.parse(currTrack.albumLink));
+
+                                          if(!response) TracksViewPopups().errorLink('Track');
+                                        }
+                                        catch (ee, stack){
+                                          TracksViewPopups().errorLink('Track');
+                                          _crashlytics.recordError(ee, stack, reason: 'Failed to open Track Link');
+                                        }
+                                      },
+                                      child: const Icon(
+                                        Icons.link,
+                                        color: Colors.blue,
+                                      ),
+                                    )
+                                  ),
+                                ],
+                              ),
                             ],
                           )
                         )
@@ -585,7 +665,7 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
                       ),
 
                       //Makes space so last item isn't behind ad
-                      if (index == allTracksList.length-1)
+                      if (index == _spotifyRequests.playlistTracks.length-1)
                         const SizedBox(
                           height: 90,
                         ),
@@ -600,58 +680,108 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
     ] );
   }
 
-  //Creates the State for each Tracks Row
-  Widget trackRows(int index, String trackTitle, String trackArtist) {
+  /// Creates the State for each Tracks Row
+  Widget trackRows(int index, TrackModel track) {
+    String artistText = '';
+
+    if(track.artists.length > 1){
+      artistText = 'By: ${track.artistNames[0]}...';
+    }
+    if(track.artistNames[0].length > 25){
+      artistText = 'By: ${track.artistNames[0].substring(0, 25)}...';
+    }
+    else{
+      artistText = 'By: ${track.artistNames[0]}';
+    }
+
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisAlignment: MainAxisAlignment.start,
-      children: [
+      children: <Widget>[
         //Design & Functinoality for the checkbox button when selected and not
-        Checkbox(
+        Obx(() => Checkbox(
           shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
-          value: selectedTracksList[index].value['chosen'],
-          onChanged: (value) {
-            
-            bool chosen = selectedTracksList[index].value['chosen'];
-            String trackId = selectedTracksList[index].key;
-            Map<String, dynamic> selectMap = {
-              'chosen': !chosen,
-              'title': trackTitle
-            };
-
-            selectedTracksList[index] = MapEntry(trackId, selectMap);
-            if (!chosen){
-              selectedTracksMap[trackId] = allTracks[trackId]!;
+          value: selectedTracksList.contains(track),
+          onChanged: (_) {
+            _crashlytics.log('Select track');
+            if (!selectedTracksList.contains(track)){
+              selectedTracksList.add(track);
             }
             else{
-              selectedTracksMap.remove(trackId);
+              selectedTracksList.remove(track);
             }
-
-            setState(() {
-                //Updates selected track List & Map
-            });
           },
-        ),
+        )),
 
         //Track Names & Artist Names design and Functionality
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           //Name of the Track shown to user
-          children: [
+          children: <Widget>[
             Text(
-              trackTitle.length > 22
-              ? '${trackTitle.substring(0, 22)}...'
-              : trackTitle,
+              track.title.length > 25
+              ? '${track.title.substring(0, 25)}...'
+              : track.title,
               textScaler: const TextScaler.linear(1.2),
               overflow: TextOverflow.ellipsis,
               style: TextStyle(color: spotHelperGreen),
             ),
             //Name of track Artist show to user
-            Text(
-              'By: $trackArtist',
-              textScaler: const TextScaler.linear(0.8),
+            InkWell(
+              onTap: () {
+                Get.bottomSheet(
+                  backgroundColor: Get.theme.canvasColor,
+                  ListView.builder(
+                    itemCount: track.artists.length+1,
+                    itemBuilder: (_, int index) {
+                      if(index == 0){
+                        return Column(
+                          children: [
+                            Text(
+                              'Artists for ${track.title}',
+                              textScaler: TextScaler.linear(1.2),
+                              textAlign: TextAlign.center,
+                            ),
+                            customDivider()
+                          ]
+                        );
+                      }
+                      return Column(
+                        children: <Widget>[
+                          TextButton(
+                            onPressed: () async{
+                              try{
+                                final bool response = await launchUrl(Uri.parse(track.artistLinks[index-1]));
+
+                                if(!response) TracksViewPopups().errorLink('Artists');
+                              }
+                              catch (ee, stack){
+                                TracksViewPopups().errorLink('Artists');
+                                _crashlytics.recordError(ee, stack, reason: 'Failed to open Artists Link');
+                              }
+                            }, 
+                            child: Text(
+                              track.artistNames[index-1],
+                              style: TextStyle(
+                                color: linkBlue,
+                              ),
+                            ),
+                          ),
+                          customDivider()
+                        ],
+                      );
+                    },
+                  ),
+                );
+              },
+              child: Text(
+                artistText,
+                textScaler: const TextScaler.linear(0.8),
+                style: const TextStyle(decoration: TextDecoration.underline),
+              ),
             ),
+            
           ]
         ),
 
@@ -662,7 +792,7 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
   Widget tracksBottomBar(){
       return BottomNavigationBar(
         backgroundColor: spotHelperGreen,
-        items: const [
+        items: const <BottomNavigationBarItem>[
           //Oth item in List
           BottomNavigationBarItem(
             icon: Icon(Icons.drive_file_move_rtl_rounded),
@@ -680,42 +810,58 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
             label: 'Remove',
           ),
         ],
-        onTap: (value) async {
-          //Move to playlist(s) Index
-          if (value == 0 && selectedTracksMap.isNotEmpty && !selectingAll && loaded) {
-            TrackArguments trackArgs = TrackArguments(selectedTracks: selectedTracksMap, currentPlaylist: currentPlaylist, option: 'move', allTracks: allTracks);
+        onTap: (int value) async {
+          bool? changes;
 
-            Navigator.restorablePushNamed(context, SelectPlaylistsViewWidget.routeName, arguments: trackArgs.toJson());
+          // Move to playlist(s)
+          if (value == 0 && selectedTracksList.isNotEmpty && loaded.value) {
+            _crashlytics.log('Move Tracks');
+
+            TrackArguments trackArgs = TrackArguments(selectedTracks: selectedTracksList, option: 'move');
+
+            changes = await Get.to(const SelectPlaylistsViewWidget(), arguments: trackArgs);
+
+            if(changes != null && changes) await handleDeleteRefresh();
           }
-          //Add to playlist(s) index
-          else if (value == 1 && selectedTracksMap.isNotEmpty && !selectingAll && loaded) {
-            TrackArguments trackArgs = TrackArguments(selectedTracks: selectedTracksMap, currentPlaylist: currentPlaylist, option: 'add', allTracks: allTracks);
+          // Add to playlist(s)
+          else if (value == 1 && selectedTracksList.isNotEmpty && loaded.value) {
+            _crashlytics.log('Add Tracks');
 
-            Navigator.restorablePushNamed(context, SelectPlaylistsViewWidget.routeName, arguments: trackArgs.toJson());
+            TrackArguments trackArgs = TrackArguments(selectedTracks: selectedTracksList, option: 'add');
+
+            changes = await Get.to(const SelectPlaylistsViewWidget(), arguments: trackArgs);
+            if(changes != null && changes) await handleRefresh();
           } 
           //Removes track(s) from current playlist
-          else if (value == 2 && selectedTracksMap.isNotEmpty && !selectingAll && loaded){
+          else if (value == 2 && selectedTracksList.isNotEmpty && loaded.value){
+            _crashlytics.log('Remove Tracks');
+
             bool confirmed = false;
 
             await showDialog(
               context: context, 
-              builder: (context) {
+              builder: (BuildContext context) {
                 return AlertDialog.adaptive(
-                  title: const Text('Sure you want to delete these Tracks?'),
+                  title: const Text(
+                    'Sure you want to delete these Tracks?',
+                    textAlign: TextAlign.center,
+                  ),
                   actionsAlignment: MainAxisAlignment.center,
-                  actions: [
+                  actions: <Widget>[
                     TextButton(
                       onPressed: () {
+                        _crashlytics.log('Cancel Remove Tracks');
                         //Close Popup
-                        Navigator.of(context).pop();
+                        Get.back();
                       }, 
                       child: const Text('Cancel')
                     ),
                     TextButton(
                       onPressed: () {
                         confirmed = true;
+                        _crashlytics.log('Confirm Remove Tracks');
                         //Close Popup
-                        Navigator.of(context).pop();
+                        Get.back();
                       },
                       child: const Text('Confirm'),
                     ),
@@ -725,51 +871,24 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
             );
 
             if (confirmed){
-              setState(() {
-                removing = true;
-              });
-              int tracksDeleted = selectedTracksMap.length;
+              removing = true;
 
-              List<String> removeIds = SpotifyRequests().getUnmodifiedIds(selectedTracksMap);
+              int tracksDeleted = selectedTracksList.length;
+              loaded.value = false;
+              await _spotifyRequests.removeTracks(selectedTracksList, currentPlaylist.snapshotId);
+              await handleDeleteRefresh();
 
-              List<String> addBackIds = SpotifyRequests().getAddBackIds(selectedTracksMap);
-
-              final callResponse = await SpotifyRequests().checkRefresh(receivedCall);
-              if (callResponse == null){
-                error = true;
-                throw Exception('tracks_view.dart Callback Refresh Failed line: ${getCurrentLine()}');
-              }
-
-              receivedCall = callResponse;
-              await SpotifyRequests().removeTracks(removeIds, currentPlaylist.id, currentPlaylist.snapshotId, receivedCall.expiresAt, receivedCall.accessToken);
-
-              if (addBackIds.isNotEmpty){
-                //Add the tracks back to the playlist
-                await SpotifyRequests().addTracks(addBackIds, [currentPlaylist.id], receivedCall.expiresAt, receivedCall.accessToken);
-              }
-              else if (removeIds.length == totalTracks){
-                totalTracks = 0;
-              }
-              
-              await DatabaseStorage().removeTracks(user.spotifyId, currentPlaylist.id, removeIds);
-              await deleteRefresh();
-
-              if (!showing){
-                showing = true;
-                showing = await TracksViewPopups().deletedTracks(context, tracksDeleted, currentPlaylist.title);
-              }
-            }//User Confirmed Deltion
+              Get.closeAllSnackbars();
+              TracksViewPopups().deletedTracks(tracksDeleted, currentPlaylist.title);
+            }// User Confirmed Deletion
 
           }
-          //User Hasn't selected a Track
+          // User Hasn't selected a Track
           else {
-            if (!showing){
-              showing = true;
-              showing = await TracksViewPopups().noTracks(context);
-            }
+            Get.closeAllSnackbars();
+            TracksViewPopups().noTracks();
           }
         },
       );
   }
-
 }

@@ -1,20 +1,21 @@
 // ignore_for_file: use_build_context_synchronously
 
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 import 'package:spotify_music_helper/src/login/start_screen.dart';
 import 'package:spotify_music_helper/src/utils/ads.dart';
 import 'package:spotify_music_helper/src/utils/auth.dart';
-import 'package:spotify_music_helper/src/utils/global_classes/database_classes.dart';
+import 'package:spotify_music_helper/src/utils/dev_global.dart';
+import 'package:spotify_music_helper/src/utils/backend_calls/database_classes.dart';
 import 'package:spotify_music_helper/src/utils/global_classes/options_menu.dart';
 import 'package:spotify_music_helper/src/utils/globals.dart';
-import 'package:spotify_music_helper/src/utils/object_models.dart';
-import 'package:spotify_music_helper/src/utils/global_classes/secure_storage.dart';
-import 'package:spotify_music_helper/src/utils/global_classes/sync_services.dart';
+import 'package:spotify_music_helper/src/utils/backend_calls/storage.dart';
 import 'package:spotify_music_helper/src/utils/global_classes/global_objects.dart';
 import 'package:url_launcher/link.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:spotify_music_helper/src/utils/class%20models/user_model.dart';
 
-import 'settings_controller.dart';
 
 /// Displays the various settings that can be customized by the user.
 /// 
@@ -26,47 +27,35 @@ import 'settings_controller.dart';
 /// Option to delete their data from the database.
 
 class SettingsViewWidget extends StatefulWidget{
-  const SettingsViewWidget({
-    required this.controller,
-    super.key,
-  });
-
-  final SettingsController controller;
-
-  static const routeName = '/settings';
+  const SettingsViewWidget({super.key});
 
   @override
   State<SettingsViewWidget> createState() => SettingsViewState();
 }
 
 class SettingsViewState extends State<SettingsViewWidget> with TickerProviderStateMixin{
-  late AnimationController syncController;
   late ScaffoldMessengerState scaffoldMessenger;
+
+  final FirebaseCrashlytics _crashlytics = FirebaseCrashlytics.instance;
+  final DatabaseStorage _databaseStorage = Get.put(DatabaseStorage());
+  final SecureStorage _secureStorage = Get.put(SecureStorage());
   
-  UserModel user = UserModel.defaultUser();
-  bool syncing = false;
-  String allOption = 'all';
+  late UserModel user;
 
   @override
   void initState(){
     super.initState();
-    getUser();
-
-    if (!syncing){
-      //Initializes animation controller for Sync Icon
-      syncController = AnimationController(
-        vsync: this,
-        duration: const Duration(seconds: 3)
-      );
+    
+    _crashlytics.log('Init Settings View Page');
+    if(_secureStorage.secureUser == null){
+      bool reLogin = true;
+      Get.off(const StartViewWidget(), arguments: reLogin);
+      _secureStorage.errorCheck();
+    }
+    else{
+      user = _secureStorage.secureUser!;
     }
 
-  }
-
-  @override
-  void dispose(){
-    //Manually diposes the sync controller.
-    syncController.dispose();
-    super.dispose();
   }
 
   @override
@@ -76,23 +65,10 @@ class SettingsViewState extends State<SettingsViewWidget> with TickerProviderSta
     scaffoldMessenger = ScaffoldMessenger.of(context);
   }
 
-  ///Gets the saved user from the Secure storage and Navigates to the Start page on failure.
-  Future<void> getUser()async{
-    final response = await SecureStorage().getUser();
-
-    if (response != null){
-      user = response;
-    }
-    else{
-      bool reLogin = true;
-      Navigator.of(context).pushReplacementNamed(StartViewWidget.routeName, arguments: reLogin);
-      SecureStorage().errorCheck(const CallbackModel(), response, context: context);
-    }
-  }
-
   ///Gets the name of the current theme, and returns it as a String.
   String getThemeName(){
-    switch(widget.controller.themeMode){
+    _crashlytics.log('Get Theme');
+    switch(settingsController.themeMode){
       case ThemeMode.system:
         return 'System Theme';
       case ThemeMode.dark:
@@ -110,16 +86,15 @@ class SettingsViewState extends State<SettingsViewWidget> with TickerProviderSta
       appBar: AppBar(
         title: const Text('Settings'),
 
-        //Options menu button
+        // Options menu button
         leading: Builder(
-          builder: (context) => IconButton(
+          builder: (BuildContext context) => IconButton(
             icon: const Icon(Icons.menu), 
             onPressed: ()  {
               Scaffold.of(context).openDrawer();
             },
           )
         ),
-        //Removes back arrow
         automaticallyImplyLeading: false,
       ),
       drawer: optionsMenu(context),
@@ -130,10 +105,10 @@ class SettingsViewState extends State<SettingsViewWidget> with TickerProviderSta
         // When a user selects a theme from the dropdown list, the
         // SettingsController is updated, which rebuilds the MaterialApp.
         child: Stack(
-          children: [
+          children: <Widget>[
 
             ListView(
-              children: [
+              children: <Widget>[
 
                 //App Theme selection Popup button
                 PopupMenuButton(
@@ -146,66 +121,32 @@ class SettingsViewState extends State<SettingsViewWidget> with TickerProviderSta
                   ),
                   
                   //Theme options for the User to choose from
-                  itemBuilder: (context) {
-                    return [
+                  itemBuilder: (BuildContext context) {
+                    _crashlytics.log('Theme Selection');
+
+                    return <PopupMenuItem>[
                       PopupMenuItem(
                         child: const Text(
                           'System Theme',
                           textScaler: TextScaler.linear(1.1),
                         ),
-                        onTap: () => widget.controller.updateThemeMode(ThemeMode.system),
+                        onTap: () => settingsController.updateThemeMode(ThemeMode.system),
                       ),
                       PopupMenuItem(
                         child: const Text(
                           'Light Theme',
                           textScaler: TextScaler.linear(1.1),
                         ),
-                        onTap: () => widget.controller.updateThemeMode(ThemeMode.light),
+                        onTap: () => settingsController.updateThemeMode(ThemeMode.light),
                       ),
                       PopupMenuItem(
                         child: const Text(
                           'Dark Theme',
                           textScaler: TextScaler.linear(1.1),
                         ),
-                        onTap: () => widget.controller.updateThemeMode(ThemeMode.dark),
+                        onTap: () => settingsController.updateThemeMode(ThemeMode.dark),
                       )
                     ];
-                  },
-                ),
-                customDivider(),
-
-                //Playlists & Tracks Sync Tile
-                ListTile(
-                  selected: syncing,
-                  selectedColor: Colors.blue,
-                  leading: rotatingSync(syncController, allOption),
-                  title: const Text(
-                    'Sync All Tracks',
-                    textScaler: TextScaler.linear(1.1),
-                  ),
-                  subtitle: const Text('Updates Paylist Images, Names, & gets missing Tracks and Playlists from Spotify.'),
-                  onTap: () async{
-                    if (!syncing){
-                      if (mounted)  syncController.repeat(); //Start animation
-                      syncing = true;
-                      setState(() {});
-
-                      await SpotifySync().startSyncAllTracks(scaffoldMessenger);
-
-                      if (mounted) syncController.reset(); //FInished Syncing
-                      syncing = false;
-                      setState(() {});
-
-                      scaffoldMessenger.showSnackBar(
-                       SnackBar(
-                          content: const Text('Finished Syncing Playlists & Tracks'),
-                          duration: const Duration(seconds: 4),
-                          backgroundColor: spotHelperGreen,
-
-                        )
-                      );
-                    }
-
                   },
                 ),
                 customDivider(),
@@ -231,9 +172,12 @@ class SettingsViewState extends State<SettingsViewWidget> with TickerProviderSta
                 ListTile(
                   title: Link(
                     uri: Uri.parse('https://discord.gg/2nRRFtkrhd'), 
-                    builder: (context, followLink) {
+                    builder: (BuildContext context, followLink) {
                       return TextButton(
-                        onPressed: followLink, 
+                        onPressed: () {
+                          _crashlytics.log('Open discord link');
+                          followLink;
+                        }, 
                         child: Text(
                           'Discord Link',
                           textScaler: const TextScaler.linear(1.1),
@@ -249,9 +193,12 @@ class SettingsViewState extends State<SettingsViewWidget> with TickerProviderSta
                 ListTile(
                   title: Link(
                     uri: Uri.parse('https://spot-helper-1688d.firebaseapp.com'), 
-                    builder: (context, followLink) {
+                    builder: (BuildContext context, followLink) {
                       return TextButton(
-                        onPressed: followLink,
+                        onPressed: () {
+                          _crashlytics.log('Open Privacy Policy');
+                          followLink;
+                        },
                         child: Text(
                           'Privacy Policy',
                           textScaler: const TextScaler.linear(1.1),
@@ -294,27 +241,33 @@ class SettingsViewState extends State<SettingsViewWidget> with TickerProviderSta
   ///Confirmation Popup box for deleting a users database data.
   Future<void> confirmationBox() async{
     bool confirmed = false;
-    debugPrint('Remove data');
+    _crashlytics.log('Open COnfiramtion box');
 
     await showDialog(
       context: context, 
-      builder: (context) {
+      builder: (_) {
         return AlertDialog.adaptive(
-          title: const Text('Sure you want to delete your app data? Unrelated to Spotify data.'),
+          title: const Text(
+            'Sure you want to delete your app data? Unrelated to Spotify data.',
+            textAlign: TextAlign.center,
+          ),
           actionsAlignment: MainAxisAlignment.center,
-          actions: [
+          actions: <Widget>[
             TextButton(
               onPressed: () {
+                _crashlytics.log('Cancel Confirmation');
                 //Close Popup
-                Navigator.of(context).pop();
+                Get.back();
               }, 
               child: const Text('Cancel')
             ),
             TextButton(
               onPressed: () {
                 confirmed = true;
+                _databaseStorage.updateUser(user);
+                _crashlytics.log('Confirm Confirmation');
                 //Close Popup
-                Navigator.of(context).pop();
+                Get.back();
               },
               child: const Text('Confirm'),
             ),
@@ -324,18 +277,16 @@ class SettingsViewState extends State<SettingsViewWidget> with TickerProviderSta
     );
     
     if(confirmed){
-      await getUser();
       try{
-        int removeResponse = await DatabaseStorage().removeUser(user);
-        if (removeResponse == 0){
-          await SecureStorage().removeUser();
-          await UserAuth().deleteUser();
-        }
-        removeUserMessage(removeResponse);
+        await _databaseStorage.removeUser();
+        await SecureStorage().removeUser();
+        await UserAuth().deleteUser();
+        await PlaylistsCacheManager().clearPlaylists();
+        removeUserMessage();
       }
-      catch (e){
-        debugPrint('settings_view.dart line: ${getCurrentLine()} Caught Error: $e');
-        removeUserMessage(-1);
+      catch (error, stack){
+        removeUserMessage(success: false);
+        _crashlytics.recordError(error, stack, reason: 'Failed to remove user data');
       }
     }
   }
@@ -343,6 +294,8 @@ class SettingsViewState extends State<SettingsViewWidget> with TickerProviderSta
 
   ///Encode email creation parameters.
   String? encodeQueryParameters(Map<String, String> params) {
+    _crashlytics.log('Encode Parameters');
+
     return params.entries
         .map((MapEntry<String, String> e) =>
             '${Uri.encodeComponent(e.key)}=${Uri.encodeComponent(e.value)}')
@@ -351,57 +304,39 @@ class SettingsViewState extends State<SettingsViewWidget> with TickerProviderSta
 
   ///Opens the Users preferred email app to send an email to the Support email.
   Future<void> launchEmail() async{
-    const supportEmail = 'spotmusicmover@gmail.com';
+    _crashlytics.log('Launch Email');
+    const String supportEmail = 'spotmusicmover@gmail.com';
 
-    final supportUri = Uri(
+    final Uri supportUri = Uri(
       scheme: 'mailto',
       path: supportEmail,
       query: encodeQueryParameters(<String, String>{
       'subject': 'Music Mover Support',
       })
     );
-    debugPrint('Uri: ${supportUri.toString()}');
 
-    await launchUrl(supportUri)
-    .onError((error, stackTrace) {
-      throw Exception( exceptionText('settings_view.dart', 'launchEmail', error, offset: 14) );
+    bool launched = await launchUrl(supportUri)
+    .onError((Object? error, StackTrace stack) {
+      _crashlytics.recordError(error, stack, reason: 'Failed to Launch email');
+      return false;
     });
 
+    if(!launched){
+      Get.snackbar(
+        'Error', 
+        'Failed to open email',
+        colorText: failedRed
+      );
+    }
   }
 
-  ///Animation Builder for the Sync Icons to rotate requiring [AnimationController] and [String] of which 
-  ///Sync Icon to rotate.
-  AnimatedBuilder rotatingSync(AnimationController controller, String option){
-    return AnimatedBuilder(
-      animation: controller,
-      builder: (context, child) {
-        return Transform.rotate(
-          angle: controller.value * 2 * 3.14,
-          child: IconButton(
-            icon: const Icon(Icons.sync),
-            onPressed: () async {
-
-              setState(() {syncing = true;}); //Start rotating
-
-              if (mounted) controller.repeat(); //Start animation
-              
-              await SpotifySync().startSyncAllTracks(scaffoldMessenger);
-            
-              if (mounted) controller.reset(); // Stop the animation when finished Syncing and app is on the same screen
-
-              setState(() {syncing = false;}); //stop rotation
-              
-            },
-          ),
-        );
-      },
-    );
-  }
 
   ///Creates popup for User depending on the success or failure of removing the
   ///users data.
-  void removeUserMessage(int code){
-    if (code == 0){
+  void removeUserMessage({bool success = true}){
+    _crashlytics.log('Remove User Message');
+    
+    if (success){
       scaffoldMessenger.showSnackBar(
         SnackBar(
           content: Text(
@@ -412,7 +347,7 @@ class SettingsViewState extends State<SettingsViewWidget> with TickerProviderSta
         )
       );
       bool reLogin = true;
-      Navigator.of(context).pushReplacementNamed(StartViewWidget.routeName, arguments: reLogin);
+      Get.offAll(const StartViewWidget(), arguments: reLogin);
     }
     else{
       scaffoldMessenger.showSnackBar(

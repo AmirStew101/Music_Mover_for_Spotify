@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:spotify_music_helper/src/utils/globals.dart';
 
 class SelectPopups{
-
   ///Moved or Added tracks Successfully
   Future<bool> success(BuildContext context, String message) async{
     Flushbar(
