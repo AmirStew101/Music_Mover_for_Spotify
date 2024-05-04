@@ -1,6 +1,7 @@
 
 import 'dart:convert';
 
+import 'package:get/get.dart';
 import 'package:spotify_music_helper/src/utils/class%20models/track_model.dart';
 import 'package:spotify_music_helper/src/utils/global_classes/global_objects.dart';
 import 'package:spotify_music_helper/src/utils/globals.dart';
@@ -51,7 +52,7 @@ class PlaylistModel {
   }
 
   set tracks(List<TrackModel> newTracks){
-    _tracks = newTracks;
+    _tracks.assignAll(newTracks);
     _makeDuplicates();
   }
 

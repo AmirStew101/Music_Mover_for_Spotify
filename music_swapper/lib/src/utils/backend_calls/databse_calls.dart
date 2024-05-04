@@ -77,7 +77,7 @@ class UserRepository extends GetxController{
 
       if (databaseUser.exists){
         await _user.userDoc.update({
-          'subscribed': user.subscribed, 
+          'subscribed': user.subscribed.value, 
           'tier': user.tier, 
           'expiration': user.expiration, 
           'url': user.url, 

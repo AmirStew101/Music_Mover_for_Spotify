@@ -64,7 +64,7 @@ class HomeViewState extends State<HomeView> with SingleTickerProviderStateMixin{
     }
     catch (error, stack){
       _spotifyRequests = Get.put(SpotifyRequests());
-      _crashlytics.recordError(error, stack, reason: 'Failed to Get Instance of Spotify Requests');
+      _crashlytics.log('Failed to Get Instance of Spotify Requests');
     }
 
     try{
@@ -72,7 +72,7 @@ class HomeViewState extends State<HomeView> with SingleTickerProviderStateMixin{
     }
     catch (error, stack){
       _databaseStorage = Get.put(DatabaseStorage());
-      _crashlytics.recordError(error, stack, reason: 'Failed to Get Instance of Database Storage');
+      _crashlytics.log('Failed to Get Instance of Database Storage');
     }
 
     try{
@@ -80,7 +80,7 @@ class HomeViewState extends State<HomeView> with SingleTickerProviderStateMixin{
     }
     catch (error, stack){
       _secureStorage = Get.put(SecureStorage());
-      _crashlytics.recordError(error, stack, reason: 'Failed to Get Instance of Secure Storage');
+      _crashlytics.log('Failed to Get Instance of Secure Storage');
     }
 
     _checkLogin();
@@ -89,7 +89,7 @@ class HomeViewState extends State<HomeView> with SingleTickerProviderStateMixin{
   /// Updates how the tracks are sorted.
   void sortUpdate() {
     _crashlytics.log('Sorting Playlists');
-    _spotifyRequests.sortPlaylists();
+    _spotifyRequests.sortPlaylists(user);
   }
 
   /// Check the saved Tokens & User on device and on successful confirmation get Users playlists.
@@ -108,7 +108,7 @@ class HomeViewState extends State<HomeView> with SingleTickerProviderStateMixin{
 
           await _databaseStorage.initializeDatabase(user);
           await _spotifyRequests.initializeRequests(callback: _secureStorage.secureCallback!, savedUser: _databaseStorage.user);
-          await _secureStorage.saveUser(_databaseStorage.user);
+          await _secureStorage.saveUser(_spotifyRequests.user);
 
           user = _spotifyRequests.user;
         }
@@ -347,6 +347,7 @@ class HomeViewState extends State<HomeView> with SingleTickerProviderStateMixin{
         Obx(() => IconButton(
           onPressed: () {
             _spotifyRequests.playlistsAsc = !_spotifyRequests.playlistsAsc;
+            user.playlistAsc = _spotifyRequests.playlistsAsc;
             sortUpdate();
           }, 
           icon: _spotifyRequests.playlistsAsc

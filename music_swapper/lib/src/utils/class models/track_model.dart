@@ -204,7 +204,7 @@ class TrackModel extends Object{
 
   @override
   String toString(){
-    return 'TrackModel(id: $id, title: $title)';
+    return 'TrackModel(id: $id, title: $title, duplicates: $duplicates)';
   }
 
   @override
