@@ -12,7 +12,7 @@ class UserModel{
   final Rx<bool> _subscribed = false.obs;
   final int tier;
   Timestamp expiration;
-  final Rx<bool> _playlistAsc = true.obs; 
+  bool _playlistAsc = true; 
   final Rx<bool> _tracksAsc = true.obs;
   final Rx<String> _tracksSortType = Sort().title.obs;
   late final DocumentReference<Map<String, dynamic>> userDoc;
@@ -42,7 +42,7 @@ class UserModel{
     }
 
     _subscribed.value = subscribe;
-    _playlistAsc.value = playlistAsc;
+    _playlistAsc = playlistAsc;
     _tracksAsc.value = tracksAsc;
 
     if(sortType == Sort().artist){
@@ -72,11 +72,11 @@ class UserModel{
   }
 
   bool get playlistAsc{
-    return _playlistAsc.value;
+    return _playlistAsc;
   }
 
   set playlistAsc(bool ascending){
-    _playlistAsc.value = ascending;
+    _playlistAsc = ascending;
     _databaseStorage.updateUser(this);
     _secureStorage.saveUser(this);
   }

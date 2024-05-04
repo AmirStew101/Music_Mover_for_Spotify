@@ -443,7 +443,7 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
                             backgroundColor: Colors.grey,
                             label: const Text('Select All'),
 
-                            selected: selectedTracksList.length == searchedTracks.length,
+                            selected: selectedTracksList.length == currentPlaylist.tracks.length,
                             selectedColor: spotHelperGreen,
 
                             onSelected: (_) {
@@ -578,7 +578,7 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
           children: <Widget>[
             Expanded(
               child: 
-              Obx(() => ListView.builder(
+              ListView.builder(
                 itemCount: _spotifyRequests.playlistTracks.length,
                 itemBuilder: (_, int index) {
                   final TrackModel currTrack = _spotifyRequests.playlistTracks[index];
@@ -672,7 +672,7 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
                     ]
                   );
                 }
-              )),
+              ),
               
             ),
           ],
@@ -686,6 +686,9 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
 
     if(track.artists.length > 1){
       artistText = 'By: ${track.artistNames[0]}...';
+    }
+    if(track.artistNames[0].length > 25){
+      artistText = 'By: ${track.artistNames[0].substring(0, 25)}...';
     }
     else{
       artistText = 'By: ${track.artistNames[0]}';

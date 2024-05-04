@@ -88,6 +88,7 @@ class HomeViewState extends State<HomeView> with SingleTickerProviderStateMixin{
   void sortUpdate() {
     _crashlytics.log('Sorting Playlists');
     _spotifyRequests.sortPlaylists();
+    setState(() {});
   }
 
   /// Check the saved Tokens & User on device and on successful confirmation get Users playlists.
@@ -343,7 +344,7 @@ class HomeViewState extends State<HomeView> with SingleTickerProviderStateMixin{
       backgroundColor: spotHelperGreen,
 
       actions: <Widget>[
-        Obx(() => IconButton(
+        IconButton(
           onPressed: () {
             _spotifyRequests.playlistsAsc = !_spotifyRequests.playlistsAsc;
             sortUpdate();
@@ -351,7 +352,7 @@ class HomeViewState extends State<HomeView> with SingleTickerProviderStateMixin{
           icon: _spotifyRequests.playlistsAsc == true
           ? const Icon(Icons.arrow_upward_sharp)
           : const Icon(Icons.arrow_downward_sharp)
-        )),
+        ),
         //Search Button
         IconButton(
             icon: const Icon(Icons.search),

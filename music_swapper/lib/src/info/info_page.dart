@@ -10,8 +10,6 @@ final SecureStorage _secureStorage = Get.put(SecureStorage());
 ///App info an turtorials.
 class InfoView extends StatelessWidget {
   const InfoView({super.key});
-  
-  static const String routeName = '/Info';
 
   @override
   Widget build(BuildContext context) {
@@ -29,7 +27,7 @@ class InfoView extends StatelessWidget {
         centerTitle: true,
         backgroundColor: spotHelperGreen,
         title: const Text(
-          'Info Page',
+          'Help Page',
           textAlign: TextAlign.center,
         ),
       ),
@@ -39,21 +37,13 @@ class InfoView extends StatelessWidget {
         children: <Widget>[
           ListView(
             children: <Widget>[ 
-              ListTile(
-                title: Text(
-                  'This app is to help organize your Spotify playlists faster. \nIt allows you to select multiple songs by Title or Artist, and move them to another playlist or playlists of your choice. \nYou can also delete multiple songs from a playlist of your choice.',
+              Padding(
+                padding: const EdgeInsets.all(10),
+                child: Text(
+                  'This app is to help organize your Spotify playlists faster. It allows you to select multiple songs by Title or Artist, and move them to another playlist or playlists of your choice. You can also delete multiple songs from a playlist of your choice.',
                   style: TextStyle(fontSize: 16, color: spotHelperGreen,),
-                  textAlign: TextAlign.center,
-                ),
-              ),
-              const Divider(color: Colors.grey),
-
-              ListTile(
-                title: Text(
-                    'If you have over 500 tracks first time syncing and Deep Syncs from Spotify might take a minute.',
-                    style: TextStyle(fontSize: 16, color: failedRed),
-                    textAlign: TextAlign.start,
-                  ),
+                  textAlign: TextAlign.start,
+                )
               ),
               const Divider(color: Colors.grey),
 

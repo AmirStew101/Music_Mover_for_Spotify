@@ -4,6 +4,7 @@ import 'dart:async';
 
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/widgets.dart';
 import 'package:get/get.dart';
 import 'package:spotify_music_helper/src/select_playlists/select_popups.dart';
 import 'package:spotify_music_helper/src/utils/global_classes/global_objects.dart';
@@ -41,7 +42,7 @@ class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
   RxList<PlaylistModel> selectedPlaylistList = <PlaylistModel>[].obs;
 
   /// Page View state variables
-  bool loaded = false;
+  ValueNotifier loaded = ValueNotifier(false);
   bool adding = false;
   bool error = false;
   bool refresh = false;
@@ -63,6 +64,8 @@ class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
     final TrackArguments trackArgs = Get.arguments;
     selectedTracksList = trackArgs.selectedTracks;
     option = trackArgs.option;
+
+    _checkPlaylists();
   }
 
   @override
@@ -75,18 +78,22 @@ class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
   /// Check if the playlists were passed correctly.
   Future<void> _checkPlaylists() async{
     try{
-      if(mounted && !loaded && (_spotifyRequests.allPlaylists.isEmpty || refresh)){
+      loaded.value = false;
+
+      if(mounted && !loaded.value && (_spotifyRequests.allPlaylists.isEmpty || refresh)){
         _crashlytics.log('Select View: Request Playlists');
         await _spotifyRequests.requestPlaylists();
         selectedPlaylistList.clear();
+        loaded.value = true;
       }
       
-      if (mounted && !loaded){
-        loaded = true;
+      if (mounted && !loaded.value){
+        loaded.value = true;
       }
     }
     catch (e, stack){
       error = true;
+      loaded.value = true;
       _crashlytics.recordError(e, stack, reason: 'Failed to Request playlists from Spotify', fatal: true);
     }
 
@@ -96,22 +103,21 @@ class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
   Future<void> handleOptionSelect() async {
 
     List<PlaylistModel> selectedList = selectedPlaylistList;
-    
+    loaded.value = false;
+    adding = true;
     //Move tracks to Playlists
     if (option == 'move') {
       try{
-
         //Add tracks to selected playlists
         await _spotifyRequests.addTracks(selectedList, selectedTracksList);
 
         //Remove tracks from current playlist
         await _spotifyRequests.removeTracks(selectedTracksList, currentPlaylist.snapshotId);
-
-        //Finished moving tracks for the playlist
-        adding = false;
       }
       catch (ee, stack){
+        adding = false;
         error = true;
+        loaded.value = true;
         _crashlytics.recordError(ee, stack, reason: 'handleOptionSelect Failed to edit Tracks');
       }
 
@@ -119,7 +125,6 @@ class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
     //Adds tracks to Playlists
     else {
       try{
-        adding = true;
         //Update Spotify with the added tracks
         await _spotifyRequests.addTracks(selectedList, selectedTracksList);
 
@@ -127,16 +132,20 @@ class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
         adding = false;
       }
       catch (ee, stack){
+        adding = false;
         error = true;
+        loaded.value = true;
         _crashlytics.recordError(ee, stack, reason: 'handleOptionSelect Failed to edit Tracks');
       }
-
     }
+
+    adding = false;
+    loaded.value = true;
   }
 
   Future<void> refreshPlaylists() async{
     _crashlytics.log('Refresh Playlists');
-    loaded = false;
+    loaded.value = false;
     refresh = true;
     selectedPlaylistList.clear();
     _checkPlaylists();
@@ -148,7 +157,7 @@ class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
       appBar: AppBar(
         backgroundColor: spotHelperGreen,
         title: const Text(
-          'Playlist(s) Select',
+          'Playlists Select',
           textAlign: TextAlign.center,
         ),
         centerTitle: true,
@@ -182,7 +191,7 @@ class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
           IconButton(
               icon: const Icon(Icons.search),
               onPressed: () async {
-                if (loaded){
+                if (loaded.value){
                   _crashlytics.log('Search Selectable Playlists');
                   RxList<PlaylistModel> searchedPlaylists = _spotifyRequests.allPlaylists.obs;
 
@@ -190,27 +199,52 @@ class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
                     Dialog.fullscreen(
                       child: Column(
                         children: [
-                          SizedBox(
-                            height: 50,
-                            child: TextField(
-                              decoration: InputDecoration(
-                                prefixIcon: IconButton(
-                                  onPressed: () => Get.back(), 
-                                  icon: const Icon(Icons.arrow_back_sharp)
-                                ),
-                                hintText: 'Search'
-                              ),
-                              onChanged: (String query) {
-                                searchedPlaylists.value = _spotifyRequests.allPlaylists.where((playlist){
-                                  final String result;
-                                  result = playlist.title.toLowerCase();
-                                  
-                                  final String input = modifyBadQuery(query).toLowerCase();
+                          Row(
+                            children: [
+                              SizedBox(
+                                height: 50,
+                                width: 250,
+                                child: TextField(
+                                  decoration: InputDecoration(
+                                    icon: IconButton(
+                                      onPressed: () => Get.back(), 
+                                      icon: const Icon(Icons.arrow_back_sharp)
+                                    ),
+                                    hintText: 'Search'
+                                  ),
+                                  onChanged: (String query) {
+                                    searchedPlaylists.value = _spotifyRequests.allPlaylists.where((playlist){
+                                      final String result;
+                                      result = playlist.title.toLowerCase();
+                                      
+                                      final String input = modifyBadQuery(query).toLowerCase();
 
-                                  return result.contains(input);
-                                }).toList();
-                              },
-                            )
+                                      return result.contains(input);
+                                    }).toList();
+                                  },
+                                )
+                              ),
+                              const SizedBox(width: 15,),
+
+                              // Select all button
+                              Obx(() => FilterChip(
+                                backgroundColor: Colors.grey,
+                                label: const Text('Select All'),
+
+                                selected: selectedPlaylistList.length == _spotifyRequests.allPlaylists.length,
+                                selectedColor: spotHelperGreen,
+
+                                onSelected: (_) {
+                                  if(selectedPlaylistList.length != _spotifyRequests.allPlaylists.length){
+                                    selectedPlaylistList.clear();
+                                    selectedPlaylistList.addAll(_spotifyRequests.allPlaylists);
+                                  }
+                                  else{
+                                    selectedPlaylistList.clear();
+                                  }
+                                },
+                              )),
+                            ]
                           ),
 
                           Expanded(
@@ -267,9 +301,9 @@ class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
               }),
         ],
       ),
-      body: FutureBuilder(
-        future: _checkPlaylists(), 
-        builder: (_, __) {
+      body: ValueListenableBuilder(
+        valueListenable: loaded,
+        builder: (_, __, ___) {
           if (error){
             return const Center(
               child: Text(
@@ -351,109 +385,102 @@ class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
   }
 
   Widget selectBottomBar(){
-
-    Icon optionIcon = const Icon(Icons.arrow_forward);
-    String optionText = 'Move Track(s)';
-
-    if (option == add) {
-      optionIcon = const Icon(Icons.add);
-      optionText = 'Add Track(s)';
-    }
-
     int totalChosen = selectedTracksList.length;
-                  
+
     /// Sets variables for User Notification
     int totalPlaylists = selectedPlaylistList.length;
 
+    Icon optionIcon = const Icon(Icons.drive_file_move_outlined);
+    String optionText = option == add ? 'Add Tracks' : 'Move Tracks';
+
     //Message to display to the user
-    String optionMsg = (option == move)
+    String optionMsg = option == move
     ? 'Successfully moved $totalChosen songs to $totalPlaylists playlists'
     : 'Successfully added $totalChosen songs to $totalPlaylists playlists';
 
     return BottomAppBar(
       color: spotHelperGreen,
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
+        mainAxisAlignment: MainAxisAlignment.spaceAround,
         crossAxisAlignment: CrossAxisAlignment.center,
         children: <Widget>[
 
           // Move/Add button to add tracks to Playlist(s)
           Expanded(
-            child: InkWell(
+            child: ListTile(
               onTap: () async {
-                if (selectedTracksList.isNotEmpty){
+                if (selectedTracksList.isNotEmpty && selectedPlaylistList.isNotEmpty){
                   if (!adding){
                     adding = true;
-                    int totalChosen = selectedTracksList.length;
-                    
-                    //Sets variables for User Notification
-                    int totalPlaylists = selectedPlaylistList.length;
-
-                    //Message to display to the user
-                    String optionMsg = (option == 'move')
-                          ? 'Successfully moved $totalChosen songs to $totalPlaylists playlists'
-                          : 'Successfully added $totalChosen songs to $totalPlaylists playlists';
-
-                    setState(() {
-                      //Updates adding
-                    });
 
                     await handleOptionSelect();
                     _crashlytics.log('Playlists edited Go back');
                     Get.back(result: true);
 
-                    if (!error){
-                      //Notification for the User alerting them to the result
-                      if(!popup){
-                        popup = true;
-                        popup = await SelectPopups().success(context, optionMsg);
-                      }
+                    //Notification for the User alerting them to the result
+                    if(!popup){
+                      popup = true;
+                      popup = await SelectPopups().success(context, optionMsg);
+                    }
+
+                    if(!error){
                       for(PlaylistModel playlist in selectedPlaylistList){
                         _spotifyRequests.requestTracks(playlist.id);
                       }
                     }
-                    else{
-                      //Notification for the User alerting them to the result
-                      if(!popup){
-                        popup = true;
-                        popup = await SelectPopups().success(context, optionMsg);
-                      }
-                      
-                    }
                   }
+                }
+                else{
+                  Get.snackbar(
+                    '',
+                    '',
+                    titleText: const Text(
+                      'No Tracks Selected',
+                      textAlign: TextAlign.center,
+                      textScaler: TextScaler.linear(1.2),
+                    ),
+                    backgroundColor: snackBarGrey,
+                    isDismissible: true,
+                    snackPosition: SnackPosition.TOP,
+                  );
                 }
               },
 
-              child: Row(
-                mainAxisSize: MainAxisSize.max,
-                children: <Widget>[
-                //Text & Icon dependent on what page the user chose to go
-                //Move or Add
-                IconButton(
-                  icon: optionIcon,
-                  onPressed: () async {
-                    if (selectedTracksList.isNotEmpty){
-                      adding = true;
+              // Icon dependent on what page the user chose to go either 'Move' or 'Add' Icon
+              leading: IconButton(
+                icon: optionIcon,
+                onPressed: () async {
+                  if (selectedTracksList.isNotEmpty && selectedPlaylistList.isNotEmpty){
+                    adding = true;
+                    loaded.value = false;
 
-                      setState(() {
-                        //Updates adding
-                      });
+                    await handleOptionSelect();
+                    _crashlytics.log('Playlists edited Go back');
+                    Get.back(result: true);
 
-                      await handleOptionSelect();
-                      _crashlytics.log('Playlists edited Go back');
-                      Get.back(result: true);
-
-                      if(!popup){
-                        popup = true;
-                        popup = await SelectPopups().success(context, optionMsg);
-                      }
+                    if(!popup){
+                      popup = true;
+                      popup = await SelectPopups().success(context, optionMsg);
                     }
-                  },
-                ),
-                Text(optionText),
+                  }
+                  else{
+                    Get.snackbar(
+                      'No Tracks Selected', 
+                      '',
+                      backgroundColor: snackBarGrey,
+                      isDismissible: true,
+                      snackPosition: SnackPosition.TOP
+                    );
+                  }
+                },
+              ),
 
-              ]),
-            ),
+              // Text dependent on what page the user chose to go either 'Move' or 'Add' Text
+              title: Text(
+                optionText,
+                textAlign: TextAlign.center,
+              ),
+            )
           ),
 
           const VerticalDivider(
@@ -463,7 +490,7 @@ class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
           // Select All button
           Expanded(
             child:
-            InkWell(
+            ListTile(
               onTap: () {
                 _crashlytics.log('Select All');
                 if (selectedPlaylistList.length != _spotifyRequests.allPlaylists.length){
@@ -474,29 +501,26 @@ class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
                   selectedPlaylistList.clear();
                 }
               },
-              child: Row(
-                children: <Widget>[
-                  Obx(() => Checkbox(
-                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
-                    value: selectedPlaylistList.length == _spotifyRequests.allPlaylists.length,
-                    onChanged: (_) {
-                      _crashlytics.log('Select All');
-                      if (selectedPlaylistList.length != _spotifyRequests.allPlaylists.length){
-                        selectedPlaylistList.clear();
-                        selectedPlaylistList.addAll(_spotifyRequests.allPlaylists);
-                      }
-                      else{
-                        selectedPlaylistList.clear();
-                      }
-                    },
-                  )),
-                  const Text('Select All'),
-                ],
-              ),
+
+              leading: Obx(() => Checkbox(
+                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
+                value: selectedPlaylistList.length == _spotifyRequests.allPlaylists.length,
+                onChanged: (_) {
+                  _crashlytics.log('Select All');
+                  if (selectedPlaylistList.length != _spotifyRequests.allPlaylists.length){
+                    selectedPlaylistList.clear();
+                    selectedPlaylistList.addAll(_spotifyRequests.allPlaylists);
+                  }
+                  else{
+                    selectedPlaylistList.clear();
+                  }
+                },
+              )),
+
+              title: const Text('Select All'),
             )
           ),
-      
         ],
       )
     );

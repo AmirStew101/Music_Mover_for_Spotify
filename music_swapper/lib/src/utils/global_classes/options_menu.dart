@@ -51,7 +51,7 @@ Drawer optionsMenu(BuildContext context){
           //Navigate to Info page.
           ListTile(
             leading: const Icon(Icons.question_mark),
-            title: const Text('Info'),
+            title: const Text('Help'),
             onTap: () async{
               _crashlytics.log('Navigate to Info Page');
               Get.to(const InfoView());
