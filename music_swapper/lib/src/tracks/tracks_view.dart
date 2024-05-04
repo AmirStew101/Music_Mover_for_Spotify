@@ -40,7 +40,7 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
   late SpotifyRequests _spotifyRequests;
 
   late PlaylistModel currentPlaylist;
-  late UserModel user;
+  UserModel user = UserModel();
 
   /// All of the selected tracks.
   /// 
@@ -71,13 +71,14 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
     try{
       _spotifyRequests = Get.arguments;
       currentPlaylist = _spotifyRequests.currentPlaylist;
+      user = _spotifyRequests.user;
+      sortType.value = user.tracksSortType;
     }
     catch (e){
       _crashlytics.log('Error Tracks go Back');
       Get.back(result: false);
     }
 
-    user = _spotifyRequests.user;
     tabController = TabController(length: 2, vsync: this);
     _checkTracks();
   }
@@ -93,18 +94,18 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
     _crashlytics.log('Sort Tracks Update');
 
     // Sorts the tracks based on the current sort type.
-    if(sortType == Sort().addedAt){
-      _spotifyRequests.sortTracks(sortType.value, addedAt: true);
+    if(sortType.value == Sort().addedAt){
+      _spotifyRequests.sortTracks(user, addedAt: true);
     }
-    else if(sortType == Sort().artist){
-      _spotifyRequests.sortTracks(sortType.value, artist: true);
+    else if(sortType.value == Sort().artist){
+      _spotifyRequests.sortTracks(user, artist: true);
     }
-    else if(sortType == Sort().type){
-      _spotifyRequests.sortTracks(sortType.value, type: true);
+    else if(sortType.value == Sort().type){
+      _spotifyRequests.sortTracks(user, type: true);
     }
     // Default title sort
     else{
-      _spotifyRequests.sortTracks(sortType.value);
+      _spotifyRequests.sortTracks(user);
     }
   }
 
@@ -135,7 +136,6 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
     try{
       await _spotifyRequests.requestTracks(currentPlaylist.id);
       currentPlaylist = _spotifyRequests.currentPlaylist;
-      sortUpdate();
 
       if (mounted) {
         loaded.value = true;
@@ -168,7 +168,6 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
     loaded.value = false;
     error = false;
     removing = false;
-    refresh = true;
 
     selectedTracksList.clear();
     _checkTracks();
@@ -246,6 +245,7 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
                 return Stack(
                   children: <Widget>[
                     tracksViewBody(),
+                    if(!user.subscribed.value)
                     Ads().setupAds(context, user)
                   ],
                 );
@@ -260,6 +260,7 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
                         textAlign: TextAlign.center,
                       )
                     ),
+                    if(!user.subscribed.value)
                     Ads().setupAds(context, user)
                   ],
                 );
