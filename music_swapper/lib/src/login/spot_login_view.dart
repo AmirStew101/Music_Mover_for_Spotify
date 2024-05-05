@@ -55,6 +55,7 @@ class SpotLoginState extends State<SpotLoginWidget> {
   ///In app web view for logging into Spotify.
   Future<WebViewController> initiateLogin(BuildContext context, bool reLogin) async {
     late final String loginURL;
+    bool initializing = false;
 
     _crashlytics.log('Set login Url');
     if (reLogin){
@@ -105,45 +106,34 @@ class SpotLoginState extends State<SpotLoginWidget> {
         ..setNavigationDelegate(NavigationDelegate(
           onNavigationRequest: (NavigationRequest request) async {
             //Spotify sent the callback tokens.
-            if (request.url.startsWith('$hosted/callback')) {
+            if (request.url.startsWith('$hosted/callback') && !initializing) {
+              _crashlytics.log('Clear Storage');
+              _secureStorage.removeTokens();
+              _secureStorage.removeUser();
+              await _cacheManager.clearPlaylists();
+
               _crashlytics.log('Spot Login: Initialize SpotifyRequests');
               await _spotifyRequests.initializeRequests(callRequest: request.url);
 
               _crashlytics.log('Spot Login: Sign in User');
               await UserAuth().signInUser(_spotifyRequests.user.spotifyId);
 
-              _crashlytics.log('Spot Login: Initialize DatabaseStorage');
-              await _databaseStorage.initializeDatabase(_spotifyRequests.user);
-
-              _crashlytics.log('Storage setup and Retreival');
-              await _secureStorage.saveTokens(_spotifyRequests.callback);
-              await _secureStorage.saveUser(_spotifyRequests.user);
-
-              if(!reLogin){
-                _crashlytics.log('Get Cahced Playlists');
-                await _cacheManager.getCachedPlaylists();
-                _spotifyRequests.allPlaylists = _cacheManager.storedPlaylists;
-              }
-              else{
-                await _cacheManager.clearPlaylists();
-              }
-
               await AppAnalytics().trackSpotifyLogin(_spotifyRequests.user);
 
-              if(_databaseStorage.newUser){
-                _crashlytics.log('Go to Turotrial page');
-                // Navigate to Tutorial screen for new Users and remove previous routes
-                Get.offAllNamed('/tutorial');
-              }
-              else{
+              // if(_databaseStorage.newUser){
+              //   _crashlytics.log('Go to Turotrial page');
+              //   // Navigate to Tutorial screen for new Users and remove previous routes
+              //   Get.offAllNamed('/tutorial');
+              // }
+              // else{
                 _crashlytics.log('Go to Home page');
                 // Navigate to Home and remove previous routes
                 Get.offAllNamed('/');
-              }
+              //}
               
               return NavigationDecision.prevent;
             }
-            else{
+            else if(!initializing){
               // Facebook does not support in app sign-in.
               if(request.url.contains('facebook')){
                 loginIssue(facebook: true);

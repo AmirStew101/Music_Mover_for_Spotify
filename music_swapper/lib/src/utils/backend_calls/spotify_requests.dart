@@ -23,12 +23,8 @@ const String _fileName = 'spotify_requests.dart';
 class SpotifyRequests extends GetxController{
   final FirebaseCrashlytics _crashlytics = FirebaseCrashlytics.instance;
 
-  /// User and Callback saved on the device.
-  late final SecureStorage _secureStorage;
-
   /// Saves and Retreives playlists from cache.
   late final PlaylistsCacheManager _cacheManager;
-  bool cacheLoaded = false;
 
   /// Contains the Spotify [accessToken], [refreshToken], & time it [expiressAt]
   late CallbackModel _callback;
@@ -68,12 +64,6 @@ class SpotifyRequests extends GetxController{
   /// 
   /// Must call the initializeRequests() function before making any functin calls or an error wil be thrown.
   SpotifyRequests(){
-    try{
-      _secureStorage = SecureStorage.instance;
-    }
-    catch (e){
-      _secureStorage = Get.put(SecureStorage());
-    }
 
     try{
       _cacheManager = PlaylistsCacheManager.instance;
@@ -247,7 +237,6 @@ class SpotifyRequests extends GetxController{
 
     await _cacheManager.getCachedPlaylists()
     .onError((Object? error, StackTrace stack) async{
-      cacheLoaded = false;
       return null;
     });
     
@@ -255,7 +244,6 @@ class SpotifyRequests extends GetxController{
     if(_cacheManager.storedPlaylists.isNotEmpty){
       allPlaylists = _cacheManager.storedPlaylists;
       _checkTracks(_allPlaylists);
-      cacheLoaded = true;
     }
     isInitialized = true;
     loading.value = false;
@@ -298,7 +286,7 @@ class SpotifyRequests extends GetxController{
       _getPlaylistImages(responsePlay);
 
       loading.value = false;
-      requestAllTracks();
+      await _requestAllTracks();
 
     }
     catch (error, stack){
@@ -341,7 +329,7 @@ class SpotifyRequests extends GetxController{
   }
 
   /// Makes multpile calls to Spotify to get all of a users Tracks.
-  Future<void> requestAllTracks({bool refresh = false}) async{
+  Future<void> _requestAllTracks({bool refresh = false}) async{
     if(loading.value){
       _crashlytics.log('Spotify Requests: Requests Loading');
       return;
@@ -516,6 +504,7 @@ class SpotifyRequests extends GetxController{
     Map<String, dynamic> responseDecoded = jsonDecode(response.body);
 
     _callback = CallbackModel(expiresAt: responseDecoded['expiresAt'], accessToken: responseDecoded['accessToken'], refreshToken: responseDecoded['refreshToken']);
+    await SecureStorage().saveTokens(_callback);
   }
 
   /// Checks if the Spotify Token has expired. Updates the Token if its expired or [forceRefresh] is true.
@@ -564,7 +553,7 @@ class SpotifyRequests extends GetxController{
       _callback = CallbackModel(expiresAt: responseDecode['expiresAt'], accessToken: responseDecode['accessToken'], refreshToken: responseDecode['refreshToken']);
       _urlExpireAccess = '${_callback.expiresAt}/${_callback.accessToken}';
 
-      await _secureStorage.saveTokens(_callback);
+      await SecureStorage().saveTokens(_callback);
     }
     catch (error, stack){
       _crashlytics.recordError(error, stack, reason: 'Failed to Ger ne Refresh Token');
@@ -593,7 +582,7 @@ class SpotifyRequests extends GetxController{
     }
 
     //Converts user from Spotify to Firestore user
-    user = UserModel(spotifyId: userInfo['id'], url: userInfo['url']);
+    user = UserModel(spotifyId: userInfo['id'], url: userInfo['url'], subscribe: true);
   }//getUser
 
   /// Gives each playlist the image size based on current platform.

@@ -304,6 +304,8 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
                       'Filters:',
                       textAlign: TextAlign.center,
                     ),
+
+                    // Ascending Button
                     Obx(() => IconButton(
                       onPressed: () {
                         _spotifyRequests.tracksAsc = !_spotifyRequests.tracksAsc;
@@ -313,9 +315,11 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
                       ? const Icon(
                         Icons.arrow_upward_sharp,
                         color: Colors.green,
+                        size: 35,
                       )
                       : const Icon(Icons.arrow_downward_sharp,
                         color: Colors.green,
+                        size: 35,
                       )
                     )),
                   ]
@@ -795,7 +799,7 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
         items: const <BottomNavigationBarItem>[
           //Oth item in List
           BottomNavigationBarItem(
-            icon: Icon(Icons.drive_file_move_rtl_rounded),
+            icon: Icon(Icons.drive_file_move_outlined),
             label: 'Move to Playlists'),
 
           //1st item in List

@@ -60,7 +60,7 @@ class HomeViewState extends State<HomeView> with SingleTickerProviderStateMixin{
     try{
       _spotifyRequests = SpotifyRequests.instance;
     }
-    catch (error, stack){
+    catch (error){
       _spotifyRequests = Get.put(SpotifyRequests());
       _crashlytics.log('Failed to Get Instance of Spotify Requests');
     }
@@ -68,7 +68,7 @@ class HomeViewState extends State<HomeView> with SingleTickerProviderStateMixin{
     try{
       _databaseStorage = DatabaseStorage.instance;
     }
-    catch (error, stack){
+    catch (error){
       _databaseStorage = Get.put(DatabaseStorage());
       _crashlytics.log('Failed to Get Instance of Database Storage');
     }
@@ -76,7 +76,7 @@ class HomeViewState extends State<HomeView> with SingleTickerProviderStateMixin{
     try{
       _secureStorage = SecureStorage.instance;
     }
-    catch (error, stack){
+    catch (error){
       _secureStorage = Get.put(SecureStorage());
       _crashlytics.log('Failed to Get Instance of Secure Storage');
     }
@@ -94,43 +94,50 @@ class HomeViewState extends State<HomeView> with SingleTickerProviderStateMixin{
   /// Check the saved Tokens & User on device and on successful confirmation get Users playlists.
   Future<void> _checkLogin() async {
     try{
-      if(!_spotifyRequests.initialized || !_databaseStorage.initialized){
-        _crashlytics.log('Playlists Page Check Login');
+      if(!_spotifyRequests.isInitialized || !_databaseStorage.isInitialized){
+        await _crashlytics.log('Playlists Page Check Login');
         await _secureStorage.getUser();
         await _secureStorage.getTokens();
         
         // The saved User and Tokens are not corrupted.
         // Initialize the users database connection & spotify requests connection.
         if(_secureStorage.secureUser != null && _secureStorage.secureCallback != null){
-          _crashlytics.log('Initialize Login');
+          await _crashlytics.log('Initialize Login using Storage');
 
-          await _databaseStorage.initializeDatabase(_secureStorage.secureUser!);
-          await _spotifyRequests.initializeRequests(callback: _secureStorage.secureCallback!, savedUser: _databaseStorage.user);
+          if(!_databaseStorage.isInitialized) await _databaseStorage.initializeDatabase(_secureStorage.secureUser!);
+
+          if(_spotifyRequests.isInitialized){
+            _spotifyRequests.user = _databaseStorage.user;
+          }
+          else{
+            await _spotifyRequests.initializeRequests(callback: _secureStorage.secureCallback!, savedUser: _databaseStorage.user);
+          }
+
+          await _secureStorage.saveUser(_spotifyRequests.user);
+        }
+        else if(_spotifyRequests.isInitialized){
+          await _crashlytics.log('Initialize Login using Spotify');
+
+          await _databaseStorage.initializeDatabase(_spotifyRequests.user);
+          _spotifyRequests.user = _databaseStorage.user;
           await _secureStorage.saveUser(_spotifyRequests.user);
         }
         else{
           _crashlytics.log('Login Corrupted');
           bool reLogin = true;
-          Get.offAll(const StartViewWidget(), arguments: reLogin);
+          await Get.offAll(const StartViewWidget(), arguments: reLogin);
         }
       }
 
       //Fetches Playlists if page is not loaded and on this Page
       if (mounted && !_loaded.value){
-        if(mounted && (_spotifyRequests.allPlaylists.isEmpty || _spotifyRequests.loadedIds.length != _spotifyRequests.allPlaylists.length) && !refresh){
-          _crashlytics.log('Requesting all Playlists & Tracks');
+        if(mounted && (_spotifyRequests.allPlaylists.isEmpty || !_spotifyRequests.allLoaded || refresh)){
+          await _crashlytics.log('Requesting all Playlists & Tracks');
           await _spotifyRequests.requestPlaylists();
-          await _spotifyRequests.requestAllTracks();
-          _loaded.value = true;
-        }
-        else if(mounted && refresh){
-          _crashlytics.log('Refresh Requesting all Playlists');
-          await _spotifyRequests.requestPlaylists();
-          refresh = false;
           _loaded.value = true;
         }
         else{
-          _crashlytics.log('Load Cached Playlists');
+          await _crashlytics.log('Load Cached Playlists');
           _loaded.value = true;
         }
       }
@@ -255,7 +262,7 @@ class HomeViewState extends State<HomeView> with SingleTickerProviderStateMixin{
               if (_loaded.value && !error && _spotifyRequests.allLoaded) {
                 return ImageGridWidget(playlists: _spotifyRequests.allPlaylists, spotifyRequests: _spotifyRequests,);
               }
-              else if(!_loaded.value && !error) {
+              else if(!_loaded.value) {
                 return Center( 
                   child:Obx(() => Column(
                     mainAxisAlignment: MainAxisAlignment.center,
@@ -288,7 +295,7 @@ class HomeViewState extends State<HomeView> with SingleTickerProviderStateMixin{
           height: _spotifyRequests.user.subscribed
           ? 0
           : 70,
-          child: Ads().setupAds(context, _spotifyRequests.user),
+          child: Ads().setupAds(context, _spotifyRequests.user, home: true),
         )),
     
     );

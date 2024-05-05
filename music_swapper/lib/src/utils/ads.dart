@@ -11,7 +11,7 @@ import 'package:spotify_music_helper/src/utils/class%20models/user_model.dart';
 class Ads{
 
   /// Setup the type of ad to be displayed depending on the page route name received.
-  Widget setupAds(BuildContext context, UserModel user){
+  Widget setupAds(BuildContext context, UserModel user, {bool home = false}){
     if(user.subscribed){
       return Container();
     }
@@ -28,13 +28,17 @@ class Ads{
         return Container();
       }
 
-      return _bannerAdRow(context, adUnit);
+      if(home){
+        return _bannerAdRow(context, adUnit);
+      }
+
+      return _positionedbannerAdRow(context, adUnit);
     }
     
   }
   
   /// Banner Ad setup
-  Widget _bannerAdRow(BuildContext context, String adUnit){
+  Widget _positionedbannerAdRow(BuildContext context, String adUnit){
     final double width = MediaQuery.of(context).size.width;
 
     final BannerAd bannerAd = BannerAd(
@@ -62,4 +66,33 @@ class Ads{
       )
     );
   }
+
+    /// Banner Ad setup
+  Widget _bannerAdRow(BuildContext context, String adUnit){
+    final double width = MediaQuery.of(context).size.width;
+
+    final BannerAd bannerAd = BannerAd(
+      size: AdSize.banner, 
+      adUnitId: adUnit, 
+      listener: BannerAdListener(
+        onAdLoaded: (Ad ad) => debugPrint('Ad Loaded\n'),
+        onAdClicked: (Ad ad) => debugPrint('Ad Clicked\n'),), 
+      request: const AdRequest(),
+    );
+
+    bannerAd.load();
+    
+    return SizedBox(
+      width: width,
+      height: 70,
+      //Creates the ad banner
+      child: Center(
+        child: AdWidget(
+          ad: bannerAd,
+        ),
+      )
+    );
+  }
+
+
 }
