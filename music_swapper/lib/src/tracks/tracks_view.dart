@@ -821,7 +821,7 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
           if (value == 0 && selectedTracksList.isNotEmpty && loaded.value) {
             _crashlytics.log('Move Tracks');
 
-            TrackArguments trackArgs = TrackArguments(selectedTracks: selectedTracksList, option: 'move');
+            TrackArguments trackArgs = TrackArguments(selectedTracks: selectedTracksList, option: 'move', spotifyRequests: _spotifyRequests);
 
             changes = await Get.to(const SelectPlaylistsViewWidget(), arguments: trackArgs);
 
@@ -831,7 +831,7 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
           else if (value == 1 && selectedTracksList.isNotEmpty && loaded.value) {
             _crashlytics.log('Add Tracks');
 
-            TrackArguments trackArgs = TrackArguments(selectedTracks: selectedTracksList, option: 'add');
+            TrackArguments trackArgs = TrackArguments(selectedTracks: selectedTracksList, option: 'add', spotifyRequests: _spotifyRequests);
 
             changes = await Get.to(const SelectPlaylistsViewWidget(), arguments: trackArgs);
             if(changes != null && changes) await handleRefresh();

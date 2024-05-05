@@ -134,9 +134,8 @@ class UserRepository extends GetxController{
       }
       return false;
     }
-    catch (ee, stack){
-      _crashlytics.recordError(ee, stack, reason: 'Failed checking if Has User');
-      throw CustomException(stack: stack, fileName: _fileName, functionName: 'hasUser',  error: ee);
+    catch (ee){
+      return false;
     }
   }// hasUser
   

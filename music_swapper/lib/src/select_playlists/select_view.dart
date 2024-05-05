@@ -35,10 +35,6 @@ class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
   static const move = 'move';
   static const add = 'add';
 
-  /// Variables in storage
-  late UserModel user;
-  late PlaylistModel currentPlaylist;
-
   RxList<PlaylistModel> selectedPlaylistList = <PlaylistModel>[].obs;
 
   /// Page View state variables
@@ -52,19 +48,11 @@ class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
   void initState() {
     super.initState();
     _crashlytics.log('Init Select View Page');
-    try{
-      _spotifyRequests = SpotifyRequests.instance;
-    }
-    catch (e){
-      _spotifyRequests = Get.put(SpotifyRequests());
-    }
 
-    user = _spotifyRequests.user;
-    currentPlaylist = _spotifyRequests.currentPlaylist;
     final TrackArguments trackArgs = Get.arguments;
+    _spotifyRequests = trackArgs.spotifyRequests;
     selectedTracksList = trackArgs.selectedTracks;
     option = trackArgs.option;
-
     _checkPlaylists();
   }
 
@@ -112,7 +100,7 @@ class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
         await _spotifyRequests.addTracks(selectedList, selectedTracksList);
 
         //Remove tracks from current playlist
-        await _spotifyRequests.removeTracks(selectedTracksList, currentPlaylist.snapshotId);
+        await _spotifyRequests.removeTracks(selectedTracksList, _spotifyRequests.currentPlaylist.snapshotId);
       }
       catch (ee, stack){
         adding = false;
@@ -146,6 +134,7 @@ class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
   Future<void> refreshPlaylists() async{
     _crashlytics.log('Refresh Playlists');
     loaded.value = false;
+    error = false;
     refresh = true;
     selectedPlaylistList.clear();
     _checkPlaylists();
@@ -254,7 +243,7 @@ class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
                                 PlaylistModel currPlaylist = searchedPlaylists[index];
                                 String playImage = currPlaylist.imageUrl;
 
-                                if(option == move && currPlaylist == currentPlaylist){
+                                if(option == move && currPlaylist == _spotifyRequests.currentPlaylist){
                                   return Container();
                                 }
 
@@ -313,7 +302,7 @@ class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
               )
             );
           }
-          if(adding){
+          if(adding || !loaded.value){
             return const Center(child: CircularProgressIndicator.adaptive());
           }
           else{
@@ -335,7 +324,7 @@ class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
         String playTitle = playModel.title;
         String imageUrl = playModel.imageUrl;
 
-        if (option == move && currentPlaylist.title == playTitle){
+        if (option == move && _spotifyRequests.currentPlaylist.title == playTitle){
           return Container();
         }
 
@@ -505,7 +494,7 @@ class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
               leading: Obx(() => Checkbox(
                 materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
-                value: selectedPlaylistList.length == _spotifyRequests.allPlaylists.length,
+                value: selectedPlaylistList.length == _spotifyRequests.allPlaylists.length && _spotifyRequests.allPlaylists.isNotEmpty,
                 onChanged: (_) {
                   _crashlytics.log('Select All');
                   if (selectedPlaylistList.length != _spotifyRequests.allPlaylists.length){

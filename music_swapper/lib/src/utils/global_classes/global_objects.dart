@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:spotify_music_helper/src/utils/backend_calls/spotify_requests.dart';
 import 'package:spotify_music_helper/src/utils/class%20models/track_model.dart';
 import 'package:spotify_music_helper/src/utils/exceptions.dart';
 
@@ -49,11 +50,13 @@ Divider customDivider(){
 class TrackArguments{
   final List<TrackModel> selectedTracks;
   final String option;
+  final SpotifyRequests spotifyRequests;
 
   ///Model for app TrackArguments object. Used to pass tracks between pages.
   TrackArguments({
-    this.selectedTracks = const <TrackModel>[],
-    this.option = '',
+    required this.selectedTracks,
+    required this.option,
+    required this.spotifyRequests,
   });
 
 }
