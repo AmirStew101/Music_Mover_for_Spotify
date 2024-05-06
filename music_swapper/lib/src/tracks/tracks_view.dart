@@ -60,6 +60,7 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
 
     try{
       _spotifyRequests = Get.arguments;
+      print(_spotifyRequests.user);
     }
     catch (e){
       _crashlytics.log('Error Tracks go Back');
@@ -187,7 +188,7 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
     return Scaffold(
         appBar: tracksAppBar(),
 
-        drawer: optionsMenu(context),
+        drawer: optionsMenu(context, _spotifyRequests.user),
 
         // Loads the users tracks and its associated images after fetching them for user viewing
         body: PopScope(

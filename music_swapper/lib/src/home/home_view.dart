@@ -18,7 +18,6 @@ import 'package:spotify_music_helper/src/utils/backend_calls/database_classes.da
 import 'package:spotify_music_helper/src/utils/backend_calls/storage.dart';
 import 'package:spotify_music_helper/src/utils/global_classes/options_menu.dart';
 import 'package:spotify_music_helper/src/utils/class%20models/playlist_model.dart';
-import 'package:spotify_music_helper/src/utils/class%20models/user_model.dart';
 
 //Creates the state for the home screen to view/edit playlists
 class HomeView extends StatefulWidget {
@@ -46,6 +45,7 @@ class HomeViewState extends State<HomeView> with SingleTickerProviderStateMixin{
   //bool loaded = false;
   bool error = false;
   bool refresh = false;
+  Rx<bool> userLoaded = false.obs;
 
   final ValueNotifier<bool> _loaded = ValueNotifier<bool>(false);
 
@@ -110,6 +110,7 @@ class HomeViewState extends State<HomeView> with SingleTickerProviderStateMixin{
             await _spotifyRequests.initializeRequests(callback: _secureStorage.secureCallback!, savedUser: _databaseStorage.user);
           }
 
+          userLoaded.value = true;
           await _secureStorage.saveUser(_spotifyRequests.user);
         }
         else if(_spotifyRequests.isInitialized){
@@ -118,12 +119,16 @@ class HomeViewState extends State<HomeView> with SingleTickerProviderStateMixin{
           await _databaseStorage.initializeDatabase(_spotifyRequests.user);
           _spotifyRequests.user = _databaseStorage.user;
           await _secureStorage.saveUser(_spotifyRequests.user);
+          userLoaded.value = true;
         }
         else{
           _crashlytics.log('Login Corrupted');
           bool reLogin = true;
           await Get.offAll(const StartViewWidget(), arguments: reLogin);
         }
+      }
+      else{
+        userLoaded.value = true;
       }
 
       if(_spotifyRequests.allPlaylists.isEmpty && !refresh){
@@ -148,7 +153,6 @@ class HomeViewState extends State<HomeView> with SingleTickerProviderStateMixin{
     on CustomException catch (ee){
       error = true;
       _loaded.value = true;
-      //_crashlytics.recordError(ee.error, ee.stack, reason: 'Failed during Check Login', fatal: true);
       throw CustomException(stack: ee.stack, fileName: ee.fileName, functionName: ee.functionName, reason: ee.reason, error: ee.error);
     }
     catch (e, stack){
@@ -198,7 +202,7 @@ class HomeViewState extends State<HomeView> with SingleTickerProviderStateMixin{
     return Scaffold(
         appBar: homeAppbar(),
 
-        drawer: optionsMenu(context),
+        drawer: optionsMenu(context, _spotifyRequests.user),
 
         body: PopScope(
           canPop: false,
@@ -270,10 +274,12 @@ class HomeViewState extends State<HomeView> with SingleTickerProviderStateMixin{
         ),
 
         bottomNavigationBar: Obx(() => BottomAppBar(
-          height: _spotifyRequests.user.subscribed
+          height: !userLoaded.value || _spotifyRequests.user.subscribed
           ? 0
           : 70,
-          child: Ads().setupAds(context, _spotifyRequests.user, home: true),
+          child: !userLoaded.value || _spotifyRequests.user.subscribed
+          ? Container()
+          : Ads().setupAds(context, _spotifyRequests.user, home: true),
         )),
     
     );

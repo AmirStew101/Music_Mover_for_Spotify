@@ -54,7 +54,7 @@ class SettingsViewState extends State<SettingsViewWidget> with TickerProviderSta
       _secureStorage.errorCheck();
     }
     else{
-      user = _secureStorage.secureUser!;
+      user = _secureStorage.secureUser ?? UserModel();
     }
 
   }
@@ -98,7 +98,7 @@ class SettingsViewState extends State<SettingsViewWidget> with TickerProviderSta
         ),
         automaticallyImplyLeading: false,
       ),
-      drawer: optionsMenu(context),
+      drawer: optionsMenu(context, user),
       body: Padding(
         padding: const EdgeInsets.all(20),
         // Glue the SettingsController to the theme selection DropdownButton.

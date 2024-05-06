@@ -44,7 +44,7 @@ class CustomException implements Exception{
   ///The apps standard throw exception text.
   Object? _exceptionText(String fileName, String functionName, Object? error, String? reason){
     if(reason != null){
-      return '\nFirebase Auth Error in $fileName function $functionName()\n Code: $reason\n $error\n';
+      return '\nError in $fileName function $functionName()\n Reason: $reason\n $error\n';
     }
     return '\nError in $fileName function $functionName()\n $error\n';
   }//exceptionText

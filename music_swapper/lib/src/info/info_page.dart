@@ -2,19 +2,18 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:spotify_music_helper/src/utils/ads.dart';
 import 'package:spotify_music_helper/src/utils/analytics.dart';
+import 'package:spotify_music_helper/src/utils/class%20models/user_model.dart';
 import 'package:spotify_music_helper/src/utils/global_classes/options_menu.dart';
-import 'package:spotify_music_helper/src/utils/backend_calls/storage.dart';
 import 'package:spotify_music_helper/src/utils/globals.dart';
-
-final SecureStorage _secureStorage = Get.put(SecureStorage());
 
 ///App info an turtorials.
 class InfoView extends StatelessWidget {
   const InfoView({super.key});
-
+  
   @override
   Widget build(BuildContext context) {
     AppAnalytics().trackHelpMenu();
+    final UserModel user = Get.arguments;
 
     return Scaffold(
       appBar: AppBar(
@@ -33,7 +32,7 @@ class InfoView extends StatelessWidget {
           textAlign: TextAlign.center,
         ),
       ),
-      drawer: optionsMenu(context),
+      drawer: optionsMenu(context, user),
 
       body: Stack(
         children: <Widget>[
@@ -60,8 +59,8 @@ class InfoView extends StatelessWidget {
               ),
             ],
           ),
-          if (!_secureStorage.secureUser!.subscribed)
-            Ads().setupAds(context, _secureStorage.secureUser!)
+          if (!user.subscribed)
+            Ads().setupAds(context, user)
         ],
       )
           

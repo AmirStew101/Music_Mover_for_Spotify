@@ -123,7 +123,6 @@ class UserRepository extends GetxController{
       _user.toFirestoreJson();
     }
     catch (error, stack){
-      //_crashlytics.recordError(ee, stack, reason: 'User not Initialized. Call the [initializeUser] function before calling other functions.');
       throw CustomException(stack: stack, fileName: _fileName, functionName: '_checkUserInitialized',  error: 'User not Initialized. Call the [initializeUser] function before calling other functions.');
     }
   }
@@ -155,7 +154,6 @@ class UserRepository extends GetxController{
       _user.userDoc = usersRef.doc(_user.spotifyId);
     }
     catch (error, stack){
-      //_crashlytics.recordError(ee, stack, reason: 'Failed to Create User');
       throw CustomException(stack: stack, fileName: _fileName, functionName: 'createUser', reason: 'Failed to Create User',  error: error);
     }
   }// createUser

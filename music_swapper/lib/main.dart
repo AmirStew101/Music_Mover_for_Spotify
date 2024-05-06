@@ -31,7 +31,22 @@ Future<void> main() async {
   //Firebase initialization
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 
-  await FirebaseAppCheck.instance.activate(appleProvider: AppleProvider.appAttestWithDeviceCheckFallback);
+  AndroidProvider androidProvider = AndroidProvider.playIntegrity;
+  if(kDebugMode || kProfileMode){
+    androidProvider = AndroidProvider.debug;
+  }
+
+  AppleProvider appleProvider = AppleProvider.appAttestWithDeviceCheckFallback;
+  if(kDebugMode || kProfileMode){
+    appleProvider = AppleProvider.debug;
+  }
+
+  await FirebaseAppCheck.instance.activate(
+    androidProvider: androidProvider,
+    appleProvider: appleProvider
+  );
+
+  FirebaseAppCheck.instance.setTokenAutoRefreshEnabled(true);
 
   // Pass all uncaught "fatal" errors from the framework to Crashlytics
   FlutterError.onError = (FlutterErrorDetails errorDetails) async{

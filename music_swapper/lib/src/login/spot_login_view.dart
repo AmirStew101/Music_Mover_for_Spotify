@@ -15,8 +15,6 @@ import 'package:spotify_music_helper/src/utils/backend_calls/storage.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:http/http.dart' as http;
 
-const String _fileName = 'spot_login_view.dart';
-
 ///Handles Logging into a users Spotify Account and saving their info to the database.
 class SpotLoginWidget extends StatefulWidget {
   const SpotLoginWidget({super.key});
@@ -30,7 +28,6 @@ class SpotLoginState extends State<SpotLoginWidget> {
   bool reLogin = Get.arguments;
   late ScaffoldMessengerState _scaffoldMessengerState;
   late SpotifyRequests _spotifyRequests;
-  late DatabaseStorage _databaseStorage;
   late SecureStorage _secureStorage;
   late PlaylistsCacheManager _cacheManager;
   final FirebaseCrashlytics _crashlytics = FirebaseCrashlytics.instance;
@@ -42,7 +39,6 @@ class SpotLoginState extends State<SpotLoginWidget> {
     _secureStorage = Get.put(SecureStorage());
     _cacheManager = Get.put(PlaylistsCacheManager());
     _spotifyRequests = Get.put(SpotifyRequests());
-    _databaseStorage = Get.put(DatabaseStorage());
   }
 
   @override
