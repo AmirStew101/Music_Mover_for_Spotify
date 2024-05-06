@@ -8,6 +8,7 @@ import 'package:spotify_music_helper/src/utils/class%20models/custom_sort.dart';
 import 'package:spotify_music_helper/src/utils/dev_global.dart';
 import 'package:spotify_music_helper/src/utils/exceptions.dart';
 import 'package:spotify_music_helper/src/utils/backend_calls/storage.dart';
+import 'package:spotify_music_helper/src/utils/global_classes/global_objects.dart';
 import 'package:spotify_music_helper/src/utils/globals.dart';
 import 'package:spotify_music_helper/src/utils/class%20models/callback_model.dart';
 import 'package:get/get.dart';
@@ -62,6 +63,8 @@ class SpotifyRequests extends GetxController{
   String _urlExpireAccess = '';
 
   bool isInitialized = false;
+
+  final RefreshTimer _refreshTimer = RefreshTimer();
 
   /// Makes requests to Spotify for a User, refreshing their callback Tokens, editting their Playlists, & editting their Tracks.
   /// 
@@ -146,7 +149,6 @@ class SpotifyRequests extends GetxController{
 
   set allPlaylists(List<PlaylistModel> playlists){
     _allPlaylists.assignAll(playlists);
-    _checkTracks(_allPlaylists);
   }
 
   /// Update if a playlist in allPlaylists is loaded or not
@@ -179,12 +181,16 @@ class SpotifyRequests extends GetxController{
   /// Get the instance of the User Repository.
   static SpotifyRequests get instance => Get.find();
 
+  /// Check if Refresh button should be Pressed.
+  bool shouldRefresh(bool loaded, bool refresh){
+    return _refreshTimer.shouldRefresh(loaded, loading.value, refresh);
+  }
+
   void sortPlaylists(){
     _crashlytics.log('Spotify Requests: Sort Playlists');
 
     // Sorts Playlists in ascending or descending order based on the current sort type.
     _allPlaylists.assignAll(Sort().playlistsListSort(_allPlaylists, ascending: user.playlistAsc));
-    _checkTracks(_allPlaylists);
   }
 
   List<TrackModel> sortTracks({bool artist = false, bool type = false, bool addedAt = false, bool id = false}){
@@ -244,7 +250,6 @@ class SpotifyRequests extends GetxController{
       // Set Payists retreived from cache and add them to the loaded playlists.
       if(_cacheManager.storedPlaylists.isNotEmpty){
         allPlaylists = _cacheManager.storedPlaylists;
-        _checkTracks(_allPlaylists);
       }
       isInitialized = true;
       loading.value = false;
@@ -962,20 +967,6 @@ class SpotifyRequests extends GetxController{
 
     await _cacheManager.cachePlaylists(allPlaylists)
     .onError((Object? error, StackTrace stack) async => await _crashlytics.recordError(error, stack, reason: 'Failed to cache Playlists'));
-  }
-
-  /// Check if a playlists tracks are empty.
-  void _checkTracks(List<PlaylistModel> playlists){
-    _crashlytics.log('Spotify Requests: Check if Tracks are Empty');
-
-    for (PlaylistModel playlist in _allPlaylists) {
-      if(playlist.tracks.isNotEmpty){
-        _updateLoaded(playlistId: playlist.id, loaded: true);
-      }
-      else{
-        _updateLoaded(playlistId: playlist.id, loaded: false);
-      }
-    }
   }
 
 }

@@ -44,11 +44,7 @@ class HomeViewState extends State<HomeView> with SingleTickerProviderStateMixin{
 
   //bool loaded = false;
   bool error = false;
-
   bool refresh = false;
-  int refeshTimes = 0;
-  final int refreshLimit = 3;
-  bool timerStart = false;
 
   final ValueNotifier<bool> _loaded = ValueNotifier<bool>(false);
 
@@ -169,48 +165,14 @@ class HomeViewState extends State<HomeView> with SingleTickerProviderStateMixin{
   }//navigateToTracks
 
   Future<void> refreshPage() async{
-    if(!refresh && _shouldRefresh()){
+    if(_spotifyRequests.shouldRefresh(_loaded.value, refresh)){
       _crashlytics.log('Refresh Playlists Page');
       _loaded.value = false;
       error = false;
       refresh = true;
-      refeshTimes++;
       await _checkLogin();
     }
-  }//refreshPage
-
-  /// Checks if the user has clicked refresh too many times.
-  bool _shouldRefresh(){
-    if(refeshTimes == refreshLimit && !timerStart){
-
-      Get.snackbar(
-        'Reached Refresh Limit',
-        'Refreshed too many times to quickly. Must wait before refreshing again.',
-        backgroundColor: snackBarGrey
-      );
-      timerStart = true;
-      
-      Timer.periodic(const Duration(seconds: 5), (timer) {
-        refeshTimes--;
-        if(refeshTimes == 0){
-          timerStart = false;
-          timer.cancel();
-        }
-      });
-      return false;
-    }
-    else if(refeshTimes == refreshLimit && timerStart){
-      Get.snackbar(
-        'Reached Refresh Limit',
-        'Refreshed too many times to quickly. Must wait before refreshing again',
-        backgroundColor: snackBarGrey
-      );
-      return false;
-    }
-    else{
-      return true;
-    }
-  }
+  }// refreshPage
 
   @override
   Widget build(BuildContext context) {
@@ -331,21 +293,13 @@ class HomeViewState extends State<HomeView> with SingleTickerProviderStateMixin{
       // Refresh the page button
       bottom: Tab(
         child: InkWell(
-          onTap: () async {
-            if(!_spotifyRequests.loading.value){
-              await refreshPage();
-            }
-          },
+          onTap: () => refreshPage(),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: <Widget>[ 
               IconButton(
                 icon: const Icon(Icons.sync_sharp),
-                onPressed: () async {
-                  if(!_spotifyRequests.loading.value){
-                    await refreshPage();
-                  }
-                },
+                onPressed: () => refreshPage(),
               ),
               const Text('Refresh'),
             ],
@@ -359,8 +313,10 @@ class HomeViewState extends State<HomeView> with SingleTickerProviderStateMixin{
       actions: <Widget>[
         IconButton(
           onPressed: () {
-            _spotifyRequests.playlistsAsc = !_spotifyRequests.playlistsAsc;
-            sortUpdate();
+            if(!_spotifyRequests.loading.value){
+              _spotifyRequests.playlistsAsc = !_spotifyRequests.playlistsAsc;
+              sortUpdate();
+            }
           }, 
           icon: _spotifyRequests.playlistsAsc == true
           ? const Icon(Icons.arrow_upward_sharp)
@@ -370,7 +326,7 @@ class HomeViewState extends State<HomeView> with SingleTickerProviderStateMixin{
         IconButton(
             icon: const Icon(Icons.search),
             onPressed: () async {
-              if (_loaded.value){
+              if (_loaded.value && !_spotifyRequests.loading.value){
                 _crashlytics.log('Searching Playlists');
                 RxList<PlaylistModel> searchedPlaylists = _spotifyRequests.allPlaylists.obs;
 

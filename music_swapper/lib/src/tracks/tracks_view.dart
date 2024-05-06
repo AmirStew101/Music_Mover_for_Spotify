@@ -47,9 +47,6 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
   final ValueNotifier loaded = ValueNotifier(false);
 
   bool refresh = false;
-  int refeshTimes = 0;
-  final int refreshLimit = 3;
-  bool timerStart = false;
 
   bool error = false;
   bool removing = false;
@@ -166,51 +163,14 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
 
   /// Refreshes the page with function constraints to skip unnecessary steps on page refresh.
   Future<void> handleRefresh() async{
-    if (_checkRefresh()){
+    if (_spotifyRequests.shouldRefresh(loaded.value, refresh)){
       _crashlytics.log('Refresh');
       refresh = true;
-      refeshTimes++;
       loaded.value = false;
       error = false;
 
       selectedTracksList.clear();
       _checkTracks();
-    }
-  }
-
-  /// Checks if the user has clicked refresh too many times.
-  bool _checkRefresh(){
-    _crashlytics.log('Check Refresh: Check if Refresh button can be pressed.');
-    if(refeshTimes == refreshLimit && !timerStart){
-
-      Get.snackbar(
-        'Reached Refresh Limit',
-        'Refreshed too many times to quickly. Must wait before refreshing again.',
-        backgroundColor: snackBarGrey
-      );
-      timerStart = true;
-      
-      Timer.periodic(const Duration(seconds: 5), (timer) {
-        refeshTimes--;
-        if(refeshTimes == 0){
-          timerStart = false;
-          timer.cancel();
-        }
-      });
-
-      return false;
-    }
-    else if(refeshTimes == refreshLimit && timerStart){
-      Get.snackbar(
-        'Reached Refresh Limit',
-        'Refreshed too many times to quickly. Must wait before refreshing again',
-        backgroundColor: snackBarGrey
-      );
-
-      return false;
-    }
-    else{
-      return true;
     }
   }
 
@@ -289,83 +249,85 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
         // Filter button
         IconButton(
           onPressed: (){
-            Get.dialog(
-              AlertDialog.adaptive(
-                title: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Text(
-                      'Filters:',
-                      textAlign: TextAlign.center,
-                    ),
+            if(loaded.value && !_spotifyRequests.loading.value){
+              Get.dialog(
+                AlertDialog.adaptive(
+                  title: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'Filters:',
+                        textAlign: TextAlign.center,
+                      ),
 
-                    // Ascending Button
-                    Obx(() => IconButton(
-                      onPressed: () {
-                        _spotifyRequests.tracksAsc = !_spotifyRequests.tracksAsc;
+                      // Ascending Button
+                      Obx(() => IconButton(
+                        onPressed: () {
+                          _spotifyRequests.tracksAsc = !_spotifyRequests.tracksAsc;
+                          sortUpdate();
+                        }, 
+                        icon: _spotifyRequests.tracksAsc
+                        ? const Icon(
+                          Icons.arrow_upward_sharp,
+                          color: Colors.green,
+                          size: 35,
+                        )
+                        : const Icon(Icons.arrow_downward_sharp,
+                          color: Colors.green,
+                          size: 35,
+                        )
+                      )),
+                    ]
+                  ),
+                  actions: [
+                    Obx(() => SwitchListTile.adaptive(
+                      title: const Text('Title'),
+
+                      value: _spotifyRequests.tracksSortType == Sort().title,
+                      onChanged: (_) {
+                        _crashlytics.log('Sort by Title');
+                        _spotifyRequests.tracksSortType = Sort().title;
                         sortUpdate();
-                      }, 
-                      icon: _spotifyRequests.tracksAsc
-                      ? const Icon(
-                        Icons.arrow_upward_sharp,
-                        color: Colors.green,
-                        size: 35,
-                      )
-                      : const Icon(Icons.arrow_downward_sharp,
-                        color: Colors.green,
-                        size: 35,
-                      )
+                      },
                     )),
-                  ]
-                ),
-                actions: [
-                  Obx(() => SwitchListTile.adaptive(
-                    title: const Text('Title'),
 
-                    value: _spotifyRequests.tracksSortType == Sort().title,
-                    onChanged: (_) {
-                      _crashlytics.log('Sort by Title');
-                      _spotifyRequests.tracksSortType = Sort().title;
-                      sortUpdate();
-                    },
-                  )),
+                    Obx(() => SwitchListTile.adaptive(
+                      title: const Text('Artist'),
 
-                  Obx(() => SwitchListTile.adaptive(
-                    title: const Text('Artist'),
+                      value: _spotifyRequests.tracksSortType == Sort().artist,
+                      onChanged: (_) {
+                        _crashlytics.log('Sort by Artist');
+                        _spotifyRequests.tracksSortType = Sort().artist;
+                        sortUpdate();
+                      },
+                    )),
 
-                    value: _spotifyRequests.tracksSortType == Sort().artist,
-                    onChanged: (_) {
-                      _crashlytics.log('Sort by Artist');
-                      _spotifyRequests.tracksSortType = Sort().artist;
-                      sortUpdate();
-                    },
-                  )),
+                    Obx(() => SwitchListTile.adaptive(
+                      title: const Text('Added At'),
 
-                  Obx(() => SwitchListTile.adaptive(
-                    title: const Text('Added At'),
+                      value: _spotifyRequests.tracksSortType == Sort().addedAt,
+                      onChanged: (_) {
+                        _crashlytics.log('Sort by Added At time');
+                        _spotifyRequests.tracksSortType = Sort().addedAt;
+                        sortUpdate();
+                      },
+                    )),
 
-                    value: _spotifyRequests.tracksSortType == Sort().addedAt,
-                    onChanged: (_) {
-                      _crashlytics.log('Sort by Added At time');
-                      _spotifyRequests.tracksSortType = Sort().addedAt;
-                      sortUpdate();
-                    },
-                  )),
+                    Obx(() => SwitchListTile.adaptive(
+                      title: const Text('Type'),
+                      subtitle: const Text('Track or Episode'),
 
-                  Obx(() => SwitchListTile.adaptive(
-                    title: const Text('Type'),
-                    subtitle: const Text('Track or Episode'),
-
-                    value: _spotifyRequests.tracksSortType == Sort().type,
-                    onChanged: (_) {
-                      _crashlytics.log('Sort by Type');
-                      _spotifyRequests.tracksSortType = Sort().type;
-                      sortUpdate();
-                    },
-                  )),
-                ],
-              )
-            );
+                      value: _spotifyRequests.tracksSortType == Sort().type,
+                      onChanged: (_) {
+                        _crashlytics.log('Sort by Type');
+                        _spotifyRequests.tracksSortType = Sort().type;
+                        sortUpdate();
+                      },
+                    )),
+                  ],
+                )
+              );
+            }
           }, 
           icon: const Icon(Icons.filter_alt_rounded)
         ),
@@ -375,7 +337,7 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
           icon: const Icon(Icons.search),
 
           onPressed: () async {
-            if (loaded.value){
+            if (loaded.value && !_spotifyRequests.loading.value){
               _crashlytics.log('Search Tracks');
               RxList<TrackModel> searchedTracks = _spotifyRequests.currentPlaylist.tracks.obs;
               String searchType = Sort().title;
