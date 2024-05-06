@@ -6,6 +6,7 @@ import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:spotify_music_helper/src/select_playlists/select_popups.dart';
+import 'package:spotify_music_helper/src/utils/exceptions.dart';
 import 'package:spotify_music_helper/src/utils/global_classes/global_objects.dart';
 import 'package:spotify_music_helper/src/utils/globals.dart';
 import 'package:spotify_music_helper/src/utils/backend_calls/spotify_requests.dart';
@@ -76,6 +77,11 @@ class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
         loaded.value = true;
       }
     }
+    on CustomException catch (ee){
+      error = true;
+      loaded.value = true;
+      throw CustomException(stack: ee.stack, fileName: ee.fileName, functionName: ee.functionName, reason: ee.reason, error: ee.error);
+    }
     catch (e, stack){
       error = true;
       loaded.value = true;
@@ -99,6 +105,12 @@ class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
         //Remove tracks from current playlist
         await _spotifyRequests.removeTracks(selectedTracksList, _spotifyRequests.currentPlaylist.snapshotId);
       }
+      on CustomException catch (ee){
+        adding = false;
+        error = true;
+        loaded.value = true;
+        throw CustomException(stack: ee.stack, fileName: ee.fileName, functionName: ee.functionName, reason: ee.reason, error: ee.error);
+      }
       catch (ee, stack){
         adding = false;
         error = true;
@@ -115,6 +127,12 @@ class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
 
         //Finished adding tracks to 
         adding = false;
+      }
+      on CustomException catch (ee){
+        adding = false;
+        error = true;
+        loaded.value = true;
+        throw CustomException(stack: ee.stack, fileName: ee.fileName, functionName: ee.functionName, reason: ee.reason, error: ee.error);
       }
       catch (ee, stack){
         adding = false;

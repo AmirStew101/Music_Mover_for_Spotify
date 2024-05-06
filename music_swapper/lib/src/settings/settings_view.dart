@@ -8,6 +8,7 @@ import 'package:spotify_music_helper/src/utils/ads.dart';
 import 'package:spotify_music_helper/src/utils/auth.dart';
 import 'package:spotify_music_helper/src/utils/dev_global.dart';
 import 'package:spotify_music_helper/src/utils/backend_calls/database_classes.dart';
+import 'package:spotify_music_helper/src/utils/exceptions.dart';
 import 'package:spotify_music_helper/src/utils/global_classes/options_menu.dart';
 import 'package:spotify_music_helper/src/utils/globals.dart';
 import 'package:spotify_music_helper/src/utils/backend_calls/storage.dart';
@@ -283,6 +284,10 @@ class SettingsViewState extends State<SettingsViewWidget> with TickerProviderSta
         await UserAuth().deleteUser();
         await PlaylistsCacheManager().clearPlaylists();
         removeUserMessage();
+      }
+      on CustomException catch (ee){
+        removeUserMessage(success: false);
+        throw CustomException(stack: ee.stack, fileName: ee.fileName, functionName: ee.functionName, reason: ee.reason, error: ee.error);
       }
       catch (error, stack){
         removeUserMessage(success: false);

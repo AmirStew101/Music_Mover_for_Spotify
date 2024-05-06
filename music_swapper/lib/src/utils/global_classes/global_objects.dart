@@ -11,7 +11,7 @@ import 'package:spotify_music_helper/src/utils/globals.dart';
 void mapKeysCheck(List<String> keys, Map<String, dynamic> mapCheck, String functionName){
   for(String key in keys){
     if(!keys.contains(key)){
-      throw CustomException(stack: StackTrace.current, functionName: functionName, error: 'Map is missing the required key \'$key\'.');
+      throw CustomException(fatal: false, stack: StackTrace.current, functionName: functionName, error: 'Map is missing the required key \'$key\'.');
     }
   }
 }

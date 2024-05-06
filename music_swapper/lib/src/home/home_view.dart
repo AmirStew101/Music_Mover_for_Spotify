@@ -9,6 +9,7 @@ import 'package:get/get.dart';
 import 'package:spotify_music_helper/src/login/start_screen.dart';
 import 'package:spotify_music_helper/src/utils/ads.dart';
 import 'package:spotify_music_helper/src/utils/backend_calls/spotify_requests.dart';
+import 'package:spotify_music_helper/src/utils/exceptions.dart';
 import 'package:spotify_music_helper/src/utils/global_classes/global_objects.dart';
 import 'package:spotify_music_helper/src/utils/globals.dart';
 import 'package:spotify_music_helper/src/home/home_body.dart';
@@ -144,6 +145,12 @@ class HomeViewState extends State<HomeView> with SingleTickerProviderStateMixin{
         }
       }
     }
+    on CustomException catch (ee){
+      error = true;
+      _loaded.value = true;
+      //_crashlytics.recordError(ee.error, ee.stack, reason: 'Failed during Check Login', fatal: true);
+      throw CustomException(stack: ee.stack, fileName: ee.fileName, functionName: ee.functionName, reason: ee.reason, error: ee.error);
+    }
     catch (e, stack){
       error = true;
       _loaded.value = true;
@@ -158,6 +165,9 @@ class HomeViewState extends State<HomeView> with SingleTickerProviderStateMixin{
       _spotifyRequests.currentPlaylist = playlist;
       // Navigate to the tracks page sending the chosen playlist.
       Get.to(const TracksView(), arguments: _spotifyRequests);
+    }
+    on CustomException catch (ee){
+      throw CustomException(stack: ee.stack, fileName: ee.fileName, functionName: ee.functionName, reason: ee.reason, error: ee.error);
     }
     catch (e, stack){
       _crashlytics.recordError(e, stack, reason: 'Failed to Navigate to Tracks', fatal: true);

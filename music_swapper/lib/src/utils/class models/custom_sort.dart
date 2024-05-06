@@ -49,7 +49,7 @@ class Sort{
       tracks.addAll(tracksList);
     }
     else{
-      throw CustomException(error: 'Missing PlaylistModel or List of TrackModels');
+      throw CustomException(fatal: false, reason: 'Failed to Sort Playlists', error: 'Missing PlaylistModel or List of TrackModels');
     }
 
 

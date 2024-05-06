@@ -10,30 +10,35 @@ final FirebaseCrashlytics _crashlytics = FirebaseCrashlytics.instance;
 ///Controls the Analytics for the app.
 class AppAnalytics{
 
-  ///Track a user logging into Spotify.
+  /// Track a user logging into Spotify.
   Future<void> trackSpotifyLogin(UserModel user) async{
-    await analytics.logEvent(
-      name: 'spotify_login',
+    await analytics.logLogin(
       parameters: <String, Object?>{
-        'user': user.spotifyId,
+        'user': user.spotifyId.substring(0,5),
         'subscribed': user.subscribed.toString(),
-        'tier': user.tier
+        'tier': user.tier,
+        'expiration': user.expiration.toString()
       },
-    )
-    .onError((Object? error, StackTrace stack) => _crashlytics.recordError(error, stack, reason: 'Failed to Log Spotify Login Event'));
+    ).onError((Object? error, StackTrace stack) => _crashlytics.recordError(error, stack, reason: 'Failed to Log Spotify Login Event'));
   }
 
-  ///Track saving a new user to the database.
+  /// Track saving a new user to the database.
   Future<void> trackSavedLogin(UserModel user) async{
-    await analytics.logEvent(
-      name: 'saved_login',
+    await analytics.logSignUp(
+      signUpMethod: 'spotify',
       parameters: <String, Object?>{
-        'user': user.spotifyId,
+        'user': user.spotifyId.substring(0,5),
         'subscribed': user.subscribed.toString(),
-        'tier': user.tier
+        'tier': user.tier,
+        'expiration': user.expiration.toString()
       },
-    )
-    .onError((Object? error, StackTrace stack) => _crashlytics.recordError(error, stack, reason: 'Failed to Log Saved Login Event'));
+    ).onError((Object? error, StackTrace stack) => _crashlytics.recordError(error, stack, reason: 'Failed to Log Saved Login Event'));
+  }
+
+  Future<void> trackHelpMenu() async{
+    await analytics.logScreenView(
+      screenName: 'help_screen',
+    );
   }
 
 }

@@ -111,10 +111,15 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
           loaded.value = true;
         }
       }
-      catch (e, stack){
+      on CustomException catch (ee, stack){
         error = true;
         loaded.value = true;
-        _crashlytics.recordError(e, stack, reason: 'Failed while Fetching Spotify Tracks', fatal: true);
+        throw CustomException(stack: stack, fileName: ee.fileName, functionName: ee.functionName, reason: ee.reason, error: ee.error);
+      }
+      catch (ee, stack){
+        error = true;
+        loaded.value = true;
+        _crashlytics.recordError(ee, stack, reason: 'Failed while Fetching Spotify Tracks', fatal: true);
       }
     }
   }// checkLogin
@@ -131,8 +136,11 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
         error = false;
       }
     }
+    on CustomException catch (error){
+      throw CustomException(stack: error.stack, fileName: error.fileName, functionName: error.functionName, reason: error.reason, error: error.error);
+    }
     catch (ee, stack){
-      throw CustomException(stack: stack, fileName: _fileName, functionName: 'fetchSpotifyTracks',  error: ee);
+      throw CustomException(stack: stack, fileName: _fileName, functionName: 'fetchSpotifyTracks', reason: 'Failed to Fetch Spotify Tracks',  error: ee);
     }
   }
 
