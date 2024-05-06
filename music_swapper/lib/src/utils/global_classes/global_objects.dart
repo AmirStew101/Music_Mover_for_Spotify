@@ -1,7 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 import 'package:spotify_music_helper/src/utils/backend_calls/spotify_requests.dart';
 import 'package:spotify_music_helper/src/utils/class%20models/track_model.dart';
 import 'package:spotify_music_helper/src/utils/exceptions.dart';
+import 'package:spotify_music_helper/src/utils/globals.dart';
 
 /// Checks if the map has the neccessary keys.
 void mapKeysCheck(List<String> keys, Map<String, dynamic> mapCheck, String functionName){
@@ -59,4 +63,48 @@ class TrackArguments{
     required this.spotifyRequests,
   });
 
+}
+
+
+/// Timer to check if Refresh has been pressed to many times.
+class RefreshTimer{
+  int _refeshTimes = 0;
+  static const int refreshLimit = 3;
+  bool _timerStart = false;
+
+  /// Checks if the user has clicked refresh too many times.
+  bool shouldRefresh(bool loaded, bool loading, bool refresh){
+    if(!loaded || loading || refresh){
+      return false;
+    }
+    else if(_refeshTimes == refreshLimit && !_timerStart){
+      Get.snackbar(
+        'Reached Refresh Limit',
+        'Refreshed too many times to quickly. Must wait before refreshing again.',
+        backgroundColor: snackBarGrey
+      );
+      _timerStart = true;
+      
+      Timer.periodic(const Duration(seconds: 5), (timer) {
+        _refeshTimes--;
+        if(_refeshTimes == 0){
+          _timerStart = false;
+          timer.cancel();
+        }
+      });
+      return false;
+    }
+    else if(_refeshTimes == refreshLimit && _timerStart){
+      Get.snackbar(
+        'Reached Refresh Limit',
+        'Refreshed too many times to quickly. Must wait before refreshing again',
+        backgroundColor: snackBarGrey
+      );
+      return false;
+    }
+    else{
+      _refeshTimes++;
+      return true;
+    }
+  }
 }

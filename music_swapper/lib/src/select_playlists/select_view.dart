@@ -4,7 +4,6 @@ import 'dart:async';
 
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/widgets.dart';
 import 'package:get/get.dart';
 import 'package:spotify_music_helper/src/select_playlists/select_popups.dart';
 import 'package:spotify_music_helper/src/utils/global_classes/global_objects.dart';
@@ -12,9 +11,6 @@ import 'package:spotify_music_helper/src/utils/globals.dart';
 import 'package:spotify_music_helper/src/utils/backend_calls/spotify_requests.dart';
 import 'package:spotify_music_helper/src/utils/class%20models/playlist_model.dart';
 import 'package:spotify_music_helper/src/utils/class%20models/track_model.dart';
-import 'package:spotify_music_helper/src/utils/class%20models/user_model.dart';
-
-const String _fileName = 'select_view.dart';
 
 class SelectPlaylistsViewWidget extends StatefulWidget {
   static const String routeName = '/SelectPlaylists';
@@ -41,8 +37,9 @@ class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
   ValueNotifier loaded = ValueNotifier(false);
   bool adding = false;
   bool error = false;
-  bool refresh = false;
   bool popup = false;
+
+  bool refresh = false;
 
   @override
   void initState() {
@@ -132,12 +129,14 @@ class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
   }
 
   Future<void> refreshPlaylists() async{
-    _crashlytics.log('Refresh Playlists');
-    loaded.value = false;
-    error = false;
-    refresh = true;
-    selectedPlaylistList.clear();
-    _checkPlaylists();
+    if(_spotifyRequests.shouldRefresh(loaded.value, refresh)){
+      _crashlytics.log('Refresh Playlists');
+      loaded.value = false;
+      error = false;
+      refresh = true;
+      selectedPlaylistList.clear();
+      _checkPlaylists();
+    }
   }
 
   @override
@@ -157,19 +156,11 @@ class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
             mainAxisAlignment: MainAxisAlignment.center,
             children: <Widget>[
               IconButton(
-                onPressed: (){
-                  if (!_spotifyRequests.loading.value){
-                    refreshPlaylists();
-                  }
-                }, 
+                onPressed: () => refreshPlaylists(), 
                 icon: const Icon(Icons.refresh)
               ),
               InkWell(
-                onTap: () {
-                  if (!_spotifyRequests.loading.value){
-                    refreshPlaylists();
-                  }
-                },
+                onTap: () => refreshPlaylists(),
                 child: const Text('Refresh'),
               )
             ],),
@@ -180,7 +171,7 @@ class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
           IconButton(
               icon: const Icon(Icons.search),
               onPressed: () async {
-                if (loaded.value){
+                if (loaded.value && !_spotifyRequests.loading.value){
                   _crashlytics.log('Search Selectable Playlists');
                   RxList<PlaylistModel> searchedPlaylists = _spotifyRequests.allPlaylists.obs;
 
