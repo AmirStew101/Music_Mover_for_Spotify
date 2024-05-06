@@ -13,7 +13,7 @@ import 'package:spotify_music_helper/src/login/start_screen.dart';
 import 'package:spotify_music_helper/src/utils/dev_global.dart';
 import 'package:spotify_music_helper/src/utils/exceptions.dart';
 
-import 'settings/settings_view.dart';
+import 'src/settings/settings_view.dart';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_app_check/firebase_app_check.dart';
