@@ -86,18 +86,34 @@ class ImageGridState extends State<ImageGridWidget> {
                           // Error loading playlist Tracks
                           if(!currPlaylist.loaded && !_spotifyRequests.loading.value)
                           ...<Widget>[
-                            SizedBox(
+                            InkWell(
+                              onTap: () async{
+                                _crashlytics.log('Refresh Playlist in Error Ids');
+                                await _spotifyRequests.requestTracks(currPlaylist.id);
+                              },
+                              child: 
+                                const SizedBox(
+                                  height: 154,
+                                  width: 155,
+                                  child: Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Icon(Icons.refresh),
+                                      Text('retry')
+                                    ],
+                                  )
+                                  
+                                )
+                            ),
+                          ],
+
+                          if(!currPlaylist.loaded && _spotifyRequests.loading.value && _spotifyRequests.currentPlaylist.id == currPlaylist.id)
+                          ... <Widget>[
+                            const SizedBox(
                               height: 154,
                               width: 155,
-                              child: IconButton(
-                                onPressed: () async{
-                                  _crashlytics.log('Refresh Playlist in Error Ids');
-                                  await _spotifyRequests.requestTracks(currPlaylist.id);
-                                }, 
-                                icon: const Icon(Icons.refresh)
-                              )
-                            ),
-                            const Text('Retry')
+                              child: Center(child: CircularProgressIndicator.adaptive()),
+                            )
                           ],
 
                           // Successfully loaded Playlist Tracks

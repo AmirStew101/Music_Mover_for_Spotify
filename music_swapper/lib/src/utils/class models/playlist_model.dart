@@ -14,7 +14,7 @@ class PlaylistModel {
   final String snapshotId;
   final String title;
   bool loaded = false;
-  List<TrackModel> _tracks = <TrackModel>[];
+  final List<TrackModel> _tracks = <TrackModel>[];
 
   ///Model for a Spotify Playlist object.
   PlaylistModel({
@@ -60,25 +60,25 @@ class PlaylistModel {
 
 
   /// Add a track to a playlist or increase the tracks duplicates if it already exists in the playlist.
-  void addTrack(TrackModel trackModel){
-    if(_tracks.contains(trackModel)){
-      int index = _tracks.indexWhere((_) => _ == trackModel);
+  void addTrack(TrackModel newTrack){
+    if(_tracks.contains(newTrack)){
+      int index = _tracks.indexWhere((_) => _ == newTrack);
       _tracks[index].duplicates++;
-      _tracks.add(trackModel.copyWith(dupeId: '${trackModel.id}_${_tracks[index].duplicates}'));
+      _tracks.add(newTrack.copyWith(dupeId: '${newTrack.id}_${_tracks[index].duplicates}'));
     }
     else{
-      _tracks.add(trackModel);
+      _tracks.add(newTrack);
     }
   }
 
   /// Decrease a tracks dupicates and removes track if dupicatess reach negative.
-  void removeTrack(TrackModel trackModel){
-    if(_tracks.contains(trackModel)){
-      int index = _tracks.indexWhere((_) => _ == trackModel);
+  void removeTrack(TrackModel track){
+    if(_tracks.contains(track)){
+      int index = _tracks.indexWhere((_) => _ == track);
       _tracks[index].duplicates--;
 
       if(_tracks[index].duplicates < 0){
-        _tracks.remove(trackModel);
+        _tracks.remove(track);
       }
     }
   }

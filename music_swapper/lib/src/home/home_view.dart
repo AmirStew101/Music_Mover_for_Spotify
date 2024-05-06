@@ -129,11 +129,17 @@ class HomeViewState extends State<HomeView> with SingleTickerProviderStateMixin{
         }
       }
 
+      if(_spotifyRequests.allPlaylists.isEmpty && !refresh){
+        List<PlaylistModel>? plays = await PlaylistsCacheManager().getCachedPlaylists();
+        if(plays != null) _spotifyRequests.allPlaylists = plays;
+      }
+
       //Fetches Playlists if page is not loaded and on this Page
       if (mounted && !_loaded.value){
         if(mounted && (_spotifyRequests.allPlaylists.isEmpty || !_spotifyRequests.allLoaded || refresh)){
           await _crashlytics.log('Requesting all Playlists & Tracks');
           await _spotifyRequests.requestPlaylists();
+          refresh = false;
           _loaded.value = true;
         }
         else{
@@ -155,7 +161,7 @@ class HomeViewState extends State<HomeView> with SingleTickerProviderStateMixin{
     try{
       _spotifyRequests.currentPlaylist = playlist;
       // Navigate to the tracks page sending the chosen playlist.
-      Get.to(const TracksView());
+      Get.to(const TracksView(), arguments: _spotifyRequests);
     }
     catch (e, stack){
       _crashlytics.recordError(e, stack, reason: 'Failed to Navigate to Tracks', fatal: true);
@@ -163,7 +169,7 @@ class HomeViewState extends State<HomeView> with SingleTickerProviderStateMixin{
   }//navigateToTracks
 
   Future<void> refreshPage() async{
-    if(_shouldRefresh()){
+    if(!refresh && _shouldRefresh()){
       _crashlytics.log('Refresh Playlists Page');
       _loaded.value = false;
       error = false;
@@ -213,7 +219,7 @@ class HomeViewState extends State<HomeView> with SingleTickerProviderStateMixin{
         return 'Loading';
       }
       else{
-        return 'Loading ${_spotifyRequests.loadedIds.length}/${_spotifyRequests.allPlaylists.length}: ${_spotifyRequests.currentPlaylist.title}';
+        return 'Loading: ${_spotifyRequests.currentPlaylist.title}';
       }
     }
 
@@ -259,10 +265,10 @@ class HomeViewState extends State<HomeView> with SingleTickerProviderStateMixin{
           child: ValueListenableBuilder(
             valueListenable: _loaded, 
             builder: (_, __, ___) {
-              if (_loaded.value && !error && _spotifyRequests.allLoaded) {
+              if (_loaded.value && !error && !_spotifyRequests.loading.value) {
                 return ImageGridWidget(playlists: _spotifyRequests.allPlaylists, spotifyRequests: _spotifyRequests,);
               }
-              else if(!_loaded.value) {
+              else if(!_loaded.value || _spotifyRequests.loading.value) {
                 return Center( 
                   child:Obx(() => Column(
                     mainAxisAlignment: MainAxisAlignment.center,

@@ -330,7 +330,8 @@ class PlaylistsCacheManager extends GetxController{
         playlists.add(PlaylistModel.fromJson(item));
       }
       _storedPlaylists = playlists;
-      return playlists;
+      
+      return _storedPlaylists;
 
     }
     catch (error, stack){
