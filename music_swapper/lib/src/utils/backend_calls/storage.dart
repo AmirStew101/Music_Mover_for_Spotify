@@ -1,18 +1,14 @@
 import 'dart:convert';
 
-import 'package:another_flushbar/flushbar.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
-import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:get/get.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:music_mover/src/utils/class%20models/playlist_model.dart';
-import 'package:music_mover/src/utils/globals.dart';
 import 'package:music_mover/src/utils/class%20models/callback_model.dart';
 import 'package:music_mover/src/utils/class%20models/user_model.dart';
 
-const String _fileName = 'secure_storage.dart';
 
 /// Encrypt Android options to make the storage secure.
 AndroidOptions getAndroidOptions() => const AndroidOptions(encryptedSharedPreferences: true);
@@ -22,6 +18,18 @@ IOSOptions getIOSOptions() => const IOSOptions(accessibility: KeychainAccessibil
 final FlutterSecureStorage _storage = FlutterSecureStorage(aOptions: getAndroidOptions(), iOptions: getIOSOptions());
 
 final FirebaseCrashlytics _crashlytics = FirebaseCrashlytics.instance;
+
+Future<bool> clearCache() async{
+  try{
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    await _storage.deleteAll();
+    return await prefs.clear();
+  }
+  catch (error, stack){
+    _crashlytics.recordError(error, stack, reason: 'Error while trying to Clear Cache');
+    return false;
+  }
+}
 
 /// Handles app storage of important User and Spotify information.
 ///
@@ -34,8 +42,20 @@ class SecureStorage extends GetxController{
     return _secureCall;
   }
 
+  set secureCallback(CallbackModel? newCall){
+    _secureCall = newCall;
+    
+    if(newCall != null) saveTokens(newCall);
+  }
+
   UserModel? get secureUser{
     return _secureUser;
+  }
+
+  set secureUser(UserModel? newUser){
+    _secureUser = newUser;
+
+    if(newUser != null) saveUser(newUser);
   }
 
   static SecureStorage get instance {
@@ -78,9 +98,6 @@ class SecureStorage extends GetxController{
         double expiresAt = double.parse(expiresAtStr);
         _secureCall = CallbackModel(expiresAt: expiresAt, accessToken: accessToken, refreshToken: refreshToken);
         return _secureCall;
-      } 
-      else {
-        errorCheck();
       }
     }
     catch (error, stack){
@@ -127,6 +144,7 @@ class SecureStorage extends GetxController{
     }
     catch (error, stack){
       _crashlytics.recordError(error, stack, reason: 'Failed to Save User to Secure Storage');
+      return;
     }
     _secureUser = user;
   }
@@ -182,105 +200,6 @@ class SecureStorage extends GetxController{
     }
     _secureUser = null;
   }
-
-  ///Shows an error message to the user depending on what type of error was incountered if any was incountered at all.
-  void errorCheck({ScaffoldMessengerState? scaffoldMessengerState}){
-    final BuildContext? context = Get.context;
-
-    if (_secureUser == null && _secureCall == null && context != null){
-      Flushbar(
-        backgroundColor: Colors.grey,
-        titleColor: failedRed,
-        title: 'Error in connection',
-        duration: const Duration(seconds: 5),
-        flushbarPosition: FlushbarPosition.TOP,
-        message: 'Failed to connect to Spotify and get User data',
-      ).show(context);
-    }
-    else if (_secureUser == null && context != null){
-      Flushbar(
-        backgroundColor: Colors.grey,
-        titleColor: failedRed,
-        title: 'Error in connection',
-        duration: const Duration(seconds: 5),
-        flushbarPosition: FlushbarPosition.TOP,
-        message: 'Failed to get User data.',
-      ).show(context);
-    }
-    else if (_secureCall == null && context != null){
-      Flushbar(
-        backgroundColor: Colors.grey,
-        titleColor: failedRed,
-        title: 'Error in connection',
-        duration: const Duration(seconds: 5),
-        flushbarPosition: FlushbarPosition.TOP,
-        message: 'Failed to connect to Spotify',
-      ).show(context);
-    }
-    else if(_secureUser == null && _secureCall == null && scaffoldMessengerState != null){
-      scaffoldMessengerState.hideCurrentSnackBar();
-
-      scaffoldMessengerState.showSnackBar(
-        SnackBar(
-          content: Column(
-            children: <Widget>[
-              Text(
-                'Error in connection',
-                style: TextStyle(color: failedRed),
-              ),
-              const Text(
-                  'Failed to connect to Spotify and get User data',
-                  textScaler: TextScaler.linear(0.9),
-              )
-            ],
-          ),
-          duration: const Duration(seconds: 8),
-          backgroundColor: Colors.grey,
-        ));
-    }
-    else if (_secureUser == null && scaffoldMessengerState != null){
-      scaffoldMessengerState.hideCurrentSnackBar();
-
-      scaffoldMessengerState.showSnackBar(
-        SnackBar(
-          content: Column(
-            children: <Widget>[
-              Text(
-                'Error in connection',
-                style: TextStyle(color: failedRed),
-              ),
-              const Text(
-                  'Failed to get User data.',
-                  textScaler: TextScaler.linear(0.9),
-              )
-            ],
-          ),
-          duration: const Duration(seconds: 8),
-          backgroundColor: Colors.grey,
-        ));
-    }
-    else if (_secureCall == null && scaffoldMessengerState != null){
-      scaffoldMessengerState.hideCurrentSnackBar();
-
-      scaffoldMessengerState.showSnackBar(
-        SnackBar(
-          content: Column(
-            children: <Widget>[
-              Text(
-                'Error in connection',
-                style: TextStyle(color: failedRed),
-              ),
-              const Text(
-                  'Failed to connect to Spotify',
-                  textScaler: TextScaler.linear(0.9),
-              )
-            ],
-          ),
-          duration: const Duration(seconds: 8),
-          backgroundColor: Colors.grey,
-        ));
-    }
-  }//storageCheck
 }
 
 class PlaylistsCacheManager extends GetxController{
@@ -322,6 +241,7 @@ class PlaylistsCacheManager extends GetxController{
     try{
       final SharedPreferences prefs = await SharedPreferences.getInstance();
       await prefs.remove(_key);
+      _storedPlaylists.clear();
     }
     catch (error, stack){
       _crashlytics.recordError(error, stack, reason: 'Failed to Clear Cached Playlists');

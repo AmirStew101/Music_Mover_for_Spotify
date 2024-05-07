@@ -5,12 +5,10 @@ import 'dart:convert';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:music_mover/src/utils/analytics.dart';
-import 'package:music_mover/src/utils/auth.dart';
-import 'package:music_mover/src/utils/backend_calls/spotify_requests.dart';
+import 'package:music_mover/src/utils/class%20models/callback_model.dart';
 import 'package:music_mover/src/utils/dev_global.dart';
+import 'package:music_mover/src/utils/exceptions.dart';
 import 'package:music_mover/src/utils/globals.dart';
-import 'package:music_mover/src/utils/backend_calls/database_classes.dart';
 import 'package:music_mover/src/utils/backend_calls/storage.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:http/http.dart' as http;
@@ -27,9 +25,6 @@ class SpotLoginWidget extends StatefulWidget {
 class SpotLoginState extends State<SpotLoginWidget> {
   bool reLogin = Get.arguments;
   late ScaffoldMessengerState _scaffoldMessengerState;
-  final SpotifyRequests _spotifyRequests = SpotifyRequests.instance;
-  final SecureStorage _secureStorage = SecureStorage.instance;
-  final PlaylistsCacheManager _cacheManager = PlaylistsCacheManager.instance;
   final FirebaseCrashlytics _crashlytics = FirebaseCrashlytics.instance;
 
   @override
@@ -94,22 +89,9 @@ class SpotLoginState extends State<SpotLoginWidget> {
           onNavigationRequest: (NavigationRequest request) async {
             //Spotify sent the callback tokens.
             if (request.url.startsWith('$hosted/callback') && !initializing) {
-              _crashlytics.log('Clear Storage');
-              _secureStorage.removeTokens();
-              _secureStorage.removeUser();
-              await _cacheManager.clearPlaylists();
 
-              _crashlytics.log('Spot Login: Initialize SpotifyRequests');
-              await _spotifyRequests.initializeRequests(callRequest: request.url);
-              await DatabaseStorage.instance.initializeDatabase(_spotifyRequests.user);
-              await _secureStorage.saveUser(DatabaseStorage.instance.user);
-              _spotifyRequests.user = DatabaseStorage.instance.user;
-
-              _crashlytics.log('Spot Login: Sign in User');
-              await UserAuth().signInUser(_spotifyRequests.user.spotifyId);
-
-              await AppAnalytics().trackSpotifyLogin(_spotifyRequests.user);
-
+              await _getTokens(request.url);
+              
               // if(_databaseStorage.newUser){
               //   _crashlytics.log('Go to Turotrial page');
               //   // Navigate to Tutorial screen for new Users and remove previous routes
@@ -147,6 +129,21 @@ class SpotLoginState extends State<SpotLoginWidget> {
     }
 
     return controller;
+  }
+  
+    /// Gets the Tokens from Spotify by making a call to the API.
+  Future<void> _getTokens(String callRequest) async {
+    _crashlytics.log('Spotify Requests: Get Tokens');
+    final http.Response response = await http.get(Uri.parse(callRequest));
+
+    if (response.statusCode != 200){
+      throw CustomException(stack: StackTrace.current, reason: 'Bad Response while getting tokens from Spotify Sign In', error: response.body);
+    }
+
+    Map<String, dynamic> responseDecoded = jsonDecode(response.body);
+
+    final CallbackModel callback = CallbackModel(expiresAt: responseDecoded['expiresAt'], accessToken: responseDecoded['accessToken'], refreshToken: responseDecoded['refreshToken']);
+    await SecureStorage().saveTokens(callback);
   }
 
   /// Creates an error Notification for the User and Returns to the Start Screen.

@@ -5,11 +5,10 @@ import 'dart:io';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:music_mover/src/utils/backend_calls/storage.dart';
+import 'package:music_mover/main.dart';
 import 'package:music_mover/src/info/info_page.dart';
 import 'package:music_mover/src/home/home_view.dart';
 import 'package:music_mover/src/settings/settings_view.dart';
-import 'package:music_mover/src/utils/auth.dart';
 import 'package:music_mover/src/utils/class%20models/user_model.dart';
 import 'package:music_mover/src/utils/globals.dart';
 
@@ -76,10 +75,8 @@ Drawer optionsMenu(BuildContext context, UserModel user){
             onTap: () async{
               _crashlytics.log('Sign Out User');
 
-              await SecureStorage().removeTokens();
-              await SecureStorage().removeUser();
-              await UserAuth().signOutUser();
-
+              await MusicMover.instance.signOut();
+              
               bool reLogin = true;
               Get.offNamedUntil('/start', (Route route) => false, arguments: reLogin);
             },

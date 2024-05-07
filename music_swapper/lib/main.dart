@@ -1,3 +1,4 @@
+import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -10,6 +11,8 @@ import 'package:music_mover/src/settings/settings_controller.dart';
 import 'package:music_mover/src/settings/settings_service.dart';
 import 'package:music_mover/src/tracks/tracks_view.dart';
 import 'package:music_mover/src/login/start_screen.dart';
+import 'package:music_mover/src/utils/analytics.dart';
+import 'package:music_mover/src/utils/auth.dart';
 import 'package:music_mover/src/utils/backend_calls/database_classes.dart';
 import 'package:music_mover/src/utils/backend_calls/spotify_requests.dart';
 import 'package:music_mover/src/utils/backend_calls/storage.dart';
@@ -36,18 +39,15 @@ Future<void> main() async {
   //Firebase initialization
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 
-  AndroidProvider androidProvider = AndroidProvider.playIntegrity;
-  if(kDebugMode || kProfileMode){
-    androidProvider = AndroidProvider.debug;
-  }
+  FirebaseAnalytics.instance.setAnalyticsCollectionEnabled(true);
 
   AppleProvider appleProvider = AppleProvider.appAttestWithDeviceCheckFallback;
   if(kDebugMode || kProfileMode){
     appleProvider = AppleProvider.debug;
   }
-
+  
   await FirebaseAppCheck.instance.activate(
-    androidProvider: androidProvider,
+    androidProvider: AndroidProvider.playIntegrity,
     appleProvider: appleProvider
   );
 
@@ -97,9 +97,19 @@ Future<void> main() async {
 class MusicMover extends GetxController{
 
   bool _isInitialized = false;
+  final Rx<bool> _loading = false.obs;
 
   /// Get if the App is initialized.
   bool get isInitialized => _isInitialized;
+
+  bool get loading{
+    return _loading.value;
+  }
+
+  final DatabaseStorage _databaseStorage = DatabaseStorage.instance;
+  final SpotifyRequests _spotifyRequests = SpotifyRequests.instance;
+  final SecureStorage _secureStorage = SecureStorage.instance;
+  final FirebaseCrashlytics _crashlytics = FirebaseCrashlytics.instance;
 
   /// Get an instance of MusicMover
   static MusicMover get instance {
@@ -111,24 +121,48 @@ class MusicMover extends GetxController{
     }
   }
 
+  /// Signs out the user and removes all cached Data.
+  Future<void> signOut() async{
+    _loading.value = true;
+    await clearCache();
+    await UserAuth().signOutUser();
+    _loading.value = false;
+    _isInitialized = false;
+  }
+
+  /// Initializes the Music Mover app by Connecting to the Database and Spotify with the current User.
   Future<void> initializeApp() async{
-    UserModel? user = await SecureStorage.instance.getUser();
-    CallbackModel? callback = await SecureStorage.instance.getTokens();
+    await Future.doWhile(() => _loading.value);
+    
+    _loading.value = true;
 
-    if(user != null && user.isNotEmpty && callback != null && callback.isNotEmpty){
-      await DatabaseStorage.instance.initializeDatabase(user);
-      final databaseInit = DatabaseStorage.instance.isInitialized; 
-      if(!databaseInit) return;
+    try{
+      await _secureStorage.getTokens();
 
-      user = DatabaseStorage.instance.user;
+      if(_secureStorage.secureCallback != null && _secureStorage.secureCallback!.isNotEmpty){
+        // Check if the Requests are already initialized.
+        final requestsInit = await _spotifyRequests.initializeRequests(callback: _secureStorage.secureCallback!);
+        if(!requestsInit) return;
 
-      final requestsInit = await SpotifyRequests.instance.initializeRequests(callback: callback, savedUser: user);
-      if(!requestsInit) return;
+        await UserAuth().signInUser(_spotifyRequests.user.spotifyId);
 
-      await SecureStorage.instance.saveUser(SpotifyRequests.instance.user);
+        await _databaseStorage.initializeDatabase(_spotifyRequests.user);
+        final databaseInit = _databaseStorage.isInitialized; 
+        if(!databaseInit) return;
+        
+        _spotifyRequests.user = _databaseStorage.user;
 
-      _isInitialized = true;
+        _isInitialized = true;
+        _loading.value = false;
+        return;
+      }
     }
+    catch (error, stack){
+      _crashlytics.recordError(error, stack, reason: 'Error while trying to Initialize Music Mover');
+    }
+
+    _isInitialized = false;
+    _loading.value = false;
   }
 
 }
