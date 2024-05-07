@@ -41,9 +41,10 @@ class DatabaseStorage extends GetxController{
     if(isInitialized){
       _user = _userRepository.user;
       _newUser = _userRepository.newUser;
+      return _user;
     }
     
-    return _user;
+    return null;
   }
 
   /// Removes a [user] and all of their data from the database. Returns True on Success.
