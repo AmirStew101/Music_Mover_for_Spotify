@@ -1,38 +1,52 @@
 
 ///Custom exception to be used as an extension to exception.
 class CustomException implements Exception{
-  late String _code;
-  String? _error;
-  late String _userMessage;
-  late final StackTrace _stackTrace;
+  late String _reason;
+  Object? _error;
+  String _userMessage = 'Network Connection Issue.';
+  late final StackTrace _stack;
+  bool _fatal = false;
+  late final String _fileName;
+  late final String _functionName;
 
   ///Custom exception Constructor to get custom exceptions for user and developer error messages.
-  CustomException({StackTrace stack = StackTrace.empty, String code = 'Failure', String fileName = '', String functionName = '', Object? error = '', String userMessage = 'Network Connection Issue.'}){
-    _code = code;
-    _stackTrace = stack;
-    _exceptionText(fileName, functionName, error, stack: _stackTrace);
-    _userMessage = userMessage;
+  CustomException({bool fatal = true, StackTrace? stack, String? reason, String fileName = '', String functionName = '', Object? error, String? userMessage}){
+    _reason = reason ?? 'Failed';
+    _stack = stack ?? StackTrace.current;
+    _fileName = fileName;
+    _functionName = functionName;
+    _error = _exceptionText(fileName, functionName, error, _reason);
+    _userMessage = userMessage ?? _userMessage;
+    _fatal = fatal;
   }
 
   //Getters and Setters
 
   ///Get the error message for developer to debug.
-  get error{
-    return _error;
-  }
+  Object? get error => _error;
+
+  /// Get the stack of the error
+  StackTrace get stack => _stack;
 
   ///Get the UI error message for the user.
-  get userMessage{
-    return _userMessage;
-  }
+  String get userMessag => _userMessage;
 
-  String get code => _code;
+  bool get fatal => _fatal;
+
+  String? get reason => _reason;
+
+  String get fileName => _fileName;
+
+  String get functionName => _functionName;
   
   //Private
 
   ///The apps standard throw exception text.
-  void _exceptionText(String fileName, String functionName, Object? error, {StackTrace stack = StackTrace.empty}){
-    print('\nError in $fileName in function $functionName() \n$error\n $stack\n');
+  Object? _exceptionText(String fileName, String functionName, Object? error, String? reason){
+    if(reason != null){
+      return '\nError in $fileName function $functionName()\n Reason: $reason\n $error\n';
+    }
+    return '\nError in $fileName function $functionName()\n $error\n';
   }//exceptionText
 
 }

@@ -1,10 +1,10 @@
-name: spotify_music_helper
+name: music_mover
 description: "Move/Add/Remove multiple songs in a playlist."
 
 # Prevent accidental publishing to pub.dev.
 publish_to: 'none'
 
-version: 3.0.1+7
+version: 3.0.2+8
 
 environment:
   sdk: '>=3.3.0 <4.0.0'
@@ -24,7 +24,7 @@ dependencies:
   webview_flutter: ^4.4.4
   webview_flutter_android: ^3.13.2
   flutter_cache_manager: ^3.3.1
-  firebase_analytics: ^10.8.5
+  firebase_analytics: ^10.8.9
   flutter_secure_storage: ^9.0.0
   google_mobile_ads: ^4.0.0
   firebase_auth: ^4.17.4

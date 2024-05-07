@@ -2,9 +2,9 @@
 import 'dart:convert';
 
 import 'package:get/get.dart';
-import 'package:spotify_music_helper/src/utils/class%20models/track_model.dart';
-import 'package:spotify_music_helper/src/utils/global_classes/global_objects.dart';
-import 'package:spotify_music_helper/src/utils/globals.dart';
+import 'package:music_mover/src/utils/class%20models/track_model.dart';
+import 'package:music_mover/src/utils/global_classes/global_objects.dart';
+import 'package:music_mover/src/utils/globals.dart';
 
 ///Model for Spotify Playlist object.
 class PlaylistModel {

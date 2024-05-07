@@ -1,15 +1,15 @@
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:get/get.dart';
-import 'package:spotify_music_helper/src/utils/backend_calls/database_classes.dart';
-import 'package:spotify_music_helper/src/utils/backend_calls/storage.dart';
-import 'package:spotify_music_helper/src/utils/class%20models/custom_sort.dart';
+import 'package:music_mover/src/utils/backend_calls/database_classes.dart';
+import 'package:music_mover/src/utils/backend_calls/storage.dart';
+import 'package:music_mover/src/utils/class%20models/custom_sort.dart';
 
 /// Model for Spotify User object.
 class UserModel{
   final String spotifyId;
   final String url;
-  final Rx<bool> _subscribed = false.obs;
+  bool _subscribed = false;
   final int tier;
   Timestamp expiration;
   bool _playlistAsc = true; 
@@ -41,7 +41,7 @@ class UserModel{
       _databaseStorage = Get.put(DatabaseStorage());
     }
 
-    _subscribed.value = subscribe;
+    _subscribed = subscribe;
     _playlistAsc = playlistAsc;
     _tracksAsc.value = tracksAsc;
 
@@ -61,8 +61,10 @@ class UserModel{
     if(userDocRef != null){
       userDoc = userDocRef;
     }
+  }
 
-
+  bool get isNotEmpty{
+    return spotifyId != '' && url != '';
   }
 
   /// Returns the day for the Subscription expiration.
@@ -114,11 +116,11 @@ class UserModel{
   }
 
   bool get subscribed{
-    return _subscribed.value;
+    return _subscribed;
   }
 
   set subscribed(bool subed){
-    _subscribed.value = subed;
+    _subscribed = subed;
     _databaseStorage.updateUser(this);
     _secureStorage.saveUser(this);
   }

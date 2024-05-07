@@ -6,18 +6,16 @@ import 'dart:io';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:spotify_music_helper/src/login/start_screen.dart';
-import 'package:spotify_music_helper/src/utils/ads.dart';
-import 'package:spotify_music_helper/src/utils/backend_calls/spotify_requests.dart';
-import 'package:spotify_music_helper/src/utils/global_classes/global_objects.dart';
-import 'package:spotify_music_helper/src/utils/globals.dart';
-import 'package:spotify_music_helper/src/home/home_body.dart';
-import 'package:spotify_music_helper/src/tracks/tracks_view.dart';
-import 'package:spotify_music_helper/src/utils/backend_calls/database_classes.dart';
-import 'package:spotify_music_helper/src/utils/backend_calls/storage.dart';
-import 'package:spotify_music_helper/src/utils/global_classes/options_menu.dart';
-import 'package:spotify_music_helper/src/utils/class%20models/playlist_model.dart';
-import 'package:spotify_music_helper/src/utils/class%20models/user_model.dart';
+import 'package:music_mover/src/utils/ads.dart';
+import 'package:music_mover/src/utils/backend_calls/spotify_requests.dart';
+import 'package:music_mover/src/utils/exceptions.dart';
+import 'package:music_mover/src/utils/global_classes/global_objects.dart';
+import 'package:music_mover/src/utils/globals.dart';
+import 'package:music_mover/src/home/home_body.dart';
+import 'package:music_mover/src/tracks/tracks_view.dart';
+import 'package:music_mover/src/utils/backend_calls/storage.dart';
+import 'package:music_mover/src/utils/global_classes/options_menu.dart';
+import 'package:music_mover/src/utils/class%20models/playlist_model.dart';
 
 //Creates the state for the home screen to view/edit playlists
 class HomeView extends StatefulWidget {
@@ -38,13 +36,12 @@ class _UiText{
 class HomeViewState extends State<HomeView> with SingleTickerProviderStateMixin{
 
   late SpotifyRequests _spotifyRequests;
-  late DatabaseStorage _databaseStorage;
-  late SecureStorage _secureStorage;
   final FirebaseCrashlytics _crashlytics = FirebaseCrashlytics.instance;
 
   //bool loaded = false;
   bool error = false;
   bool refresh = false;
+  Rx<bool> userLoaded = false.obs;
 
   final ValueNotifier<bool> _loaded = ValueNotifier<bool>(false);
 
@@ -53,31 +50,9 @@ class HomeViewState extends State<HomeView> with SingleTickerProviderStateMixin{
     super.initState();
     _crashlytics.log('InitState Home page');
 
-    try{
-      _spotifyRequests = SpotifyRequests.instance;
-    }
-    catch (error){
-      _spotifyRequests = Get.put(SpotifyRequests());
-      _crashlytics.log('Failed to Get Instance of Spotify Requests');
-    }
+    _spotifyRequests = SpotifyRequests.instance;
 
-    try{
-      _databaseStorage = DatabaseStorage.instance;
-    }
-    catch (error){
-      _databaseStorage = Get.put(DatabaseStorage());
-      _crashlytics.log('Failed to Get Instance of Database Storage');
-    }
-
-    try{
-      _secureStorage = SecureStorage.instance;
-    }
-    catch (error){
-      _secureStorage = Get.put(SecureStorage());
-      _crashlytics.log('Failed to Get Instance of Secure Storage');
-    }
-
-    _checkLogin();
+    _checkPlaylists();
   }
 
   /// Updates how the tracks are sorted.
@@ -88,43 +63,8 @@ class HomeViewState extends State<HomeView> with SingleTickerProviderStateMixin{
   }
 
   /// Check the saved Tokens & User on device and on successful confirmation get Users playlists.
-  Future<void> _checkLogin() async {
+  Future<void> _checkPlaylists() async {
     try{
-      if(!_spotifyRequests.isInitialized || !_databaseStorage.isInitialized){
-        await _crashlytics.log('Playlists Page Check Login');
-        await _secureStorage.getUser();
-        await _secureStorage.getTokens();
-        
-        // The saved User and Tokens are not corrupted.
-        // Initialize the users database connection & spotify requests connection.
-        if(_secureStorage.secureUser != null && _secureStorage.secureCallback != null){
-          await _crashlytics.log('Initialize Login using Storage');
-
-          if(!_databaseStorage.isInitialized) await _databaseStorage.initializeDatabase(_secureStorage.secureUser!);
-
-          if(_spotifyRequests.isInitialized){
-            _spotifyRequests.user = _databaseStorage.user;
-          }
-          else{
-            await _spotifyRequests.initializeRequests(callback: _secureStorage.secureCallback!, savedUser: _databaseStorage.user);
-          }
-
-          await _secureStorage.saveUser(_spotifyRequests.user);
-        }
-        else if(_spotifyRequests.isInitialized){
-          await _crashlytics.log('Initialize Login using Spotify');
-
-          await _databaseStorage.initializeDatabase(_spotifyRequests.user);
-          _spotifyRequests.user = _databaseStorage.user;
-          await _secureStorage.saveUser(_spotifyRequests.user);
-        }
-        else{
-          _crashlytics.log('Login Corrupted');
-          bool reLogin = true;
-          await Get.offAll(const StartViewWidget(), arguments: reLogin);
-        }
-      }
-
       if(_spotifyRequests.allPlaylists.isEmpty && !refresh){
         List<PlaylistModel>? plays = await PlaylistsCacheManager().getCachedPlaylists();
         if(plays != null) _spotifyRequests.allPlaylists = plays;
@@ -144,6 +84,11 @@ class HomeViewState extends State<HomeView> with SingleTickerProviderStateMixin{
         }
       }
     }
+    on CustomException catch (ee){
+      error = true;
+      _loaded.value = true;
+      throw CustomException(stack: ee.stack, fileName: ee.fileName, functionName: ee.functionName, reason: ee.reason, error: ee.error);
+    }
     catch (e, stack){
       error = true;
       _loaded.value = true;
@@ -159,6 +104,9 @@ class HomeViewState extends State<HomeView> with SingleTickerProviderStateMixin{
       // Navigate to the tracks page sending the chosen playlist.
       Get.to(const TracksView(), arguments: _spotifyRequests);
     }
+    on CustomException catch (ee){
+      throw CustomException(stack: ee.stack, fileName: ee.fileName, functionName: ee.functionName, reason: ee.reason, error: ee.error);
+    }
     catch (e, stack){
       _crashlytics.recordError(e, stack, reason: 'Failed to Navigate to Tracks', fatal: true);
     }
@@ -170,7 +118,7 @@ class HomeViewState extends State<HomeView> with SingleTickerProviderStateMixin{
       _loaded.value = false;
       error = false;
       refresh = true;
-      await _checkLogin();
+      await _checkPlaylists();
     }
   }// refreshPage
 
@@ -188,7 +136,7 @@ class HomeViewState extends State<HomeView> with SingleTickerProviderStateMixin{
     return Scaffold(
         appBar: homeAppbar(),
 
-        drawer: optionsMenu(context),
+        drawer: optionsMenu(context, _spotifyRequests.user),
 
         body: PopScope(
           canPop: false,
@@ -260,10 +208,12 @@ class HomeViewState extends State<HomeView> with SingleTickerProviderStateMixin{
         ),
 
         bottomNavigationBar: Obx(() => BottomAppBar(
-          height: _spotifyRequests.user.subscribed
+          height: !userLoaded.value || _spotifyRequests.user.subscribed
           ? 0
           : 70,
-          child: Ads().setupAds(context, _spotifyRequests.user, home: true),
+          child: !userLoaded.value || _spotifyRequests.user.subscribed
+          ? Container()
+          : Ads().setupAds(context, _spotifyRequests.user, home: true),
         )),
     
     );

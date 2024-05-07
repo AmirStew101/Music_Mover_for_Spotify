@@ -4,17 +4,17 @@ import 'dart:io';
 
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:http/http.dart' as http;
-import 'package:spotify_music_helper/src/utils/class%20models/custom_sort.dart';
-import 'package:spotify_music_helper/src/utils/dev_global.dart';
-import 'package:spotify_music_helper/src/utils/exceptions.dart';
-import 'package:spotify_music_helper/src/utils/backend_calls/storage.dart';
-import 'package:spotify_music_helper/src/utils/global_classes/global_objects.dart';
-import 'package:spotify_music_helper/src/utils/globals.dart';
-import 'package:spotify_music_helper/src/utils/class%20models/callback_model.dart';
+import 'package:music_mover/src/utils/class%20models/custom_sort.dart';
+import 'package:music_mover/src/utils/dev_global.dart';
+import 'package:music_mover/src/utils/exceptions.dart';
+import 'package:music_mover/src/utils/backend_calls/storage.dart';
+import 'package:music_mover/src/utils/global_classes/global_objects.dart';
+import 'package:music_mover/src/utils/globals.dart';
+import 'package:music_mover/src/utils/class%20models/callback_model.dart';
 import 'package:get/get.dart';
-import 'package:spotify_music_helper/src/utils/class%20models/playlist_model.dart';
-import 'package:spotify_music_helper/src/utils/class%20models/track_model.dart';
-import 'package:spotify_music_helper/src/utils/class%20models/user_model.dart';
+import 'package:music_mover/src/utils/class%20models/playlist_model.dart';
+import 'package:music_mover/src/utils/class%20models/track_model.dart';
+import 'package:music_mover/src/utils/class%20models/user_model.dart';
 
 const String _fileName = 'spotify_requests.dart';
 
@@ -31,7 +31,7 @@ class SpotifyRequests extends GetxController{
   late CallbackModel _callback;
 
   /// Contains the Users id and other information.
-  UserModel user = UserModel(subscribe: true);
+  UserModel user = UserModel();
 
   /// All of a Users Spotify Playlists.
   /// 
@@ -65,6 +65,17 @@ class SpotifyRequests extends GetxController{
   bool isInitialized = false;
 
   final RefreshTimer _refreshTimer = RefreshTimer();
+
+  /// Get an instance of the User Repository.
+  static SpotifyRequests get instance {
+    try{
+      return Get.find();
+    }
+    catch (e){
+      FirebaseCrashlytics.instance.log('Failed to Get Instance of Spotify Requests');
+      return Get.put(SpotifyRequests());
+    }
+  }
 
   /// Makes requests to Spotify for a User, refreshing their callback Tokens, editting their Playlists, & editting their Tracks.
   /// 
@@ -178,9 +189,6 @@ class SpotifyRequests extends GetxController{
     return _callback;
   }
 
-  /// Get the instance of the User Repository.
-  static SpotifyRequests get instance => Get.find();
-
   /// Check if Refresh button should be Pressed.
   bool shouldRefresh(bool loaded, bool refresh){
     return _refreshTimer.shouldRefresh(loaded, loading.value, refresh);
@@ -215,7 +223,7 @@ class SpotifyRequests extends GetxController{
 
   /// Must initialize the requests with a Spotify [CallbackModel] before calling any other functions.
   /// This sets the callback for requests and gets the User associated with callback tokens.
-  Future<void> initializeRequests({CallbackModel? callback, UserModel? savedUser, String? callRequest}) async{
+  Future<bool> initializeRequests({CallbackModel? callback, UserModel? savedUser, String? callRequest}) async{
     try{
       _crashlytics.log('Spotify Requests: Initialize Requests');
       loading.value = true;
@@ -232,8 +240,7 @@ class SpotifyRequests extends GetxController{
         _callback = callback;
       }
       else{
-        _crashlytics.recordError('Missing Callback or Callback Request', StackTrace.current);
-        throw CustomException(error: 'Error a ''callback\' or \'callRequest\' is needed');
+        return isInitialized;
       }
 
       _urlExpireAccess = '${_callback.expiresAt}/${_callback.accessToken}';
@@ -251,13 +258,15 @@ class SpotifyRequests extends GetxController{
       if(_cacheManager.storedPlaylists.isNotEmpty){
         allPlaylists = _cacheManager.storedPlaylists;
       }
+
       isInitialized = true;
       loading.value = false;
+      return isInitialized;
     }
-    catch (error, stack){
+    catch (_){
+      isInitialized = false;
       loading.value = false;
-      _crashlytics.recordError(error, stack, reason: 'Failed to initialize Spotify requests');
-      throw CustomException(stack: stack, error: 'Failed to Initialize Spotify Requests');
+      return isInitialized;
     }
   }
 
@@ -284,17 +293,11 @@ class SpotifyRequests extends GetxController{
         
         final String getPlaylistsUrl = '$hosted/get-playlists/$offset/$_urlExpireAccess';
 
-        http.Response response = await http.get(Uri.parse(getPlaylistsUrl));
+        http.Response response = await _retrySpotifyResponse(getPlaylistsUrl);
 
         if (response.statusCode != 200){
-          if(response.body.contains('Need refresh token')){
-            await _checkRefresh(forceRefresh: true);
-            response = await http.get(Uri.parse(getPlaylistsUrl));
-          }
-          if(response.statusCode != 200){
-            loading.value = false;
-            throw CustomException(stack: StackTrace.current, fileName: _fileName, functionName: 'requestPlaylists', error: response.body);
-          }
+          loading.value = false;
+          throw CustomException(stack: StackTrace.current, fileName: _fileName, functionName: 'requestPlaylists', reason: 'Bad Response while requesting PLaylists', error: response.body);
         }
 
         Map<String, dynamic> responsePlay = jsonDecode(response.body);
@@ -311,10 +314,13 @@ class SpotifyRequests extends GetxController{
       loading.value = false;
 
     }
+    on CustomException catch (error){
+      loading.value = false;
+      throw CustomException(stack: error.stack, fileName: error.fileName, functionName: error.functionName, reason: error.reason, error: error.error);
+    }
     catch (error, stack){
       loading.value = false;
-      _crashlytics.recordError(error, stack, reason: 'Failed to retreive Playlists from Spotify');
-      throw CustomException(stack: stack, fileName: _fileName, functionName: 'requestPlaylists', error: error);
+      throw CustomException(stack: stack, fileName: _fileName, functionName: 'requestPlaylists', reason: 'Failed to retreive Playlists from Spotify', error: error);
     }
   }
 
@@ -385,15 +391,18 @@ class SpotifyRequests extends GetxController{
           );
           if (response.statusCode != 200) {
             loading.value = false;
-            throw CustomException(stack: StackTrace.current, fileName: _fileName, functionName: 'addTracks', error: '${response.statusCode} ${response.body}') ;
+            throw CustomException(stack: StackTrace.current, fileName: _fileName, functionName: 'addTracks', reason: 'Bad Response while Adding tracks', error: response.body) ;
           }
         }
       }
     }
+    on CustomException catch (error){
+      loading.value = false;
+      throw CustomException(stack: error.stack, fileName: error.fileName, functionName: error.functionName, reason: error.reason, error: error.error);
+    }
     catch (error, stack){
       loading.value = false;
-      _crashlytics.recordError(error, stack, reason: 'Failed to Add Tracks to Playlists', fatal: true);
-      throw CustomException(stack: stack, fileName: _fileName, functionName: 'addTracks', error: error);
+      throw CustomException(stack: stack, fileName: _fileName, functionName: 'addTracks', reason: 'Failed to Add Tracks to Playlists', error: error);
     }
 
     if(_addBackTracks.isEmpty){
@@ -435,7 +444,7 @@ class SpotifyRequests extends GetxController{
 
       if (response.statusCode != 200){
         loading.value = false;
-        throw CustomException(stack: StackTrace.current, fileName: _fileName, functionName: 'removeTracks', error: 'Failed Response: ${response.statusCode} ${response.body}');
+        throw CustomException(stack: StackTrace.current, fileName: _fileName, functionName: 'removeTracks', reason: 'Bad Response while Removing Tracks', error: response.body);
       }
 
       await _removeTracksFromApp();
@@ -445,10 +454,13 @@ class SpotifyRequests extends GetxController{
         await addTracks([currentPlaylist], _addBackTracks);
       }
     }
+    on CustomException catch (error){
+      loading.value = false;
+      throw CustomException(stack: error.stack, fileName: error.fileName, functionName: error.functionName, reason: error.reason, error: error.error);
+    }
     catch (error, stack){
       loading.value = false;
-      _crashlytics.recordError(error, stack, reason: 'Failed to Remove Tracks from Playlist');
-      throw CustomException(stack: stack, fileName: _fileName, functionName: 'removeTracks', error: error);
+      throw CustomException(stack: stack, fileName: _fileName, functionName: 'removeTracks', reason: 'Failed to Remove Tracks from Playlist', error: error);
     }
     loading.value = false;
     
@@ -463,26 +475,27 @@ class SpotifyRequests extends GetxController{
     try{
       _callback.toString();
       if(!isInitialized){
-        _crashlytics.recordError('Requests not Initialized. Must call the [initializeRequests] function before calling on other functions.', StackTrace.current);
-        throw CustomException(stack: StackTrace.current, fileName: _fileName, functionName: 'checkInitialized',  
-        error:  'Requests not Initialized. Must call the [initializeRequests] function before calling on other functions.');
+        throw CustomException(stack: StackTrace.current, fileName: _fileName, functionName: 'checkInitialized',  reason: 'Requests not Initialized',
+        error:  'Must call the [initializeRequests] function before calling on other functions.');
       }
     }
+    on CustomException catch (error){
+      throw CustomException(stack: error.stack, fileName: error.fileName, functionName: error.functionName, reason: error.reason, error: error.error);
+    }
     catch (error, stack){
-      _crashlytics.recordError('Requests not Initialized. Must call the [initializeRequests] function before calling on other functions.', StackTrace.current);
-      throw CustomException(stack: stack, fileName: _fileName, functionName: 'checkInitialized',  
-      error:  'Requests not Initialized. Must call the [initializeRequests] function before calling on other functions.');
+      throw CustomException(stack: stack, fileName: _fileName, functionName: 'checkInitialized',  reason: 'Requests not Initialized',
+      error:  'Must call the [initializeRequests] function before calling on other functions.');
     }
     await _checkRefresh();
   }
 
-  /// Decides what to do when /callback is called.
+  /// Gets the Tokens from Spotify by making a call to the API.
   Future<void> _getTokens(String callRequest) async {
     _crashlytics.log('Spotify Requests: Get Tokens');
-    final http.Response response = await http.get(Uri.parse(callRequest));
+    final http.Response response = await _retrySpotifyResponse(callRequest);
 
     if (response.statusCode != 200){
-      throw CustomException(stack: StackTrace.current, fileName: _fileName, functionName: 'getTokens', error: 'Response: ${response.body.toString()}');
+      throw CustomException(stack: StackTrace.current, fileName: _fileName, functionName: 'getTokens', reason: 'Bad Response while getting tokens from Spotify Sign In', error: response.body);
     }
 
     Map<String, dynamic> responseDecoded = jsonDecode(response.body);
@@ -499,8 +512,7 @@ class SpotifyRequests extends GetxController{
 
     try{
       if (_callback.isEmpty){
-        _crashlytics.recordError('Missing Callback', StackTrace.current);
-        throw CustomException(stack: StackTrace.current, fileName: _fileName, functionName: 'checkRefresh', error: 'Callback is Empty.');
+        throw CustomException(stack: StackTrace.current, fileName: _fileName, functionName: 'checkRefresh', error: 'Missing Callback');
       }
       
       //Get the current time in seconds to be the same as in Python
@@ -513,8 +525,7 @@ class SpotifyRequests extends GetxController{
       }
     }
     catch (error, stack){
-      _crashlytics.recordError(error, stack, reason: 'Failed to Check Refresh Token');
-      throw CustomException(stack: stack, fileName: _fileName, functionName: 'checkRefresh', error: error);
+      throw CustomException(stack: stack, fileName: _fileName, functionName: 'checkRefresh', reason: 'Failed to Check Refresh Token', error: error);
     }
   }
 
@@ -525,11 +536,9 @@ class SpotifyRequests extends GetxController{
     try{
       final String refreshUrl = '$hosted/refresh-token/${callback.expiresAt}/${callback.refreshToken}';
 
-      final http.Response response = await http.get(Uri.parse(refreshUrl));
+      final http.Response response = await _retrySpotifyResponse(refreshUrl);
       if (response.statusCode != 200){
-        _crashlytics.recordError(response.body, StackTrace.current, reason: 'Bad Status Code when Refreshing Token');
-        throw CustomException(stack: StackTrace.current, fileName: _fileName, functionName: 'spotRefreshToken',  
-        error: response.body);
+        throw CustomException(stack: StackTrace.current, fileName: _fileName, functionName: 'spotRefreshToken', reason: 'Bad Status Code when Refreshing Token', error: response.body);
       }
 
       final Map<String, dynamic> responseDecode = json.decode(response.body);
@@ -540,10 +549,26 @@ class SpotifyRequests extends GetxController{
       await SecureStorage().saveTokens(_callback);
     }
     catch (error, stack){
-      _crashlytics.recordError(error, stack, reason: 'Failed to Ger ne Refresh Token');
-      throw CustomException(stack: stack, fileName: _fileName, functionName: 'spotRefreshToken', error: error);
+      throw CustomException(stack: stack, fileName: _fileName, functionName: 'spotRefreshToken', reason: 'Failed to Ger ne Refresh Token', error: error);
     }
   }
+
+/// Retries a Response given a url. Max Retries and a good Status code can be set.
+/// The good status code will be compared to the responses status code and if Response status code is not equal then it will return response.
+Future<http.Response> _retrySpotifyResponse(String customUrl, {int maxRetries = 3, int goodStatusCode = 200}) async{
+  int retries = 0;
+  http.Response newResponse = await http.get(Uri.parse(customUrl));
+
+  while (newResponse.statusCode != goodStatusCode && retries < maxRetries){
+    // Refresh Tokens if Response failed because it needed to Refresh.
+    if(newResponse.body.contains('Need refresh token')) await _checkRefresh(forceRefresh: true);
+
+    newResponse = await http.get(Uri.parse(customUrl));
+    retries++;
+  }
+
+  return newResponse;
+}
 
   /// Make a Spotify request to get the required Spotify User information.
   Future<void> _getUser() async{
@@ -552,17 +577,18 @@ class SpotifyRequests extends GetxController{
 
     try{
       final String getUserInfo = '$hosted/get-user-info/$_urlExpireAccess';
-      final http.Response response = await http.get(Uri.parse(getUserInfo));
+      final http.Response response = await _retrySpotifyResponse(getUserInfo);
 
       if (response.statusCode != 200){
-        _crashlytics.recordError(response.body, StackTrace.current, reason: 'Bad Status Code when Retrieving User');
-        throw CustomException(stack: StackTrace.current, fileName: _fileName, functionName: 'getUser', error: 'Failed to get Spotify User: ${response.body}');
+        throw CustomException(stack: StackTrace.current, fileName: _fileName, functionName: 'getUser', reason: 'Bad Status Code when Retrieving User', error: response.body);
       }
       userInfo = jsonDecode(response.body);
     }
+    on CustomException catch (error, stack){
+      throw CustomException(stack: stack, error: error.error, reason: error.reason, fileName: error.fileName, functionName: error.functionName);
+    }
     catch (error, stack){
-      _crashlytics.recordError(error, stack, reason: 'Failed to Retrieve User from Spotify');
-      throw CustomException(stack: StackTrace.current, fileName: _fileName, functionName: 'getUser', error: error);
+      throw CustomException(stack: stack, fileName: _fileName, functionName: 'getUser', reason: 'Failed to Retrieve User from Spotify', error: error);
     }
 
     //Converts user from Spotify to Firestore user
@@ -574,18 +600,16 @@ class SpotifyRequests extends GetxController{
 
     try{
       final String getTotalUrl = '$hosted/get-playlists-total/$_urlExpireAccess';
-      final http.Response response = await http.get(Uri.parse(getTotalUrl));
+      final http.Response response = await _retrySpotifyResponse(getTotalUrl);
 
       if (response.statusCode != 200){
-        _crashlytics.recordError(response.body, StackTrace.current, reason: 'Bad Status when Getting Playlists Total');
-        throw CustomException(stack: StackTrace.current, fileName: _fileName, functionName: 'getPlaylistsTotal',  error:response.body);
+        throw CustomException(stack: StackTrace.current, fileName: _fileName, functionName: 'getPlaylistsTotal', reason: 'Bad Status when Getting Playlists Total',  error:response.body);
       }
 
       _playlistsTotal = jsonDecode(response.body);
     }
     catch (error, stack){
-      _crashlytics.recordError(error, stack, reason: 'Failed to Retrieve Playlists Total');
-      throw CustomException(stack: stack, fileName: _fileName, functionName: 'getPlaylistsTotal',  error: error);
+      throw CustomException(stack: stack, fileName: _fileName, functionName: 'getPlaylistsTotal', reason: 'Failed to Retrieve Playlists Total',  error: error);
     }
   }
 
@@ -642,8 +666,7 @@ class SpotifyRequests extends GetxController{
       
     }
     catch (error, stack){
-      _crashlytics.recordError(error, stack, reason: 'Failed to edit Playlists in getPlaylistImages');
-      throw CustomException(stack: stack, fileName: _fileName, functionName: 'getPlaylistImages', error: error);
+      throw CustomException(stack: stack, fileName: _fileName, functionName: 'getPlaylistImages', reason: 'Failed to edit Playlists in getPlaylistImages', error: error);
     }
   }
 
@@ -683,18 +706,16 @@ class SpotifyRequests extends GetxController{
 
     try{
       final String getTotalUrl = '$hosted/get-tracks-total/${currentPlaylist.id}/$_urlExpireAccess';
-      final http.Response response = await http.get(Uri.parse(getTotalUrl));
+      final http.Response response = await _retrySpotifyResponse(getTotalUrl);
 
       if (response.statusCode != 200){
-        _crashlytics.recordError(response.body, StackTrace.current, reason: 'Bad Status when Getting Tracks Total');
-        throw CustomException(stack: StackTrace.current, fileName: _fileName, functionName: 'getTracksTotal',  error:response.body);
+        throw CustomException(stack: StackTrace.current, fileName: _fileName, functionName: 'getTracksTotal', reason: 'Bad Response when Getting Tracks Total',  error:response.body);
       }
 
       _tracksTotal = jsonDecode(response.body);
     }
     catch (error, stack){
-      _crashlytics.recordError(error, stack, reason: 'Failed to Retrieve Tracks Total');
-      throw CustomException(stack: stack, fileName: _fileName, functionName: 'getTracksTotal',  error: error);
+      throw CustomException(stack: stack, fileName: _fileName, functionName: 'getTracksTotal', reason: 'Failed to Retrieve Tracks Total',  error: error);
     }
   }//getTracksTotal
 
@@ -715,22 +736,10 @@ class SpotifyRequests extends GetxController{
         Map<String, dynamic> checkTracks = <String, dynamic>{};
 
         final String getTracksUrl ='$hosted/get-tracks/${currentPlaylist.id}/$offset/$_urlExpireAccess';
-        http.Response response = await http.get(Uri.parse(getTracksUrl));
+        http.Response response = await _retrySpotifyResponse(getTracksUrl);
 
         if (response.statusCode != 200){
-          if(response.body.contains('Need refresh token')){
-            await _checkRefresh(forceRefresh: true);
-            response = await http.get(Uri.parse(getTracksUrl));
-
-            if(response.statusCode != 200){
-              _crashlytics.recordError(response.body, StackTrace.current, reason: 'Bad Response while Refreshing Token in Get Tracks', fatal: true);
-              throw CustomException(stack: StackTrace.current, fileName: _fileName, functionName: 'getTracks',  error: response.body);
-            }
-          }
-          else{
-            _crashlytics.recordError(response.body, StackTrace.current, reason: 'Bad Response while Getting Tracks from Spotify', fatal: true);
-            throw CustomException(stack: StackTrace.current, fileName: _fileName, functionName: 'getTracks',  error: response.body);
-          }
+          throw CustomException(stack: StackTrace.current, fileName: _fileName, functionName: 'getTracks', reason: 'Bad Response while Getting Tracks from Spotify',  error: response.body);
         }
 
         checkTracks.addAll(jsonDecode(response.body));
@@ -763,8 +772,7 @@ class SpotifyRequests extends GetxController{
       }
     }
     catch (error, stack){
-      _crashlytics.recordError(error, stack, reason: 'Failed to Get Tracks');
-      throw CustomException(stack: stack, fileName: _fileName, functionName: 'getTracks',  error: error);
+      throw CustomException(stack: stack, fileName: _fileName, functionName: 'getTracks', reason: 'Failed to Get Tracks',  error: error);
     }
     
   }
@@ -810,8 +818,7 @@ class SpotifyRequests extends GetxController{
       }
     }
     catch (error, stack){
-      _crashlytics.recordError(error, stack, reason: 'Failed to edit Tracks images');
-      throw CustomException(stack: stack, fileName: _fileName, functionName: 'getTrackImages',  error: error);
+      throw CustomException(stack: stack, fileName: _fileName, functionName: 'getTrackImages', reason: 'Failed to edit Tracks images',  error: error);
     }
   }
 
@@ -842,8 +849,7 @@ class SpotifyRequests extends GetxController{
 
             //Not able to receive the checked result from Spotify
             if (response.statusCode != 200){
-              _crashlytics.recordError(response.body, StackTrace.current, reason: 'Bad Response while Checking if Liked');
-              throw CustomException(stack: StackTrace.current, fileName: _fileName, functionName: 'checkLiked',  error:response.body);
+              throw CustomException(stack: StackTrace.current, fileName: _fileName, functionName: 'checkLiked', reason: 'Bad Response while Checking if Liked',  error:response.body);
             }
 
             boolList.addAll(jsonDecode(response.body));
@@ -860,8 +866,11 @@ class SpotifyRequests extends GetxController{
         
       }
     }
+    on CustomException catch (error){
+      throw CustomException(stack: error.stack, error: error.error, reason: error.reason, fileName: error.fileName, functionName: error.functionName);
+    }
     catch (error, stack){
-      throw CustomException(stack: stack, fileName: _fileName, functionName: 'checkLiked',  error: error);
+      throw CustomException(stack: stack, fileName: _fileName, functionName: 'checkLiked', reason: 'Failed checking if a Song is Liked',  error: error);
     }
   }
 

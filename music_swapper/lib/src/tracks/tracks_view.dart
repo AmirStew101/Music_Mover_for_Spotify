@@ -5,16 +5,16 @@ import 'dart:async';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:spotify_music_helper/src/select_playlists/select_view.dart';
-import 'package:spotify_music_helper/src/utils/ads.dart';
-import 'package:spotify_music_helper/src/tracks/tracks_popups.dart';
-import 'package:spotify_music_helper/src/utils/class%20models/custom_sort.dart';
-import 'package:spotify_music_helper/src/utils/exceptions.dart';
-import 'package:spotify_music_helper/src/utils/global_classes/global_objects.dart';
-import 'package:spotify_music_helper/src/utils/globals.dart';
-import 'package:spotify_music_helper/src/utils/backend_calls/spotify_requests.dart';
-import 'package:spotify_music_helper/src/utils/global_classes/options_menu.dart';
-import 'package:spotify_music_helper/src/utils/class%20models/track_model.dart';
+import 'package:music_mover/src/select_playlists/select_view.dart';
+import 'package:music_mover/src/utils/ads.dart';
+import 'package:music_mover/src/tracks/tracks_popups.dart';
+import 'package:music_mover/src/utils/class%20models/custom_sort.dart';
+import 'package:music_mover/src/utils/exceptions.dart';
+import 'package:music_mover/src/utils/global_classes/global_objects.dart';
+import 'package:music_mover/src/utils/globals.dart';
+import 'package:music_mover/src/utils/backend_calls/spotify_requests.dart';
+import 'package:music_mover/src/utils/global_classes/options_menu.dart';
+import 'package:music_mover/src/utils/class%20models/track_model.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 const String _fileName = 'tracks_view.dart';
@@ -59,7 +59,7 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
     _crashlytics.log('Init Tracks View Page');
 
     try{
-      _spotifyRequests = Get.arguments;
+      _spotifyRequests = Get.arguments ?? SpotifyRequests.instance;
     }
     catch (e){
       _crashlytics.log('Error Tracks go Back');
@@ -111,10 +111,15 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
           loaded.value = true;
         }
       }
-      catch (e, stack){
+      on CustomException catch (ee, stack){
         error = true;
         loaded.value = true;
-        _crashlytics.recordError(e, stack, reason: 'Failed while Fetching Spotify Tracks', fatal: true);
+        throw CustomException(stack: stack, fileName: ee.fileName, functionName: ee.functionName, reason: ee.reason, error: ee.error);
+      }
+      catch (ee, stack){
+        error = true;
+        loaded.value = true;
+        _crashlytics.recordError(ee, stack, reason: 'Failed while Fetching Spotify Tracks', fatal: true);
       }
     }
   }// checkLogin
@@ -131,8 +136,11 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
         error = false;
       }
     }
+    on CustomException catch (error){
+      throw CustomException(stack: error.stack, fileName: error.fileName, functionName: error.functionName, reason: error.reason, error: error.error);
+    }
     catch (ee, stack){
-      throw CustomException(stack: stack, fileName: _fileName, functionName: 'fetchSpotifyTracks',  error: ee);
+      throw CustomException(stack: stack, fileName: _fileName, functionName: 'fetchSpotifyTracks', reason: 'Failed to Fetch Spotify Tracks',  error: ee);
     }
   }
 
@@ -179,7 +187,7 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
     return Scaffold(
         appBar: tracksAppBar(),
 
-        drawer: optionsMenu(context),
+        drawer: optionsMenu(context, _spotifyRequests.user),
 
         // Loads the users tracks and its associated images after fetching them for user viewing
         body: PopScope(

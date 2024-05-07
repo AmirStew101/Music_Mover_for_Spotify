@@ -5,17 +5,15 @@ import 'dart:convert';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:spotify_music_helper/src/utils/analytics.dart';
-import 'package:spotify_music_helper/src/utils/auth.dart';
-import 'package:spotify_music_helper/src/utils/backend_calls/spotify_requests.dart';
-import 'package:spotify_music_helper/src/utils/dev_global.dart';
-import 'package:spotify_music_helper/src/utils/globals.dart';
-import 'package:spotify_music_helper/src/utils/backend_calls/database_classes.dart';
-import 'package:spotify_music_helper/src/utils/backend_calls/storage.dart';
+import 'package:music_mover/src/utils/analytics.dart';
+import 'package:music_mover/src/utils/auth.dart';
+import 'package:music_mover/src/utils/backend_calls/spotify_requests.dart';
+import 'package:music_mover/src/utils/dev_global.dart';
+import 'package:music_mover/src/utils/globals.dart';
+import 'package:music_mover/src/utils/backend_calls/database_classes.dart';
+import 'package:music_mover/src/utils/backend_calls/storage.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:http/http.dart' as http;
-
-const String _fileName = 'spot_login_view.dart';
 
 ///Handles Logging into a users Spotify Account and saving their info to the database.
 class SpotLoginWidget extends StatefulWidget {
@@ -29,21 +27,10 @@ class SpotLoginWidget extends StatefulWidget {
 class SpotLoginState extends State<SpotLoginWidget> {
   bool reLogin = Get.arguments;
   late ScaffoldMessengerState _scaffoldMessengerState;
-  late SpotifyRequests _spotifyRequests;
-  late DatabaseStorage _databaseStorage;
-  late SecureStorage _secureStorage;
-  late PlaylistsCacheManager _cacheManager;
+  final SpotifyRequests _spotifyRequests = SpotifyRequests.instance;
+  final SecureStorage _secureStorage = SecureStorage.instance;
+  final PlaylistsCacheManager _cacheManager = PlaylistsCacheManager.instance;
   final FirebaseCrashlytics _crashlytics = FirebaseCrashlytics.instance;
-
-  @override
-  void initState(){
-    super.initState();
-    _crashlytics.log('Init Spot login Page');
-    _secureStorage = Get.put(SecureStorage());
-    _cacheManager = Get.put(PlaylistsCacheManager());
-    _spotifyRequests = Get.put(SpotifyRequests());
-    _databaseStorage = Get.put(DatabaseStorage());
-  }
 
   @override
   void didChangeDependencies(){
@@ -114,6 +101,9 @@ class SpotLoginState extends State<SpotLoginWidget> {
 
               _crashlytics.log('Spot Login: Initialize SpotifyRequests');
               await _spotifyRequests.initializeRequests(callRequest: request.url);
+              await DatabaseStorage.instance.initializeDatabase(_spotifyRequests.user);
+              await _secureStorage.saveUser(DatabaseStorage.instance.user);
+              _spotifyRequests.user = DatabaseStorage.instance.user;
 
               _crashlytics.log('Spot Login: Sign in User');
               await UserAuth().signInUser(_spotifyRequests.user.spotifyId);

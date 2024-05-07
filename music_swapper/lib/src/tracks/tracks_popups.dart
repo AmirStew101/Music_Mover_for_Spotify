@@ -1,7 +1,7 @@
 
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:get/get.dart';
-import 'package:spotify_music_helper/src/utils/globals.dart';
+import 'package:music_mover/src/utils/globals.dart';
 
 class TracksViewPopups{
   final FirebaseCrashlytics _crashlytics = FirebaseCrashlytics.instance;

@@ -1,12 +1,11 @@
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:get/get.dart';
-import 'package:spotify_music_helper/src/utils/backend_calls/databse_calls.dart';
-import 'package:spotify_music_helper/src/utils/exceptions.dart';
-import 'package:spotify_music_helper/src/utils/class%20models/user_model.dart';
+import 'package:music_mover/src/utils/backend_calls/databse_calls.dart';
+import 'package:music_mover/src/utils/exceptions.dart';
+import 'package:music_mover/src/utils/class%20models/user_model.dart';
 
 const String _fileName = 'database_classes.dart';
 final UserRepository _userRepository = Get.put(UserRepository());
-final FirebaseCrashlytics _crashlytics = FirebaseCrashlytics.instance;
 
 class DatabaseStorage extends GetxController{
   late UserModel _user;
@@ -18,46 +17,62 @@ class DatabaseStorage extends GetxController{
     return _newUser;
   }
 
-  static DatabaseStorage get instance => Get.find();
+  static DatabaseStorage get instance {
+    try{
+      return Get.find();
+    }
+    catch (e){
+      FirebaseCrashlytics.instance.log('Failed to Get Instance of Database Storage');
+      return Get.put(DatabaseStorage());
+    }
+  }
 
   UserModel get user{
     return _user;
   }
 
-  /// Initialize the User by getting the user from the database or creating one if no user exists.
+  /// Initialize the User by getting the user from the database or creates one if no user exists.
+  /// Returns True on Success.
   /// 
   /// Must be called before any of the other functions.
-  Future<void> initializeDatabase(UserModel user) async{
-    await _userRepository.initializeUser(user);
-    _user = _userRepository.user;
-    _newUser = _userRepository.newUser;
-    isInitialized = true;
+  Future<UserModel?> initializeDatabase(UserModel user) async{
+    isInitialized = await _userRepository.initializeUser(user);
+
+    if(isInitialized){
+      _user = _userRepository.user;
+      _newUser = _userRepository.newUser;
+    }
+    
+    return _user;
   }
 
-  /// Removes a [user] and all of their data from the database.
+  /// Removes a [user] and all of their data from the database. Returns True on Success.
   /// 
   /// Must Initialize Database before use.
-  Future<void> removeUser() async{
-    if(initialized){
-      await _userRepository.removeUser()
-      .onError((Object? error, StackTrace stack)  {
-        _crashlytics.recordError(error, stack, reason: 'Failed to Remove User');
-        throw CustomException(stack: StackTrace.current, fileName: _fileName, functionName: 'removeUser',  error: error);
-      });
+  Future<bool> removeUser() async{
+    if(isInitialized){
+      try{
+        await _userRepository.removeUser();
+      }
+      catch (_){
+        return false;
+      }
+      return true;
     }
     else{
-      throw CustomException(stack: StackTrace.current, fileName: _fileName, functionName: 'removeUser',  error: 'Not initialized');
+      return false;
     }
   }
 
-  Future<void> updateUser(UserModel newUser) async{
+  /// Updates a Users info in the database and returns True on Success.
+  Future<bool> updateUser(UserModel newUser) async{
     try{
-    await _userRepository.updateUser(newUser);
-    _user = newUser;
+      await _userRepository.updateUser(newUser);
+      _user = newUser;
+      return true;
     }
-    catch (error, stack){
-      _crashlytics.recordError(error, stack, reason: 'Failed to Update User');
-      throw CustomException(stack: StackTrace.current, fileName: _fileName, functionName: 'updateUser',  error: error);
+    catch (_){
+      return false;
     }
 
   }

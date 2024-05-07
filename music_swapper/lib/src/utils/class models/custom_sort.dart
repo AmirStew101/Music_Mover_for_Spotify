@@ -1,7 +1,7 @@
 
-import 'package:spotify_music_helper/src/utils/class%20models/playlist_model.dart';
-import 'package:spotify_music_helper/src/utils/class%20models/track_model.dart';
-import 'package:spotify_music_helper/src/utils/exceptions.dart';
+import 'package:music_mover/src/utils/class%20models/playlist_model.dart';
+import 'package:music_mover/src/utils/class%20models/track_model.dart';
+import 'package:music_mover/src/utils/exceptions.dart';
 
 /// Sort Playlists and Tracks based on title's and Tracks by artists, types, and date added to playlist.
 class Sort{
@@ -49,7 +49,7 @@ class Sort{
       tracks.addAll(tracksList);
     }
     else{
-      throw CustomException(error: 'Missing PlaylistModel or List of TrackModels');
+      throw CustomException(fatal: false, reason: 'Failed to Sort Playlists', error: 'Missing PlaylistModel or List of TrackModels');
     }
 
 

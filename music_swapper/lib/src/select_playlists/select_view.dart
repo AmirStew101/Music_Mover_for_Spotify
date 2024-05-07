@@ -5,12 +5,13 @@ import 'dart:async';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:spotify_music_helper/src/select_playlists/select_popups.dart';
-import 'package:spotify_music_helper/src/utils/global_classes/global_objects.dart';
-import 'package:spotify_music_helper/src/utils/globals.dart';
-import 'package:spotify_music_helper/src/utils/backend_calls/spotify_requests.dart';
-import 'package:spotify_music_helper/src/utils/class%20models/playlist_model.dart';
-import 'package:spotify_music_helper/src/utils/class%20models/track_model.dart';
+import 'package:music_mover/src/select_playlists/select_popups.dart';
+import 'package:music_mover/src/utils/exceptions.dart';
+import 'package:music_mover/src/utils/global_classes/global_objects.dart';
+import 'package:music_mover/src/utils/globals.dart';
+import 'package:music_mover/src/utils/backend_calls/spotify_requests.dart';
+import 'package:music_mover/src/utils/class%20models/playlist_model.dart';
+import 'package:music_mover/src/utils/class%20models/track_model.dart';
 
 class SelectPlaylistsViewWidget extends StatefulWidget {
   static const String routeName = '/SelectPlaylists';
@@ -46,11 +47,16 @@ class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
     super.initState();
     _crashlytics.log('Init Select View Page');
 
-    final TrackArguments trackArgs = Get.arguments;
-    _spotifyRequests = trackArgs.spotifyRequests;
-    selectedTracksList = trackArgs.selectedTracks;
-    option = trackArgs.option;
-    _checkPlaylists();
+    final TrackArguments? trackArgs = Get.arguments;
+    if(trackArgs == null){
+      Get.back();
+    }
+    else{
+      _spotifyRequests = trackArgs.spotifyRequests;
+      selectedTracksList = trackArgs.selectedTracks;
+      option = trackArgs.option;
+      _checkPlaylists();
+    }
   }
 
   @override
@@ -76,6 +82,11 @@ class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
         loaded.value = true;
       }
     }
+    on CustomException catch (ee){
+      error = true;
+      loaded.value = true;
+      throw CustomException(stack: ee.stack, fileName: ee.fileName, functionName: ee.functionName, reason: ee.reason, error: ee.error);
+    }
     catch (e, stack){
       error = true;
       loaded.value = true;
@@ -99,6 +110,12 @@ class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
         //Remove tracks from current playlist
         await _spotifyRequests.removeTracks(selectedTracksList, _spotifyRequests.currentPlaylist.snapshotId);
       }
+      on CustomException catch (ee){
+        adding = false;
+        error = true;
+        loaded.value = true;
+        throw CustomException(stack: ee.stack, fileName: ee.fileName, functionName: ee.functionName, reason: ee.reason, error: ee.error);
+      }
       catch (ee, stack){
         adding = false;
         error = true;
@@ -115,6 +132,12 @@ class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
 
         //Finished adding tracks to 
         adding = false;
+      }
+      on CustomException catch (ee){
+        adding = false;
+        error = true;
+        loaded.value = true;
+        throw CustomException(stack: ee.stack, fileName: ee.fileName, functionName: ee.functionName, reason: ee.reason, error: ee.error);
       }
       catch (ee, stack){
         adding = false;

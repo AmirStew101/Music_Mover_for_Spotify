@@ -7,10 +7,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:get/get.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:spotify_music_helper/src/utils/class%20models/playlist_model.dart';
-import 'package:spotify_music_helper/src/utils/globals.dart';
-import 'package:spotify_music_helper/src/utils/class%20models/callback_model.dart';
-import 'package:spotify_music_helper/src/utils/class%20models/user_model.dart';
+import 'package:music_mover/src/utils/class%20models/playlist_model.dart';
+import 'package:music_mover/src/utils/globals.dart';
+import 'package:music_mover/src/utils/class%20models/callback_model.dart';
+import 'package:music_mover/src/utils/class%20models/user_model.dart';
 
 const String _fileName = 'secure_storage.dart';
 
@@ -38,7 +38,15 @@ class SecureStorage extends GetxController{
     return _secureUser;
   }
 
-  static SecureStorage get instance => Get.find();
+  static SecureStorage get instance {
+    try{
+      return Get.find();
+    }
+    catch (e){
+      FirebaseCrashlytics.instance.log('Failed to Get Instance of Secure Storage');
+      return Get.put(SecureStorage());
+    }
+  }
 
   // Storage for Spotify callback info
 
@@ -280,7 +288,14 @@ class PlaylistsCacheManager extends GetxController{
 
   List<PlaylistModel> _storedPlaylists = [];
 
-  static PlaylistsCacheManager get instance => Get.find();
+  static PlaylistsCacheManager get instance {
+    try{
+      return Get.find();
+    }
+    catch (e){
+      return Get.put(PlaylistsCacheManager());
+    }
+  }
 
   List<PlaylistModel> get storedPlaylists{
     return _storedPlaylists;

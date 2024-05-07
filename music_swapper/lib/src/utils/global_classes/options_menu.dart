@@ -5,17 +5,18 @@ import 'dart:io';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:spotify_music_helper/src/utils/backend_calls/storage.dart';
-import 'package:spotify_music_helper/src/info/info_page.dart';
-import 'package:spotify_music_helper/src/home/home_view.dart';
-import 'package:spotify_music_helper/src/settings/settings_view.dart';
-import 'package:spotify_music_helper/src/utils/auth.dart';
-import 'package:spotify_music_helper/src/utils/globals.dart';
+import 'package:music_mover/src/utils/backend_calls/storage.dart';
+import 'package:music_mover/src/info/info_page.dart';
+import 'package:music_mover/src/home/home_view.dart';
+import 'package:music_mover/src/settings/settings_view.dart';
+import 'package:music_mover/src/utils/auth.dart';
+import 'package:music_mover/src/utils/class%20models/user_model.dart';
+import 'package:music_mover/src/utils/globals.dart';
 
 final FirebaseCrashlytics _crashlytics = FirebaseCrashlytics.instance;
 
 ///Side menu for Navigating the app's pages.
-Drawer optionsMenu(BuildContext context){
+Drawer optionsMenu(BuildContext context, UserModel user){
   _crashlytics.log('Open Options Drawer');
 
   return Drawer(
@@ -54,7 +55,7 @@ Drawer optionsMenu(BuildContext context){
             title: const Text('Help'),
             onTap: () async{
               _crashlytics.log('Navigate to Info Page');
-              Get.to(const InfoView());
+              await Get.to(const InfoView(), arguments: user);
             },
           ),
 

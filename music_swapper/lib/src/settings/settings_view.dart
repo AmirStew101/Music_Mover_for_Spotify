@@ -3,18 +3,19 @@
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:spotify_music_helper/src/login/start_screen.dart';
-import 'package:spotify_music_helper/src/utils/ads.dart';
-import 'package:spotify_music_helper/src/utils/auth.dart';
-import 'package:spotify_music_helper/src/utils/dev_global.dart';
-import 'package:spotify_music_helper/src/utils/backend_calls/database_classes.dart';
-import 'package:spotify_music_helper/src/utils/global_classes/options_menu.dart';
-import 'package:spotify_music_helper/src/utils/globals.dart';
-import 'package:spotify_music_helper/src/utils/backend_calls/storage.dart';
-import 'package:spotify_music_helper/src/utils/global_classes/global_objects.dart';
+import 'package:music_mover/src/login/start_screen.dart';
+import 'package:music_mover/src/utils/ads.dart';
+import 'package:music_mover/src/utils/auth.dart';
+import 'package:music_mover/src/utils/dev_global.dart';
+import 'package:music_mover/src/utils/backend_calls/database_classes.dart';
+import 'package:music_mover/src/utils/exceptions.dart';
+import 'package:music_mover/src/utils/global_classes/options_menu.dart';
+import 'package:music_mover/src/utils/globals.dart';
+import 'package:music_mover/src/utils/backend_calls/storage.dart';
+import 'package:music_mover/src/utils/global_classes/global_objects.dart';
 import 'package:url_launcher/link.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:spotify_music_helper/src/utils/class%20models/user_model.dart';
+import 'package:music_mover/src/utils/class%20models/user_model.dart';
 
 
 /// Displays the various settings that can be customized by the user.
@@ -53,7 +54,7 @@ class SettingsViewState extends State<SettingsViewWidget> with TickerProviderSta
       _secureStorage.errorCheck();
     }
     else{
-      user = _secureStorage.secureUser!;
+      user = _secureStorage.secureUser ?? UserModel();
     }
 
   }
@@ -97,7 +98,7 @@ class SettingsViewState extends State<SettingsViewWidget> with TickerProviderSta
         ),
         automaticallyImplyLeading: false,
       ),
-      drawer: optionsMenu(context),
+      drawer: optionsMenu(context, user),
       body: Padding(
         padding: const EdgeInsets.all(20),
         // Glue the SettingsController to the theme selection DropdownButton.
@@ -283,6 +284,10 @@ class SettingsViewState extends State<SettingsViewWidget> with TickerProviderSta
         await UserAuth().deleteUser();
         await PlaylistsCacheManager().clearPlaylists();
         removeUserMessage();
+      }
+      on CustomException catch (ee){
+        removeUserMessage(success: false);
+        throw CustomException(stack: ee.stack, fileName: ee.fileName, functionName: ee.functionName, reason: ee.reason, error: ee.error);
       }
       catch (error, stack){
         removeUserMessage(success: false);

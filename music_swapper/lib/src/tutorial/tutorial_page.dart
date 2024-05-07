@@ -1,7 +1,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:spotify_music_helper/src/utils/globals.dart';
+import 'package:music_mover/src/utils/globals.dart';
 
 class TutorialWidget extends StatelessWidget{
   TutorialWidget({super.key});

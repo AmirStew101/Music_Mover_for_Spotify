@@ -2,8 +2,9 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:get/get.dart';
-import 'package:spotify_music_helper/src/utils/exceptions.dart';
-import 'package:spotify_music_helper/src/utils/class%20models/user_model.dart';
+import 'package:music_mover/src/utils/analytics.dart';
+import 'package:music_mover/src/utils/exceptions.dart';
+import 'package:music_mover/src/utils/class%20models/user_model.dart';
 
 const String _fileName = 'database_calls.dart';
 final FirebaseFirestore db = FirebaseFirestore.instance;
@@ -19,7 +20,6 @@ class UserRepository extends GetxController{
   final CollectionReference<Map<String, dynamic>> usersRef = db.collection('Users');
 
   late UserModel _user;
-  late String userId;
 
   bool _newUser = false;
 
@@ -38,20 +38,24 @@ class UserRepository extends GetxController{
   /// Initialize the User by getting the user from the database or creating one if no user exists.
   /// 
   /// Must be called before any of the other functions.
-  Future<void> initializeUser(UserModel user) async{
-    _crashlytics.log('Initialize User');
-    bool has = await _hasUser(user);
-
-    if(!has){
-      _newUser = true;
-      _user = user;
-      _createUser();
+  Future<bool> initializeUser(UserModel user) async{
+    try{
+      _crashlytics.log('Initialize User');
+      bool has = await _hasUser(user);
+      if(!has){
+        _newUser = true;
+        _user = user;
+        await AppAnalytics().trackNewUser(user);
+        await _createUser();
+      }
+      else{
+        _user = await _getUser(user);
+      }
+      return true;
     }
-    else{
-      _user = await _getUser(user);
+    catch (e){
+      return false;
     }
-    
-    userId = _user.spotifyId;
   }
 
   /// Remove a user and their associated data from the database.
@@ -64,11 +68,11 @@ class UserRepository extends GetxController{
     try{
     await _user.userDoc.delete();
     }
-    catch (e){
-      if(_user.spotifyId == '') throw CustomException(stack: StackTrace.current, fileName: _fileName, functionName: 'removeUser',  error: 'User Id is Empty');
+    catch (error, stack){
+      if(_user.spotifyId == '') throw CustomException(stack: stack, fileName: _fileName, functionName: 'removeUser', reason: 'Failed to remove User',  error: 'User Id is Empty');
 
       await usersRef.doc(_user.spotifyId).delete()
-      .onError((Object? error, StackTrace stackTrace) => throw CustomException(stack: stackTrace, fileName: _fileName, functionName: 'removeUser',  error: error));
+      .onError((Object? error, StackTrace stackTrace) => throw CustomException(stack: stackTrace, fileName: _fileName, functionName: 'removeUser', reason: 'Failed to remove User',  error: error));
     }
 
     _user = UserModel();
@@ -101,8 +105,8 @@ class UserRepository extends GetxController{
         });
       }
     }
-    catch (e, stack){
-      throw CustomException(stack: stack, fileName: _fileName, functionName: 'updateUser',  error: e);
+    catch (error, stack){
+      throw CustomException(stack: stack, fileName: _fileName, functionName: 'updateUser', reason: 'Failed to Update User',  error: error);
     }
 
     _user = user;
@@ -116,8 +120,7 @@ class UserRepository extends GetxController{
     try{
       _user.toFirestoreJson();
     }
-    catch (ee, stack){
-      _crashlytics.recordError(ee, stack, reason: 'User not Initialized. Call the [initializeUser] function before calling other functions.');
+    catch (error, stack){
       throw CustomException(stack: stack, fileName: _fileName, functionName: '_checkUserInitialized',  error: 'User not Initialized. Call the [initializeUser] function before calling other functions.');
     }
   }
@@ -135,6 +138,7 @@ class UserRepository extends GetxController{
       return false;
     }
     catch (ee){
+      _crashlytics.log('_hasUser() function error Returned False');
       return false;
     }
   }// hasUser
@@ -147,9 +151,8 @@ class UserRepository extends GetxController{
 
       _user.userDoc = usersRef.doc(_user.spotifyId);
     }
-    catch (ee, stack){
-      _crashlytics.recordError(ee, stack, reason: 'Failed to Create User');
-      throw CustomException(stack: stack, fileName: _fileName, functionName: 'createUser',  error: ee);
+    catch (error, stack){
+      throw CustomException(stack: stack, fileName: _fileName, functionName: 'createUser', reason: 'Failed to Create User',  error: error);
     }
   }// createUser
 
@@ -178,11 +181,14 @@ class UserRepository extends GetxController{
         throw CustomException(stack: StackTrace.current, fileName: _fileName, functionName: 'getUser',  error: 'Failed User doesn\'t Exist');
       }
     }
-    catch (e){
+    catch (ee){
       _user = user;
       await _createUser()
-      .onError((Object? error, StackTrace stackTrace) => 
-      throw CustomException(stack: stackTrace, fileName: _fileName, functionName: 'getUser',  error: 'Failed to get User from Database $error'));
+      .onError((Object? error, StackTrace stack) {
+        error as CustomException;
+        throw CustomException(stack: stack, fileName: _fileName, functionName: 'getUser', reason: 'Failed to get User from Database',  error: '${error.reason}: ${error.error}');
+      }
+      );
       return _user;
     }
   }// getUser
