@@ -2,21 +2,21 @@ import 'package:flutter/material.dart';
 import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:get/get.dart';
-import 'package:spotify_music_helper/src/info/info_page.dart';
-import 'package:spotify_music_helper/src/home/home_view.dart';
-import 'package:spotify_music_helper/src/login/spot_login_view.dart';
-import 'package:spotify_music_helper/src/select_playlists/select_view.dart';
-import 'package:spotify_music_helper/src/settings/settings_controller.dart';
-import 'package:spotify_music_helper/src/settings/settings_service.dart';
-import 'package:spotify_music_helper/src/tracks/tracks_view.dart';
-import 'package:spotify_music_helper/src/login/start_screen.dart';
-import 'package:spotify_music_helper/src/utils/backend_calls/database_classes.dart';
-import 'package:spotify_music_helper/src/utils/backend_calls/spotify_requests.dart';
-import 'package:spotify_music_helper/src/utils/backend_calls/storage.dart';
-import 'package:spotify_music_helper/src/utils/class%20models/callback_model.dart';
-import 'package:spotify_music_helper/src/utils/class%20models/user_model.dart';
-import 'package:spotify_music_helper/src/utils/dev_global.dart';
-import 'package:spotify_music_helper/src/utils/exceptions.dart';
+import 'package:music_mover/src/info/info_page.dart';
+import 'package:music_mover/src/home/home_view.dart';
+import 'package:music_mover/src/login/spot_login_view.dart';
+import 'package:music_mover/src/select_playlists/select_view.dart';
+import 'package:music_mover/src/settings/settings_controller.dart';
+import 'package:music_mover/src/settings/settings_service.dart';
+import 'package:music_mover/src/tracks/tracks_view.dart';
+import 'package:music_mover/src/login/start_screen.dart';
+import 'package:music_mover/src/utils/backend_calls/database_classes.dart';
+import 'package:music_mover/src/utils/backend_calls/spotify_requests.dart';
+import 'package:music_mover/src/utils/backend_calls/storage.dart';
+import 'package:music_mover/src/utils/class%20models/callback_model.dart';
+import 'package:music_mover/src/utils/class%20models/user_model.dart';
+import 'package:music_mover/src/utils/dev_global.dart';
+import 'package:music_mover/src/utils/exceptions.dart';
 
 import 'src/settings/settings_view.dart';
 
@@ -26,7 +26,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/foundation.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
-import 'package:spotify_music_helper/firebase_options.dart';
+import 'package:music_mover/firebase_options.dart';
 
 bool shouldUseFirestoreEmulator = false;
 

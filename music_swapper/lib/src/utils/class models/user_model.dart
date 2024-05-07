@@ -1,9 +1,9 @@
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:get/get.dart';
-import 'package:spotify_music_helper/src/utils/backend_calls/database_classes.dart';
-import 'package:spotify_music_helper/src/utils/backend_calls/storage.dart';
-import 'package:spotify_music_helper/src/utils/class%20models/custom_sort.dart';
+import 'package:music_mover/src/utils/backend_calls/database_classes.dart';
+import 'package:music_mover/src/utils/backend_calls/storage.dart';
+import 'package:music_mover/src/utils/class%20models/custom_sort.dart';
 
 /// Model for Spotify User object.
 class UserModel{

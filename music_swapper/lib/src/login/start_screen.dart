@@ -2,8 +2,8 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:spotify_music_helper/src/login/spot_login_view.dart';
-import 'package:spotify_music_helper/src/utils/globals.dart';
+import 'package:music_mover/src/login/spot_login_view.dart';
+import 'package:music_mover/src/utils/globals.dart';
 
 class StartViewWidget extends StatefulWidget{
   const StartViewWidget({super.key});

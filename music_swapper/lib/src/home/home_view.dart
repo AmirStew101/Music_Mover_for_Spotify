@@ -6,18 +6,16 @@ import 'dart:io';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:spotify_music_helper/src/login/start_screen.dart';
-import 'package:spotify_music_helper/src/utils/ads.dart';
-import 'package:spotify_music_helper/src/utils/backend_calls/spotify_requests.dart';
-import 'package:spotify_music_helper/src/utils/exceptions.dart';
-import 'package:spotify_music_helper/src/utils/global_classes/global_objects.dart';
-import 'package:spotify_music_helper/src/utils/globals.dart';
-import 'package:spotify_music_helper/src/home/home_body.dart';
-import 'package:spotify_music_helper/src/tracks/tracks_view.dart';
-import 'package:spotify_music_helper/src/utils/backend_calls/database_classes.dart';
-import 'package:spotify_music_helper/src/utils/backend_calls/storage.dart';
-import 'package:spotify_music_helper/src/utils/global_classes/options_menu.dart';
-import 'package:spotify_music_helper/src/utils/class%20models/playlist_model.dart';
+import 'package:music_mover/src/utils/ads.dart';
+import 'package:music_mover/src/utils/backend_calls/spotify_requests.dart';
+import 'package:music_mover/src/utils/exceptions.dart';
+import 'package:music_mover/src/utils/global_classes/global_objects.dart';
+import 'package:music_mover/src/utils/globals.dart';
+import 'package:music_mover/src/home/home_body.dart';
+import 'package:music_mover/src/tracks/tracks_view.dart';
+import 'package:music_mover/src/utils/backend_calls/storage.dart';
+import 'package:music_mover/src/utils/global_classes/options_menu.dart';
+import 'package:music_mover/src/utils/class%20models/playlist_model.dart';
 
 //Creates the state for the home screen to view/edit playlists
 class HomeView extends StatefulWidget {

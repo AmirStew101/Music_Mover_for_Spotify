@@ -1,6 +1,6 @@
 import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
-import 'package:spotify_music_helper/src/utils/class%20models/user_model.dart';
+import 'package:music_mover/src/utils/class%20models/user_model.dart';
 
 final FirebaseAnalytics _analytics = FirebaseAnalytics.instance;
 final FirebaseAnalyticsObserver observer = FirebaseAnalyticsObserver(analytics: _analytics);

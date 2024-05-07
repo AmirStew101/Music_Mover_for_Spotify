@@ -5,13 +5,13 @@ import 'dart:io';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:spotify_music_helper/src/utils/backend_calls/storage.dart';
-import 'package:spotify_music_helper/src/info/info_page.dart';
-import 'package:spotify_music_helper/src/home/home_view.dart';
-import 'package:spotify_music_helper/src/settings/settings_view.dart';
-import 'package:spotify_music_helper/src/utils/auth.dart';
-import 'package:spotify_music_helper/src/utils/class%20models/user_model.dart';
-import 'package:spotify_music_helper/src/utils/globals.dart';
+import 'package:music_mover/src/utils/backend_calls/storage.dart';
+import 'package:music_mover/src/info/info_page.dart';
+import 'package:music_mover/src/home/home_view.dart';
+import 'package:music_mover/src/settings/settings_view.dart';
+import 'package:music_mover/src/utils/auth.dart';
+import 'package:music_mover/src/utils/class%20models/user_model.dart';
+import 'package:music_mover/src/utils/globals.dart';
 
 final FirebaseCrashlytics _crashlytics = FirebaseCrashlytics.instance;
 

@@ -1,8 +1,8 @@
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:get/get.dart';
-import 'package:spotify_music_helper/src/utils/backend_calls/databse_calls.dart';
-import 'package:spotify_music_helper/src/utils/exceptions.dart';
-import 'package:spotify_music_helper/src/utils/class%20models/user_model.dart';
+import 'package:music_mover/src/utils/backend_calls/databse_calls.dart';
+import 'package:music_mover/src/utils/exceptions.dart';
+import 'package:music_mover/src/utils/class%20models/user_model.dart';
 
 const String _fileName = 'database_classes.dart';
 final UserRepository _userRepository = Get.put(UserRepository());

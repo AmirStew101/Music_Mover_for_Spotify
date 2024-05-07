@@ -1,7 +1,7 @@
 
 import 'package:another_flushbar/flushbar.dart';
 import 'package:flutter/material.dart';
-import 'package:spotify_music_helper/src/utils/globals.dart';
+import 'package:music_mover/src/utils/globals.dart';
 
 class SelectPopups{
   ///Moved or Added tracks Successfully

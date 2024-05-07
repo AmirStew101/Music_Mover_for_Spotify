@@ -2,10 +2,10 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:spotify_music_helper/src/utils/backend_calls/spotify_requests.dart';
-import 'package:spotify_music_helper/src/utils/class%20models/track_model.dart';
-import 'package:spotify_music_helper/src/utils/exceptions.dart';
-import 'package:spotify_music_helper/src/utils/globals.dart';
+import 'package:music_mover/src/utils/backend_calls/spotify_requests.dart';
+import 'package:music_mover/src/utils/class%20models/track_model.dart';
+import 'package:music_mover/src/utils/exceptions.dart';
+import 'package:music_mover/src/utils/globals.dart';
 
 /// Checks if the map has the neccessary keys.
 void mapKeysCheck(List<String> keys, Map<String, dynamic> mapCheck, String functionName){

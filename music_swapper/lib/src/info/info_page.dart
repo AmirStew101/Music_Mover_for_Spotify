@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:spotify_music_helper/src/utils/ads.dart';
-import 'package:spotify_music_helper/src/utils/analytics.dart';
-import 'package:spotify_music_helper/src/utils/class%20models/user_model.dart';
-import 'package:spotify_music_helper/src/utils/global_classes/options_menu.dart';
-import 'package:spotify_music_helper/src/utils/globals.dart';
+import 'package:music_mover/src/utils/ads.dart';
+import 'package:music_mover/src/utils/analytics.dart';
+import 'package:music_mover/src/utils/class%20models/user_model.dart';
+import 'package:music_mover/src/utils/global_classes/options_menu.dart';
+import 'package:music_mover/src/utils/globals.dart';
 
 ///App info an turtorials.
 class InfoView extends StatelessWidget {

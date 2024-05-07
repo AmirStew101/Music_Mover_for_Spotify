@@ -1,4 +1,4 @@
-name: spotify_music_helper
+name: music_mover
 description: "Move/Add/Remove multiple songs in a playlist."
 
 # Prevent accidental publishing to pub.dev.
