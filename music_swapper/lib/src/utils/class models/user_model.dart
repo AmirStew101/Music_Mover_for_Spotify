@@ -61,8 +61,10 @@ class UserModel{
     if(userDocRef != null){
       userDoc = userDocRef;
     }
+  }
 
-
+  bool get isNotEmpty{
+    return spotifyId != '' && url != '';
   }
 
   /// Returns the day for the Subscription expiration.

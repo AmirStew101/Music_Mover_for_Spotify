@@ -38,7 +38,15 @@ class SecureStorage extends GetxController{
     return _secureUser;
   }
 
-  static SecureStorage get instance => Get.find();
+  static SecureStorage get instance {
+    try{
+      return Get.find();
+    }
+    catch (e){
+      FirebaseCrashlytics.instance.log('Failed to Get Instance of Secure Storage');
+      return Get.put(SecureStorage());
+    }
+  }
 
   // Storage for Spotify callback info
 
@@ -280,7 +288,14 @@ class PlaylistsCacheManager extends GetxController{
 
   List<PlaylistModel> _storedPlaylists = [];
 
-  static PlaylistsCacheManager get instance => Get.find();
+  static PlaylistsCacheManager get instance {
+    try{
+      return Get.find();
+    }
+    catch (e){
+      return Get.put(PlaylistsCacheManager());
+    }
+  }
 
   List<PlaylistModel> get storedPlaylists{
     return _storedPlaylists;

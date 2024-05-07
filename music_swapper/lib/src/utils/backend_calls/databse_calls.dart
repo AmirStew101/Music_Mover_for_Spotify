@@ -2,6 +2,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:get/get.dart';
+import 'package:spotify_music_helper/src/utils/analytics.dart';
 import 'package:spotify_music_helper/src/utils/exceptions.dart';
 import 'package:spotify_music_helper/src/utils/class%20models/user_model.dart';
 
@@ -19,7 +20,6 @@ class UserRepository extends GetxController{
   final CollectionReference<Map<String, dynamic>> usersRef = db.collection('Users');
 
   late UserModel _user;
-  late String userId;
 
   bool _newUser = false;
 
@@ -42,17 +42,15 @@ class UserRepository extends GetxController{
     try{
       _crashlytics.log('Initialize User');
       bool has = await _hasUser(user);
-
       if(!has){
         _newUser = true;
         _user = user;
-        _createUser();
+        await AppAnalytics().trackNewUser(user);
+        await _createUser();
       }
       else{
         _user = await _getUser(user);
       }
-      
-      userId = _user.spotifyId;
       return true;
     }
     catch (e){

@@ -27,19 +27,10 @@ class SpotLoginWidget extends StatefulWidget {
 class SpotLoginState extends State<SpotLoginWidget> {
   bool reLogin = Get.arguments;
   late ScaffoldMessengerState _scaffoldMessengerState;
-  late SpotifyRequests _spotifyRequests;
-  late SecureStorage _secureStorage;
-  late PlaylistsCacheManager _cacheManager;
+  final SpotifyRequests _spotifyRequests = SpotifyRequests.instance;
+  final SecureStorage _secureStorage = SecureStorage.instance;
+  final PlaylistsCacheManager _cacheManager = PlaylistsCacheManager.instance;
   final FirebaseCrashlytics _crashlytics = FirebaseCrashlytics.instance;
-
-  @override
-  void initState(){
-    super.initState();
-    _crashlytics.log('Init Spot login Page');
-    _secureStorage = Get.put(SecureStorage());
-    _cacheManager = Get.put(PlaylistsCacheManager());
-    _spotifyRequests = Get.put(SpotifyRequests());
-  }
 
   @override
   void didChangeDependencies(){
@@ -110,6 +101,9 @@ class SpotLoginState extends State<SpotLoginWidget> {
 
               _crashlytics.log('Spot Login: Initialize SpotifyRequests');
               await _spotifyRequests.initializeRequests(callRequest: request.url);
+              await DatabaseStorage.instance.initializeDatabase(_spotifyRequests.user);
+              await _secureStorage.saveUser(DatabaseStorage.instance.user);
+              _spotifyRequests.user = DatabaseStorage.instance.user;
 
               _crashlytics.log('Spot Login: Sign in User');
               await UserAuth().signInUser(_spotifyRequests.user.spotifyId);

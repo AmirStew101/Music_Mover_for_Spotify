@@ -13,7 +13,7 @@ class StartViewWidget extends StatefulWidget{
 }
 
 class StartViewState extends State<StartViewWidget> {
-  bool reLogin = Get.arguments;
+  bool reLogin = Get.arguments ?? true;
 
   @override
   Widget build(BuildContext context) {

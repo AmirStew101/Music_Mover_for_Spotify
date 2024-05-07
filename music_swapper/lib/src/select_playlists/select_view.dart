@@ -47,11 +47,16 @@ class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
     super.initState();
     _crashlytics.log('Init Select View Page');
 
-    final TrackArguments trackArgs = Get.arguments;
-    _spotifyRequests = trackArgs.spotifyRequests;
-    selectedTracksList = trackArgs.selectedTracks;
-    option = trackArgs.option;
-    _checkPlaylists();
+    final TrackArguments? trackArgs = Get.arguments;
+    if(trackArgs == null){
+      Get.back();
+    }
+    else{
+      _spotifyRequests = trackArgs.spotifyRequests;
+      selectedTracksList = trackArgs.selectedTracks;
+      option = trackArgs.option;
+      _checkPlaylists();
+    }
   }
 
   @override

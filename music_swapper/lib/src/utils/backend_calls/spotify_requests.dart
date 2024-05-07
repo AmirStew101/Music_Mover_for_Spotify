@@ -66,6 +66,17 @@ class SpotifyRequests extends GetxController{
 
   final RefreshTimer _refreshTimer = RefreshTimer();
 
+  /// Get an instance of the User Repository.
+  static SpotifyRequests get instance {
+    try{
+      return Get.find();
+    }
+    catch (e){
+      FirebaseCrashlytics.instance.log('Failed to Get Instance of Spotify Requests');
+      return Get.put(SpotifyRequests());
+    }
+  }
+
   /// Makes requests to Spotify for a User, refreshing their callback Tokens, editting their Playlists, & editting their Tracks.
   /// 
   /// Must call the initializeRequests() function before making any functin calls or an error wil be thrown.
@@ -177,9 +188,6 @@ class SpotifyRequests extends GetxController{
   CallbackModel get callback{
     return _callback;
   }
-
-  /// Get the instance of the User Repository.
-  static SpotifyRequests get instance => Get.find();
 
   /// Check if Refresh button should be Pressed.
   bool shouldRefresh(bool loaded, bool refresh){

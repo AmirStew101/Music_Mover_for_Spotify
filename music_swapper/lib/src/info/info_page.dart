@@ -13,7 +13,9 @@ class InfoView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     AppAnalytics().trackHelpMenu();
-    final UserModel user = Get.arguments;
+    
+    final Rx<UserModel> user = UserModel(subscribe: true).obs;
+    user.update((val) => val!.subscribed = Get.arguments.subscribed ?? false);
 
     return Scaffold(
       appBar: AppBar(
@@ -32,7 +34,7 @@ class InfoView extends StatelessWidget {
           textAlign: TextAlign.center,
         ),
       ),
-      drawer: optionsMenu(context, user),
+      drawer: optionsMenu(context, user.value),
 
       body: Stack(
         children: <Widget>[
@@ -59,10 +61,17 @@ class InfoView extends StatelessWidget {
               ),
             ],
           ),
-          if (!user.subscribed)
-            Ads().setupAds(context, user)
         ],
-      )
+      ),
+
+      bottomNavigationBar: Obx(() => BottomAppBar(
+          height: user.value.subscribed
+          ? 0
+          : 70,
+          child: user.value.subscribed
+          ? Container()
+          : Ads().setupAds(context, user.value, home: true),
+        )),
           
           
     );

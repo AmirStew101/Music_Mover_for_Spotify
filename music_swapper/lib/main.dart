@@ -10,6 +10,11 @@ import 'package:spotify_music_helper/src/settings/settings_controller.dart';
 import 'package:spotify_music_helper/src/settings/settings_service.dart';
 import 'package:spotify_music_helper/src/tracks/tracks_view.dart';
 import 'package:spotify_music_helper/src/login/start_screen.dart';
+import 'package:spotify_music_helper/src/utils/backend_calls/database_classes.dart';
+import 'package:spotify_music_helper/src/utils/backend_calls/spotify_requests.dart';
+import 'package:spotify_music_helper/src/utils/backend_calls/storage.dart';
+import 'package:spotify_music_helper/src/utils/class%20models/callback_model.dart';
+import 'package:spotify_music_helper/src/utils/class%20models/user_model.dart';
 import 'package:spotify_music_helper/src/utils/dev_global.dart';
 import 'package:spotify_music_helper/src/utils/exceptions.dart';
 
@@ -46,8 +51,6 @@ Future<void> main() async {
     appleProvider: appleProvider
   );
 
-  FirebaseAppCheck.instance.setTokenAutoRefreshEnabled(true);
-
   // Pass all uncaught "fatal" errors from the framework to Crashlytics
   FlutterError.onError = (FlutterErrorDetails errorDetails) async{
     await FirebaseCrashlytics.instance.recordFlutterFatalError(errorDetails);
@@ -83,10 +86,51 @@ Future<void> main() async {
   // This prevents a sudden theme change when the app is first displayed.
   await settingsController.loadSettings();
 
+  await MusicMover.instance.initializeApp();
+
   // Run the app and pass in the SettingsController. The app listens to the
   // SettingsController for changes, then passes it further down to the
   // SettingsView.
   runApp(const MyApp());
+}
+
+class MusicMover extends GetxController{
+
+  bool _isInitialized = false;
+
+  /// Get if the App is initialized.
+  bool get isInitialized => _isInitialized;
+
+  /// Get an instance of MusicMover
+  static MusicMover get instance {
+    try{
+      return Get.find();
+    }
+    catch (e){
+      return Get.put(MusicMover());
+    }
+  }
+
+  Future<void> initializeApp() async{
+    UserModel? user = await SecureStorage.instance.getUser();
+    CallbackModel? callback = await SecureStorage.instance.getTokens();
+
+    if(user != null && user.isNotEmpty && callback != null && callback.isNotEmpty){
+      await DatabaseStorage.instance.initializeDatabase(user);
+      final databaseInit = DatabaseStorage.instance.isInitialized; 
+      if(!databaseInit) return;
+
+      user = DatabaseStorage.instance.user;
+
+      final requestsInit = await SpotifyRequests.instance.initializeRequests(callback: callback, savedUser: user);
+      if(!requestsInit) return;
+
+      await SecureStorage.instance.saveUser(SpotifyRequests.instance.user);
+
+      _isInitialized = true;
+    }
+  }
+
 }
 
 /// The Widget that configures the application.
@@ -133,7 +177,7 @@ class MyApp extends StatelessWidget {
           darkTheme: ThemeData.dark(),
           themeMode: settingsController.themeMode,
 
-          initialRoute: '/',
+          initialRoute: MusicMover.instance.isInitialized ? '/' : 'start',
 
           // Define a function to handle named routes
           getPages: <GetPage>[

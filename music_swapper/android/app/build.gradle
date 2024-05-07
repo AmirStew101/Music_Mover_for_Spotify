@@ -1,13 +1,11 @@
 plugins {
     id "com.android.application"
-    // Add the Google services Gradle plugin
-    id "com.google.gms.google-services"
-    id "kotlin-android"
     id "dev.flutter.flutter-gradle-plugin"
-    
+    id "kotlin-android"
     id "com.google.firebase.appdistribution"
     id "com.google.firebase.crashlytics"
     id "com.google.firebase.firebase-perf"
+    id "com.google.gms.google-services"
 }
 
 def localProperties = new Properties()

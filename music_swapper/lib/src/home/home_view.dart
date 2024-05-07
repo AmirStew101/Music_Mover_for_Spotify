@@ -38,8 +38,6 @@ class _UiText{
 class HomeViewState extends State<HomeView> with SingleTickerProviderStateMixin{
 
   late SpotifyRequests _spotifyRequests;
-  late DatabaseStorage _databaseStorage;
-  late SecureStorage _secureStorage;
   final FirebaseCrashlytics _crashlytics = FirebaseCrashlytics.instance;
 
   //bool loaded = false;
@@ -54,31 +52,9 @@ class HomeViewState extends State<HomeView> with SingleTickerProviderStateMixin{
     super.initState();
     _crashlytics.log('InitState Home page');
 
-    try{
-      _spotifyRequests = SpotifyRequests.instance;
-    }
-    catch (error){
-      _spotifyRequests = Get.put(SpotifyRequests());
-      _crashlytics.log('Failed to Get Instance of Spotify Requests');
-    }
+    _spotifyRequests = SpotifyRequests.instance;
 
-    try{
-      _databaseStorage = DatabaseStorage.instance;
-    }
-    catch (error){
-      _databaseStorage = Get.put(DatabaseStorage());
-      _crashlytics.log('Failed to Get Instance of Database Storage');
-    }
-
-    try{
-      _secureStorage = SecureStorage.instance;
-    }
-    catch (error){
-      _secureStorage = Get.put(SecureStorage());
-      _crashlytics.log('Failed to Get Instance of Secure Storage');
-    }
-
-    _checkLogin();
+    _checkPlaylists();
   }
 
   /// Updates how the tracks are sorted.
@@ -89,48 +65,8 @@ class HomeViewState extends State<HomeView> with SingleTickerProviderStateMixin{
   }
 
   /// Check the saved Tokens & User on device and on successful confirmation get Users playlists.
-  Future<void> _checkLogin() async {
+  Future<void> _checkPlaylists() async {
     try{
-      if(!_spotifyRequests.isInitialized || !_databaseStorage.isInitialized){
-        await _crashlytics.log('Playlists Page Check Login');
-        await _secureStorage.getUser();
-        await _secureStorage.getTokens();
-        
-        // The saved User and Tokens are not corrupted.
-        // Initialize the users database connection & spotify requests connection.
-        if(_secureStorage.secureUser != null && _secureStorage.secureCallback != null){
-          await _crashlytics.log('Initialize Login using Storage');
-
-          if(!_databaseStorage.isInitialized) await _databaseStorage.initializeDatabase(_secureStorage.secureUser!);
-
-          if(_spotifyRequests.isInitialized){
-            _spotifyRequests.user = _databaseStorage.user;
-          }
-          else{
-            await _spotifyRequests.initializeRequests(callback: _secureStorage.secureCallback!, savedUser: _databaseStorage.user);
-          }
-
-          userLoaded.value = true;
-          await _secureStorage.saveUser(_spotifyRequests.user);
-        }
-        else if(_spotifyRequests.isInitialized){
-          await _crashlytics.log('Initialize Login using Spotify');
-
-          await _databaseStorage.initializeDatabase(_spotifyRequests.user);
-          _spotifyRequests.user = _databaseStorage.user;
-          await _secureStorage.saveUser(_spotifyRequests.user);
-          userLoaded.value = true;
-        }
-        else{
-          _crashlytics.log('Login Corrupted');
-          bool reLogin = true;
-          await Get.offAll(const StartViewWidget(), arguments: reLogin);
-        }
-      }
-      else{
-        userLoaded.value = true;
-      }
-
       if(_spotifyRequests.allPlaylists.isEmpty && !refresh){
         List<PlaylistModel>? plays = await PlaylistsCacheManager().getCachedPlaylists();
         if(plays != null) _spotifyRequests.allPlaylists = plays;
@@ -184,7 +120,7 @@ class HomeViewState extends State<HomeView> with SingleTickerProviderStateMixin{
       _loaded.value = false;
       error = false;
       refresh = true;
-      await _checkLogin();
+      await _checkPlaylists();
     }
   }// refreshPage
 

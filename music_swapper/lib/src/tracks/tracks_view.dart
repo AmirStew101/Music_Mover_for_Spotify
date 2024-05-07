@@ -59,8 +59,7 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
     _crashlytics.log('Init Tracks View Page');
 
     try{
-      _spotifyRequests = Get.arguments;
-      print(_spotifyRequests.user);
+      _spotifyRequests = Get.arguments ?? SpotifyRequests.instance;
     }
     catch (e){
       _crashlytics.log('Error Tracks go Back');

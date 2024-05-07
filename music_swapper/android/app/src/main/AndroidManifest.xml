@@ -11,6 +11,10 @@
         <meta-data
             android:name="com.google.android.gms.ads.APPLICATION_ID"
             android:value="ca-app-pub-6435368838932310~7899121379"/>
+        <!-- Analytics Setup-->
+        <meta-data
+            android:name="com.google.android.gms.measurement.appId"
+            android:value="1:662074339029:android:b59665d029b9fb48cabc5c"/>
 
         <activity
             android:name=".MainActivity"

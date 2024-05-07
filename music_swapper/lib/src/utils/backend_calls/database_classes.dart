@@ -17,7 +17,15 @@ class DatabaseStorage extends GetxController{
     return _newUser;
   }
 
-  static DatabaseStorage get instance => Get.find();
+  static DatabaseStorage get instance {
+    try{
+      return Get.find();
+    }
+    catch (e){
+      FirebaseCrashlytics.instance.log('Failed to Get Instance of Database Storage');
+      return Get.put(DatabaseStorage());
+    }
+  }
 
   UserModel get user{
     return _user;
@@ -27,11 +35,15 @@ class DatabaseStorage extends GetxController{
   /// Returns True on Success.
   /// 
   /// Must be called before any of the other functions.
-  Future<bool> initializeDatabase(UserModel user) async{
+  Future<UserModel?> initializeDatabase(UserModel user) async{
     isInitialized = await _userRepository.initializeUser(user);
-    _user = _userRepository.user;
-    _newUser = _userRepository.newUser;
-    return isInitialized;
+
+    if(isInitialized){
+      _user = _userRepository.user;
+      _newUser = _userRepository.newUser;
+    }
+    
+    return _user;
   }
 
   /// Removes a [user] and all of their data from the database. Returns True on Success.
