@@ -103,45 +103,30 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
 
     // Keeps from repeating functions
     if(!loaded.value){
-      try{
-        if (mounted && (_spotifyRequests.currentPlaylist.tracks.isEmpty || refresh)){
-          await fetchSpotifyTracks();
-        }
-        else if(mounted){
-          loaded.value = true;
-        }
+      if (mounted && (_spotifyRequests.currentPlaylist.tracks.isEmpty || refresh)){
+        await fetchSpotifyTracks();
       }
-      on CustomException catch (ee, stack){
-        error = true;
-        loaded.value = true;
-        throw CustomException(stack: stack, fileName: ee.fileName, functionName: ee.functionName, reason: ee.reason, error: ee.error);
-      }
-      catch (ee, stack){
-        error = true;
-        loaded.value = true;
-        _crashlytics.recordError(ee, stack, reason: 'Failed while Fetching Spotify Tracks', fatal: true);
-      }
+      
+      loaded.value = true;
     }
   }// checkLogin
 
   /// Gets the users tracks for the selected Playlist
   Future<void> fetchSpotifyTracks() async {
     _crashlytics.log('fetchSpotifyTracks function');
-    try{
-      await _spotifyRequests.requestTracks(_spotifyRequests.currentPlaylist.id);
 
-      if (mounted) {
-        loaded.value = true;
-        refresh = false;
-        error = false;
-      }
+    bool requested = await _spotifyRequests.requestTracks(_spotifyRequests.currentPlaylist.id);
+    if(!requested){
+      _crashlytics.recordError('Failed to Fetch Spotify Tracks', StackTrace.current, reason: 'Requests failed in fetchSpotifyTracks()');
+      error = true;
+      refresh = false;
+      loaded.value = true;
+      return;
     }
-    on CustomException catch (error){
-      throw CustomException(stack: error.stack, fileName: error.fileName, functionName: error.functionName, reason: error.reason, error: error.error);
-    }
-    catch (ee, stack){
-      throw CustomException(stack: stack, fileName: _fileName, functionName: 'fetchSpotifyTracks', reason: 'Failed to Fetch Spotify Tracks',  error: ee);
-    }
+
+    refresh = false;
+    error = false;
+    loaded.value = true;
   }
 
   void handleSelectAll(){
@@ -692,10 +677,10 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
                                 try{
                                   final bool response = await launchUrl(Uri.parse(track.albumLink));
 
-                                  if(!response) TracksViewPopups().errorLink('Track');
+                                  if(!response) TracksViewPopups.errorLink('Track');
                                 }
                                 catch (ee, stack){
-                                  TracksViewPopups().errorLink('Track');
+                                  TracksViewPopups.errorLink('Track');
                                   _crashlytics.recordError(ee, stack, reason: 'Failed to open Track Link');
                                 }
                               },
@@ -720,10 +705,10 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
                               try{
                                 final bool response = await launchUrl(Uri.parse(track.artistLinks[index-1]));
 
-                                if(!response) TracksViewPopups().errorLink('Artists');
+                                if(!response) TracksViewPopups.errorLink('Artists');
                               }
                               catch (ee, stack){
-                                TracksViewPopups().errorLink('Artists');
+                                TracksViewPopups.errorLink('Artists');
                                 _crashlytics.recordError(ee, stack, reason: 'Failed to open Artists Link');
                               }
                             }, 
@@ -840,18 +825,25 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
               removing = true;
 
               loaded.value = false;
-              await _spotifyRequests.removeTracks(selectedTracksList, _spotifyRequests.currentPlaylist.snapshotId);
-              await handleDeleteRefresh();
+              bool response = await _spotifyRequests.removeTracks(selectedTracksList, _spotifyRequests.currentPlaylist.snapshotId);
 
-              Get.closeAllSnackbars();
-              TracksViewPopups().deletedTracks(selectedTracksList.length, _spotifyRequests.currentPlaylist.title);
+              if(response){
+                await handleDeleteRefresh();
+                Get.closeAllSnackbars();
+                TracksViewPopups.deletedSuccess(selectedTracksList.length, _spotifyRequests.currentPlaylist.title);
+              }
+              else{
+                Get.closeAllSnackbars();
+                TracksViewPopups.deletedFailed();
+              }
+
             }// User Confirmed Deletion
 
           }
           // User Hasn't selected a Track
           else {
             Get.closeAllSnackbars();
-            TracksViewPopups().noTracks();
+            TracksViewPopups.noTracks();
           }
         },
       );

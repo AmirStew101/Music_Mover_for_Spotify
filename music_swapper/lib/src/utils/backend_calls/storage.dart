@@ -221,7 +221,7 @@ class PlaylistsCacheManager extends GetxController{
   }
 
   /// Cache a sorted list of playlists for the user.
-  Future<void> cachePlaylists(List<PlaylistModel> playlists) async {
+  Future<bool> cachePlaylists(List<PlaylistModel> playlists) async {
     try{
       final SharedPreferences prefs = await SharedPreferences.getInstance();
 
@@ -234,7 +234,10 @@ class PlaylistsCacheManager extends GetxController{
     }
     catch (error, stack){
       _crashlytics.recordError(error, stack, reason: 'Failed to cache Playlists');
+      return false;
     }
+
+    return true;
   }
 
   Future<void> clearPlaylists() async{

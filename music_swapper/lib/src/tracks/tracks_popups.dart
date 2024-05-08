@@ -7,7 +7,7 @@ class TracksViewPopups{
   final FirebaseCrashlytics _crashlytics = FirebaseCrashlytics.instance;
 
   /// Failed message to alert user of needed track selection to proceed.
-  void noTracks(){
+  TracksViewPopups.noTracks(){
     _crashlytics.log('No Tracks message');
 
     Get.snackbar(
@@ -20,9 +20,9 @@ class TracksViewPopups{
       snackPosition: SnackPosition.TOP
     );
   }
-  
+
   /// Successfully deleted tracks.
-  void deletedTracks(int numDeleted, String from){
+  TracksViewPopups.deletedSuccess(int numDeleted, String from){
     _crashlytics.log('Deleted Tracks message');
 
     Get.snackbar(
@@ -36,8 +36,23 @@ class TracksViewPopups{
     );
   }
 
+  /// Error while trying to delete tracks
+  TracksViewPopups.deletedFailed(){
+    _crashlytics.log('Error trying to delete tracks');
+
+    Get.snackbar(
+      'Error', 
+      'Failed to Delete Tracks',
+      isDismissible: true,
+      backgroundColor: snackBarGrey,
+      colorText: failedRed,
+      duration: const Duration(seconds: 2),
+      snackPosition: SnackPosition.TOP
+    );
+  }
+
   /// Error notification for if the link failed to alert the user.
-  void errorLink(String type){
+  TracksViewPopups.errorLink(String type){
     _crashlytics.log('Error Spotify Link message');
 
     Get.snackbar(

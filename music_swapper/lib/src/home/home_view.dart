@@ -68,7 +68,7 @@ class HomeViewState extends State<HomeView> with SingleTickerProviderStateMixin{
   /// Check the saved Tokens & User on device and on successful confirmation get Users playlists.
   Future<void> _checkPlaylists() async {
     try{
-      if(!_musicMover.isInitialized && !_musicMover.loading){
+      if(!_musicMover.isInitialized){
         await _musicMover.initializeApp();
       }
 

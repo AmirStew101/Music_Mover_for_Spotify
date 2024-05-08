@@ -36,8 +36,6 @@ Future<void> main() async {
   //Firebase initialization
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 
-  FirebaseAnalytics.instance.setAnalyticsCollectionEnabled(true);
-
   AppleProvider appleProvider = AppleProvider.appAttestWithDeviceCheckFallback;
   if(kDebugMode || kProfileMode){
     appleProvider = AppleProvider.debug;
@@ -47,6 +45,10 @@ Future<void> main() async {
     androidProvider: AndroidProvider.playIntegrity,
     appleProvider: appleProvider
   );
+
+  await FirebaseAppCheck.instance.setTokenAutoRefreshEnabled(true);
+
+  await FirebaseAnalytics.instance.setAnalyticsCollectionEnabled(true);
 
   // Pass all uncaught "fatal" errors from the framework to Crashlytics
   FlutterError.onError = (FlutterErrorDetails errorDetails) async{
@@ -127,22 +129,8 @@ class MusicMover extends GetxController{
     _isInitialized = false;
   }
 
-  // Future<void> loadingWait() async{
-  //   int count = 0;
-  //   await Future.doWhile(() async{
-  //     count++;
-  //     await Future.delayed(const Duration(seconds: 1));
-  //     if(_loading.value || count >= 15){
-  //       return false;
-  //     }
-  //     return false;
-  //   });
-  // }
-
   /// Initializes the Music Mover app by Connecting to the Database and Spotify with the current User.
   Future<bool> initializeApp() async{
-    await Future.doWhile(() => _loading.value);
-    
     _loading.value = true;
 
     try{
