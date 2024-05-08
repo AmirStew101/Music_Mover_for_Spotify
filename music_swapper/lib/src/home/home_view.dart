@@ -7,6 +7,7 @@ import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:music_mover/main.dart';
+import 'package:music_mover/src/login/start_screen.dart';
 import 'package:music_mover/src/utils/ads.dart';
 import 'package:music_mover/src/utils/backend_calls/spotify_requests.dart';
 import 'package:music_mover/src/utils/exceptions.dart';
@@ -67,8 +68,13 @@ class HomeViewState extends State<HomeView> with SingleTickerProviderStateMixin{
   /// Check the saved Tokens & User on device and on successful confirmation get Users playlists.
   Future<void> _checkPlaylists() async {
     try{
-      if(!_musicMover.isInitialized){
+      if(!_musicMover.isInitialized && !_musicMover.loading){
         await _musicMover.initializeApp();
+      }
+
+      if(!_musicMover.isInitialized){
+        bool reLogin = true;
+        Get.offAll(const StartViewWidget(), arguments: reLogin);
       }
       
       if(_spotifyRequests.allPlaylists.isEmpty && !refresh){
@@ -224,8 +230,6 @@ class HomeViewState extends State<HomeView> with SingleTickerProviderStateMixin{
     
     );
   }// build
-
-
 
   AppBar homeAppbar(){
     return AppBar(

@@ -11,13 +11,10 @@ import 'package:music_mover/src/settings/settings_controller.dart';
 import 'package:music_mover/src/settings/settings_service.dart';
 import 'package:music_mover/src/tracks/tracks_view.dart';
 import 'package:music_mover/src/login/start_screen.dart';
-import 'package:music_mover/src/utils/analytics.dart';
 import 'package:music_mover/src/utils/auth.dart';
 import 'package:music_mover/src/utils/backend_calls/database_classes.dart';
 import 'package:music_mover/src/utils/backend_calls/spotify_requests.dart';
 import 'package:music_mover/src/utils/backend_calls/storage.dart';
-import 'package:music_mover/src/utils/class%20models/callback_model.dart';
-import 'package:music_mover/src/utils/class%20models/user_model.dart';
 import 'package:music_mover/src/utils/dev_global.dart';
 import 'package:music_mover/src/utils/exceptions.dart';
 
@@ -130,8 +127,20 @@ class MusicMover extends GetxController{
     _isInitialized = false;
   }
 
+  // Future<void> loadingWait() async{
+  //   int count = 0;
+  //   await Future.doWhile(() async{
+  //     count++;
+  //     await Future.delayed(const Duration(seconds: 1));
+  //     if(_loading.value || count >= 15){
+  //       return false;
+  //     }
+  //     return false;
+  //   });
+  // }
+
   /// Initializes the Music Mover app by Connecting to the Database and Spotify with the current User.
-  Future<void> initializeApp() async{
+  Future<bool> initializeApp() async{
     await Future.doWhile(() => _loading.value);
     
     _loading.value = true;
@@ -142,19 +151,19 @@ class MusicMover extends GetxController{
       if(_secureStorage.secureCallback != null && _secureStorage.secureCallback!.isNotEmpty){
         // Check if the Requests are already initialized.
         final requestsInit = await _spotifyRequests.initializeRequests(callback: _secureStorage.secureCallback!);
-        if(!requestsInit) return;
+        if(!requestsInit) return _isInitialized;
 
         await UserAuth().signInUser(_spotifyRequests.user.spotifyId);
 
         await _databaseStorage.initializeDatabase(_spotifyRequests.user);
         final databaseInit = _databaseStorage.isInitialized; 
-        if(!databaseInit) return;
+        if(!databaseInit) return _isInitialized;
         
         _spotifyRequests.user = _databaseStorage.user;
 
         _isInitialized = true;
         _loading.value = false;
-        return;
+        return _isInitialized;
       }
     }
     catch (error, stack){
@@ -163,6 +172,7 @@ class MusicMover extends GetxController{
 
     _isInitialized = false;
     _loading.value = false;
+    return _isInitialized;
   }
 
 }
@@ -221,7 +231,7 @@ class MyApp extends StatelessWidget {
             GetPage(name: '/settings', page: () => const SettingsViewWidget()),
             GetPage(name: '/playlists', page: () => const SelectPlaylistsViewWidget()),
             GetPage(name: '/tracks', page: () => const TracksView()),
-            GetPage(name: '/info', page: () => const InfoView()),
+            GetPage(name: '/info', page: () => const InfoView())
           ],
         );
       },

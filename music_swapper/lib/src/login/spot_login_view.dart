@@ -5,6 +5,7 @@ import 'dart:convert';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:music_mover/src/home/home_view.dart';
 import 'package:music_mover/src/utils/class%20models/callback_model.dart';
 import 'package:music_mover/src/utils/dev_global.dart';
 import 'package:music_mover/src/utils/exceptions.dart';
@@ -91,17 +92,10 @@ class SpotLoginState extends State<SpotLoginWidget> {
             if (request.url.startsWith('$hosted/callback') && !initializing) {
 
               await _getTokens(request.url);
+              _crashlytics.log('Go to Home page');
               
-              // if(_databaseStorage.newUser){
-              //   _crashlytics.log('Go to Turotrial page');
-              //   // Navigate to Tutorial screen for new Users and remove previous routes
-              //   Get.offAllNamed('/tutorial');
-              // }
-              // else{
-                _crashlytics.log('Go to Home page');
-                // Navigate to Home and remove previous routes
-                Get.offAllNamed('/');
-              //}
+              // Navigate to Home and remove previous routes
+              Get.offAll(const HomeView());
               
               return NavigationDecision.prevent;
             }
