@@ -105,8 +105,10 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
     if(!loaded.value){
       if (mounted && (_spotifyRequests.currentPlaylist.tracks.isEmpty || refresh)){
         await fetchSpotifyTracks();
+        sortUpdate();
       }
       
+      refresh = false;
       loaded.value = true;
     }
   }// checkLogin
@@ -119,14 +121,9 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
     if(!requested){
       _crashlytics.recordError('Failed to Fetch Spotify Tracks', StackTrace.current, reason: 'Requests failed in fetchSpotifyTracks()');
       error = true;
-      refresh = false;
-      loaded.value = true;
       return;
     }
-
-    refresh = false;
     error = false;
-    loaded.value = true;
   }
 
   void handleSelectAll(){
@@ -155,15 +152,15 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
   }
 
   /// Refreshes the page with function constraints to skip unnecessary steps on page refresh.
-  Future<void> handleRefresh() async{
-    if (_spotifyRequests.shouldRefresh(loaded.value, refresh)){
+  Future<void> handleRefresh({bool buttonPressed = false}) async{
+    if (_spotifyRequests.shouldRefresh(loaded.value, refresh, buttonPressed: buttonPressed)){
       _crashlytics.log('Refresh');
       refresh = true;
       loaded.value = false;
       error = false;
 
       selectedTracksList.clear();
-      _checkTracks();
+      await _checkTracks();
     }
   }
 
@@ -489,12 +486,12 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
           //Refresh tracks for the current Paylist
           Tab(
             child: InkWell(
-              onTap: () => handleRefresh(),
+              onTap: () => handleRefresh(buttonPressed: true),
               child: Row(
                 children: <Widget>[ 
                   IconButton(
                     icon: const Icon(Icons.sync_sharp),
-                    onPressed: () => handleRefresh(),
+                    onPressed: () => handleRefresh(buttonPressed: true),
                   ),
                   const Text('Refresh'),
                 ],
@@ -511,7 +508,7 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
                    Obx(() => Checkbox(
                     materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                     shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
-                    value: selectedTracksList.length == _spotifyRequests.currentPlaylist.tracks.length && loaded.value,
+                    value: selectedTracksList.length == _spotifyRequests.currentPlaylist.tracks.length && selectedTracksList.isNotEmpty,
                     onChanged: (_) => handleSelectAll(),
                   )),
                   const Text('Select All'),
@@ -781,7 +778,7 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
             TrackArguments trackArgs = TrackArguments(selectedTracks: selectedTracksList, option: 'add', spotifyRequests: _spotifyRequests);
 
             changes = await Get.to(const SelectPlaylistsViewWidget(), arguments: trackArgs);
-            if(changes != null && changes) await handleRefresh();
+            await handleRefresh();
           } 
           //Removes track(s) from current playlist
           else if (value == 2 && selectedTracksList.isNotEmpty && loaded.value){
@@ -825,7 +822,7 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
               removing = true;
 
               loaded.value = false;
-              bool response = await _spotifyRequests.removeTracks(selectedTracksList, _spotifyRequests.currentPlaylist.snapshotId);
+              bool response = await _spotifyRequests.removeTracks(selectedTracksList);
 
               if(response){
                 await handleDeleteRefresh();
@@ -836,6 +833,7 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
                 Get.closeAllSnackbars();
                 TracksViewPopups.deletedFailed();
               }
+              loaded.value = true;
 
             }// User Confirmed Deletion
 

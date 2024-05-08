@@ -17,8 +17,8 @@ class SelectPopups{
     );
   }
 
-  ///Failed to Moved or Added tracks
-  SelectPopups.fail(){
+  /// Failed to Connect to Spotify
+  SelectPopups.failConnection(){
     Get.snackbar(
       'Failed', 
       'Connection Error with Spotify',

@@ -5,8 +5,8 @@ import 'dart:async';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:music_mover/src/home/home_view.dart';
 import 'package:music_mover/src/select_playlists/select_popups.dart';
-import 'package:music_mover/src/utils/exceptions.dart';
 import 'package:music_mover/src/utils/global_classes/global_objects.dart';
 import 'package:music_mover/src/utils/globals.dart';
 import 'package:music_mover/src/utils/backend_calls/spotify_requests.dart';
@@ -37,8 +37,6 @@ class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
   ValueNotifier loaded = ValueNotifier(false);
   bool error = false;
 
-  bool refresh = false;
-
   @override
   void initState() {
     super.initState();
@@ -59,26 +57,15 @@ class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
 
   /// Check if the playlists were passed correctly.
   Future<void> _checkPlaylists() async{
-    try{
       loaded.value = false;
 
-      if(mounted && (_spotifyRequests.allPlaylists.isEmpty || refresh)){
-        _crashlytics.log('Select View: Request Playlists');
-        await _spotifyRequests.requestPlaylists();
-        selectedPlaylistList.clear();
-      }
-    }
-    on CustomException catch (ee, stack){
-      error = true;
-      _crashlytics.recordError(ee.error, stack, reason: ee.reason, fatal: ee.fatal);
-    }
-    catch (ee, stack){
-      error = true;
-      _crashlytics.recordError(ee, stack, reason: 'Failed to Request playlists from Spotify', fatal: true);
+    if(mounted && _spotifyRequests.allPlaylists.isEmpty){
+      Get.offAll(const HomeView());
+      Get.closeAllSnackbars();
+      SelectPopups.failConnection();
     }
 
     loaded.value = true;
-
   }
 
   /// Handles what to do when the user selects the Move/Add Tracks button
@@ -91,17 +78,15 @@ class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
         bool response = await _spotifyRequests.addTracks(selectedList, selectedTracksList);
         if(!response){
           error = true;
-          loaded.value = true;
           Get.closeAllSnackbars();
           SelectPopups.failedAdd();
           return false;
         }
 
         //Remove tracks from current playlist
-        response = await _spotifyRequests.removeTracks(selectedTracksList, _spotifyRequests.currentPlaylist.snapshotId);
+        response = await _spotifyRequests.removeTracks(selectedTracksList);
         if(!response){
           error = true;
-          loaded.value = true;
           Get.closeAllSnackbars();
           SelectPopups.failedRemove();
           return false;
@@ -109,7 +94,6 @@ class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
       }
       catch (ee, stack){
         error = true;
-        loaded.value = true;
         _crashlytics.recordError(ee, stack, reason: 'handleOptionSelect Failed to edit Tracks');
         return false;
       }
@@ -121,7 +105,6 @@ class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
         bool response = await _spotifyRequests.addTracks(selectedList, selectedTracksList);
         if(!response){
           error = true;
-          loaded.value = true;
           Get.closeAllSnackbars();
           SelectPopups.failedAdd();
           return false;
@@ -129,26 +112,14 @@ class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
       }
       catch (ee, stack){
         error = true;
-        loaded.value = true;
         _crashlytics.recordError(ee, stack, reason: 'handleOptionSelect Failed to edit Tracks');
         return false;
       }
     }
 
-    loaded.value = true;
     return true;
   }
 
-  Future<void> refreshPlaylists() async{
-    if(_spotifyRequests.shouldRefresh(loaded.value, refresh)){
-      _crashlytics.log('Refresh Playlists');
-      loaded.value = false;
-      error = false;
-      refresh = true;
-      selectedPlaylistList.clear();
-      _checkPlaylists();
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -161,21 +132,6 @@ class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
         ),
         centerTitle: true,
 
-        //Refresh Button
-        bottom: Tab(
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: <Widget>[
-              IconButton(
-                onPressed: () => refreshPlaylists(), 
-                icon: const Icon(Icons.refresh)
-              ),
-              InkWell(
-                onTap: () => refreshPlaylists(),
-                child: const Text('Refresh'),
-              )
-            ],),
-        ),
         actions: <Widget>[
 
           // Search Button
@@ -416,6 +372,8 @@ class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
                         _spotifyRequests.requestTracks(playlist.id);
                       }
                     }
+
+                    loaded.value = true;
                   }
                 }
                 else{
@@ -444,6 +402,8 @@ class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
                       Get.closeAllSnackbars();
                       SelectPopups.success(optionMsg);
                     }
+
+                    loaded.value = true;
                   }
                   else{
                     Get.closeAllSnackbars();

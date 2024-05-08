@@ -58,7 +58,7 @@ Future<void> main() async {
   // Pass all uncaught asynchronous errors that aren't handled by the Flutter framework to Crashlytics
   PlatformDispatcher.instance.onError = (Object error, StackTrace stack) {
     if(error is CustomException){
-      FirebaseCrashlytics.instance.recordError(error.error, error.stack, fatal: error.fatal);
+      FirebaseCrashlytics.instance.recordError(error.error, stack, fatal: error.fatal, reason: error.reason);
     }
     else{
       FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
@@ -123,8 +123,15 @@ class MusicMover extends GetxController{
   /// Signs out the user and removes all cached Data.
   Future<void> signOut() async{
     _loading.value = true;
-    await clearCache();
-    await UserAuth().signOutUser();
+    int retries = 0;
+    while(!await clearCache() && retries < 3){
+      retries++;
+    }
+
+    retries = 0;
+    while(!await UserAuth().signOutUser() && retries < 3){
+      retries++;
+    }
     _loading.value = false;
     _isInitialized = false;
   }

@@ -64,7 +64,7 @@ class ImageGridState extends State<ImageGridWidget> {
                   // Displays Images that can be clicked
                   InkWell(
                     onTap: () async {
-                      if(_spotifyRequests.loadedIds.contains(currPlaylist.id) && !_spotifyRequests.loading.value){
+                      if(!_spotifyRequests.loading.value && _spotifyRequests.loadedIds.contains(currPlaylist.id)){
 
                         _spotifyRequests.currentPlaylist = currPlaylist;
                         _crashlytics.log('Navigate to Playlist Tracks');

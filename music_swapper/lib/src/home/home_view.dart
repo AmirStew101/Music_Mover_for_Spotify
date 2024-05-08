@@ -68,25 +68,33 @@ class HomeViewState extends State<HomeView> with SingleTickerProviderStateMixin{
   /// Check the saved Tokens & User on device and on successful confirmation get Users playlists.
   Future<void> _checkPlaylists() async {
     try{
+
+      // Initialize the apps Requests and Database user
       if(!_musicMover.isInitialized){
         await _musicMover.initializeApp();
       }
 
+      // App is not Initialized so return to start page
       if(!_musicMover.isInitialized){
         bool reLogin = true;
         Get.offAll(const StartViewWidget(), arguments: reLogin);
       }
       
-      if(_spotifyRequests.allPlaylists.isEmpty && !refresh){
+      // Refresh the Playlists if empty or refresh button is pressed
+      if(_spotifyRequests.allPlaylists.isEmpty && !refresh && _musicMover.isInitialized){
         List<PlaylistModel>? plays = await PlaylistsCacheManager().getCachedPlaylists();
-        if(plays != null) _spotifyRequests.allPlaylists = plays;
+        if(plays != null){
+          _spotifyRequests.allPlaylists = plays;
+          sortUpdate();
+        }
       }
 
       //Fetches Playlists if page is not loaded and on this Page
-      if (mounted && !_loaded.value){
+      if (mounted && !_loaded.value && _musicMover.isInitialized){
         if(mounted && (_spotifyRequests.allPlaylists.isEmpty || !_spotifyRequests.allLoaded || refresh)){
           await _crashlytics.log('Requesting all Playlists & Tracks');
           await _spotifyRequests.requestPlaylists();
+          sortUpdate();
           refresh = false;
           _loaded.value = true;
         }
@@ -124,8 +132,8 @@ class HomeViewState extends State<HomeView> with SingleTickerProviderStateMixin{
     }
   }//navigateToTracks
 
-  Future<void> refreshPage() async{
-    if(_spotifyRequests.shouldRefresh(_loaded.value, refresh)){
+  Future<void> refreshPage({bool buttonPressed = false}) async{
+    if(_spotifyRequests.shouldRefresh(_loaded.value, refresh, buttonPressed: buttonPressed)){
       _crashlytics.log('Refresh Playlists Page');
       _loaded.value = false;
       error = false;
@@ -255,13 +263,13 @@ class HomeViewState extends State<HomeView> with SingleTickerProviderStateMixin{
       // Refresh the page button
       bottom: Tab(
         child: InkWell(
-          onTap: () => refreshPage(),
+          onTap: () => refreshPage(buttonPressed: true),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: <Widget>[ 
               IconButton(
                 icon: const Icon(Icons.sync_sharp),
-                onPressed: () => refreshPage(),
+                onPressed: () => refreshPage(buttonPressed: true),
               ),
               const Text('Refresh'),
             ],

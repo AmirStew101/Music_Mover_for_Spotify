@@ -58,15 +58,31 @@ class PlaylistModel {
     _makeDuplicates();
   }
 
+  void addInitial(TrackModel newTrack){
+    if(newTrack.duplicates == 0){
+      _tracks.add(newTrack.copyWith(dupeId: newTrack.id));
+    }
+    else{
+      for(int ii = 0; ii <= newTrack.duplicates; ii++){
+        String dupeId = ii == 0
+        ? newTrack.id
+        : '${newTrack.id}_$ii';
+
+        _tracks.add(newTrack.copyWith(dupeId: dupeId));
+      }
+    }
+  }
 
   /// Add a track to a playlist or increase the tracks duplicates if it already exists in the playlist.
   void addTrack(TrackModel newTrack){
     if(_tracks.contains(newTrack)){
+      print('Add duplicate');
       int index = _tracks.indexWhere((_) => _ == newTrack);
       _tracks[index].duplicates++;
       _tracks.add(newTrack.copyWith(dupeId: '${newTrack.id}_${_tracks[index].duplicates}'));
     }
     else{
+      print('Add Original');
       _tracks.add(newTrack);
     }
   }
@@ -87,7 +103,6 @@ class PlaylistModel {
   void _makeDuplicates(){
 
     int duplicates;
-    String dupeId;
     List<TrackModel> newTracks = [];
 
     for (TrackModel track in _tracks){
@@ -96,7 +111,7 @@ class PlaylistModel {
       // Make duplicates of a track with duplicate ids.
       if (duplicates > 0){
         for (int i = 0; i <= duplicates; i++){
-          dupeId = i == 0
+          String dupeId = i == 0
           ? track.id
           : '${track.id}_$i';
 
