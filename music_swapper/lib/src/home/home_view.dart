@@ -96,15 +96,15 @@ class HomeViewState extends State<HomeView> with SingleTickerProviderStateMixin{
         }
       }
     }
-    on CustomException catch (ee){
+    on CustomException catch (ee, stack){
       error = true;
       _loaded.value = true;
-      throw CustomException(stack: ee.stack, fileName: ee.fileName, functionName: ee.functionName, reason: ee.reason, error: ee.error);
+      _crashlytics.recordError(ee, stack, reason: ee.reason, fatal: true);
     }
-    catch (e, stack){
+    catch (ee, stack){
       error = true;
       _loaded.value = true;
-      _crashlytics.recordError(e, stack, reason: 'Failed during Check Login', fatal: true);
+      _crashlytics.recordError(ee, stack, reason: 'Failed during Check Login', fatal: true);
     }
   }//checkLogin
 
@@ -187,7 +187,7 @@ class HomeViewState extends State<HomeView> with SingleTickerProviderStateMixin{
           child: ValueListenableBuilder(
             valueListenable: _loaded, 
             builder: (_, __, ___) {
-              if (_loaded.value && !error && _spotifyRequests.allPlaylists.isNotEmpty) {
+              if (_loaded.value && !error && _spotifyRequests.allPlaylists.isNotEmpty && _musicMover.isInitialized) {
                 return ImageGridWidget(playlists: _spotifyRequests.allPlaylists, spotifyRequests: _spotifyRequests,);
               }
               else if(!_loaded.value || _spotifyRequests.loading.value) {
