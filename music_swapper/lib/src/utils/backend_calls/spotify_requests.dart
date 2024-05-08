@@ -1,9 +1,9 @@
 import 'dart:convert';
-import 'dart:ffi';
 import 'dart:io';
 
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:http/http.dart' as http;
+import 'package:music_mover/main.dart';
 import 'package:music_mover/src/utils/class%20models/custom_sort.dart';
 import 'package:music_mover/src/utils/dev_global.dart';
 import 'package:music_mover/src/utils/exceptions.dart';
@@ -31,7 +31,7 @@ class SpotifyRequests extends GetxController{
   late CallbackModel _callback;
 
   /// Contains the Users id and other information.
-  UserModel user = UserModel();
+  UserModel _user = UserModel();
 
   /// All of a Users Spotify Playlists.
   /// 
@@ -88,6 +88,13 @@ class SpotifyRequests extends GetxController{
     catch (e){
       _cacheManager = Get.put(PlaylistsCacheManager());
     }
+  }
+
+  UserModel get user => _user;
+
+  set user(UserModel newUser){
+    _user = newUser;
+    SecureStorage.instance.saveUser(newUser);
   }
 
   PlaylistModel get currentPlaylist{
@@ -223,7 +230,7 @@ class SpotifyRequests extends GetxController{
 
   /// Must initialize the requests with a Spotify [CallbackModel] before calling any other functions.
   /// This sets the callback for requests and gets the User associated with callback tokens.
-  Future<bool> initializeRequests({CallbackModel? callback, UserModel? savedUser, String? callRequest}) async{
+  Future<bool> initializeRequests({CallbackModel? callback, UserModel? savedUser}) async{
     try{
       _crashlytics.log('Spotify Requests: Initialize Requests');
       loading.value = true;
@@ -233,10 +240,7 @@ class SpotifyRequests extends GetxController{
         _allPlaylists.clear();
       }
 
-      if(callRequest != null){
-        await _getTokens(callRequest);
-      }
-      else if (callback != null){
+      if (callback != null){
         _callback = callback;
       }
       else{
@@ -447,7 +451,7 @@ class SpotifyRequests extends GetxController{
         throw CustomException(stack: StackTrace.current, fileName: _fileName, functionName: 'removeTracks', reason: 'Bad Response while Removing Tracks', error: response.body);
       }
 
-      await _removeTracksFromApp();
+      await _removeTracksFromApp(selectedTracks);
 
       _getAddBackTracks(selectedTracks);
       if(_addBackTracks.isNotEmpty){
@@ -487,21 +491,6 @@ class SpotifyRequests extends GetxController{
       error:  'Must call the [initializeRequests] function before calling on other functions.');
     }
     await _checkRefresh();
-  }
-
-  /// Gets the Tokens from Spotify by making a call to the API.
-  Future<void> _getTokens(String callRequest) async {
-    _crashlytics.log('Spotify Requests: Get Tokens');
-    final http.Response response = await _retrySpotifyResponse(callRequest);
-
-    if (response.statusCode != 200){
-      throw CustomException(stack: StackTrace.current, fileName: _fileName, functionName: 'getTokens', reason: 'Bad Response while getting tokens from Spotify Sign In', error: response.body);
-    }
-
-    Map<String, dynamic> responseDecoded = jsonDecode(response.body);
-
-    _callback = CallbackModel(expiresAt: responseDecoded['expiresAt'], accessToken: responseDecoded['accessToken'], refreshToken: responseDecoded['refreshToken']);
-    await SecureStorage().saveTokens(_callback);
   }
 
   /// Checks if the Spotify Token has expired. Updates the Token if its expired or [forceRefresh] is true.
@@ -686,8 +675,10 @@ Future<http.Response> _retrySpotifyResponse(String customUrl, {int maxRetries = 
 
         await _getTracks(singleRequest: false)
         .onError((_, __) async{
-          _crashlytics.recordError(_, __, reason: 'Failed to load Tracks adding to Error Ids');
-          _updateLoaded(playlistId: currentPlaylist.id, loaded: false);
+          if(MusicMover.instance.isInitialized){
+            _crashlytics.recordError(_, __, reason: 'Failed to load Tracks adding to Error Ids');
+            _updateLoaded(playlistId: currentPlaylist.id, loaded: false);
+          }
         });
       }
     }
@@ -956,18 +947,12 @@ Future<http.Response> _retrySpotifyResponse(String customUrl, {int maxRetries = 
   }
 
   /// Remove tracks from a playlist in the app.
-  Future<void> _removeTracksFromApp() async{
+  Future<void> _removeTracksFromApp(List<TrackModel> removeTracks) async{
     _crashlytics.log('Spotify Requests: Remove Tracks from App');
 
     // Remove the tracks from the apps Tracks.
-    for(String trackId in _removeIds){
-      int index = currentPlaylist.tracks.indexWhere((_) => _.id == trackId);
-      currentPlaylist.tracks[index].duplicates--;
-      
-      // Remove the track when it is completely removed from a playlist.
-      if (currentPlaylist.tracks[index].duplicates < 0){
-        currentPlaylist.tracks.remove(currentPlaylist.tracks[index]);
-      }
+    for(TrackModel track in removeTracks){
+      currentPlaylist.decrementTrack(track);
     }
 
     int index = _allPlaylists.indexWhere((_) => _.id == currentPlaylist.id);

@@ -34,7 +34,7 @@ class AppAnalytics{
   }
 
   Future<void> trackHelpMenu() async{
-    await _analytics.logScreenView(
+    await FirebaseAnalytics.instance.logScreenView(
       screenName: 'help_screen',
     );
   }

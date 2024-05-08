@@ -72,7 +72,7 @@ class PlaylistModel {
   }
 
   /// Decrease a tracks dupicates and removes track if dupicatess reach negative.
-  void removeTrack(TrackModel track){
+  void decrementTrack(TrackModel track){
     if(_tracks.contains(track)){
       int index = _tracks.indexWhere((_) => _ == track);
       _tracks[index].duplicates--;

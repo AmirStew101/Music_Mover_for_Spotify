@@ -388,18 +388,11 @@ class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
   }
 
   Widget selectBottomBar(){
-    int totalChosen = selectedTracksList.length;
-
-    /// Sets variables for User Notification
-    int totalPlaylists = selectedPlaylistList.length;
-
     Icon optionIcon = const Icon(Icons.drive_file_move_outlined);
     String optionText = option == add ? 'Add Tracks' : 'Move Tracks';
 
-    //Message to display to the user
-    String optionMsg = option == move
-    ? 'Successfully moved $totalChosen songs to $totalPlaylists playlists'
-    : 'Successfully added $totalChosen songs to $totalPlaylists playlists';
+    /// Message to display to the user.
+    late String optionMsg;
 
     return BottomAppBar(
       color: spotHelperGreen,
@@ -415,6 +408,10 @@ class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
                 if (selectedTracksList.isNotEmpty && selectedPlaylistList.isNotEmpty){
                   if (!adding){
                     adding = true;
+
+                    optionMsg = option == move
+                    ? 'Successfully moved $selectedTracksList.length songs to ${selectedPlaylistList.length} playlists'
+                    : 'Successfully added $selectedTracksList.length songs to ${selectedPlaylistList.length} playlists';
 
                     await handleOptionSelect();
                     _crashlytics.log('Playlists edited Go back');
@@ -456,6 +453,10 @@ class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
                   if (selectedTracksList.isNotEmpty && selectedPlaylistList.isNotEmpty){
                     adding = true;
                     loaded.value = false;
+
+                    optionMsg = option == move
+                    ? 'Successfully moved $selectedTracksList.length songs to ${selectedPlaylistList.length} playlists'
+                    : 'Successfully added $selectedTracksList.length songs to ${selectedPlaylistList.length} playlists';
 
                     await handleOptionSelect();
                     _crashlytics.log('Playlists edited Go back');

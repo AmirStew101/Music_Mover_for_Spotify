@@ -51,7 +51,6 @@ class SettingsViewState extends State<SettingsViewWidget> with TickerProviderSta
     if(_secureStorage.secureUser == null){
       bool reLogin = true;
       Get.off(const StartViewWidget(), arguments: reLogin);
-      _secureStorage.errorCheck();
     }
     else{
       user = _secureStorage.secureUser ?? UserModel();

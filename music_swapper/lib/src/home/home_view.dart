@@ -6,6 +6,8 @@ import 'dart:io';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:music_mover/main.dart';
+import 'package:music_mover/src/login/start_screen.dart';
 import 'package:music_mover/src/utils/ads.dart';
 import 'package:music_mover/src/utils/backend_calls/spotify_requests.dart';
 import 'package:music_mover/src/utils/exceptions.dart';
@@ -37,6 +39,7 @@ class HomeViewState extends State<HomeView> with SingleTickerProviderStateMixin{
 
   late SpotifyRequests _spotifyRequests;
   final FirebaseCrashlytics _crashlytics = FirebaseCrashlytics.instance;
+  final MusicMover _musicMover = MusicMover.instance;
 
   //bool loaded = false;
   bool error = false;
@@ -65,6 +68,15 @@ class HomeViewState extends State<HomeView> with SingleTickerProviderStateMixin{
   /// Check the saved Tokens & User on device and on successful confirmation get Users playlists.
   Future<void> _checkPlaylists() async {
     try{
+      if(!_musicMover.isInitialized && !_musicMover.loading){
+        await _musicMover.initializeApp();
+      }
+
+      if(!_musicMover.isInitialized){
+        bool reLogin = true;
+        Get.offAll(const StartViewWidget(), arguments: reLogin);
+      }
+      
       if(_spotifyRequests.allPlaylists.isEmpty && !refresh){
         List<PlaylistModel>? plays = await PlaylistsCacheManager().getCachedPlaylists();
         if(plays != null) _spotifyRequests.allPlaylists = plays;
@@ -175,7 +187,7 @@ class HomeViewState extends State<HomeView> with SingleTickerProviderStateMixin{
           child: ValueListenableBuilder(
             valueListenable: _loaded, 
             builder: (_, __, ___) {
-              if (_loaded.value && !error && !_spotifyRequests.loading.value) {
+              if (_loaded.value && !error && _spotifyRequests.allPlaylists.isNotEmpty) {
                 return ImageGridWidget(playlists: _spotifyRequests.allPlaylists, spotifyRequests: _spotifyRequests,);
               }
               else if(!_loaded.value || _spotifyRequests.loading.value) {
@@ -219,8 +231,6 @@ class HomeViewState extends State<HomeView> with SingleTickerProviderStateMixin{
     );
   }// build
 
-
-
   AppBar homeAppbar(){
     return AppBar(
       
@@ -235,7 +245,9 @@ class HomeViewState extends State<HomeView> with SingleTickerProviderStateMixin{
         builder: (BuildContext context) => IconButton(
           icon: const Icon(Icons.menu), 
           onPressed: ()  {
-            Scaffold.of(context).openDrawer();
+            if(_spotifyRequests.isInitialized){
+              Scaffold.of(context).openDrawer();
+            }
           },
         )
       ),

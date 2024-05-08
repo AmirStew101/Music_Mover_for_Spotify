@@ -370,7 +370,7 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
                               final String result;
 
                               if(searchType == Sort().artist){
-                                result = track.artistNames[0].toLowerCase();
+                                result = track.artistNames.toString().toLowerCase();
                               }
                               else{
                                 result = track.title.toLowerCase();
@@ -591,7 +591,7 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
                                   Padding(
                                     padding: const EdgeInsets.only(right: 60),
                                     child: Image.asset(
-                                      unlikeHeart,
+                                      assetUnlikeHeart,
                                       width: 21.0,
                                       height: 21.0,
                                       color: Colors.green,
@@ -629,16 +629,18 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
 
   /// Creates the State for each Tracks Row
   Widget trackRows(int index, TrackModel track) {
-    String artistText = '';
+    String artistText = 'By: ${track.artistNames[0]}';
 
     if(track.artists.length > 1){
-      artistText = 'By: ${track.artistNames[0]}...';
+      if(track.artistNames[0].length > 25){
+        artistText = 'By: ${track.artistNames[0].substring(0, 25)}...';
+      }
+      else{
+        artistText = 'By: ${track.artistNames[0]}...';
+      }
     }
-    if(track.artistNames[0].length > 25){
+    else if(track.artistNames[0].length > 25){
       artistText = 'By: ${track.artistNames[0].substring(0, 25)}...';
-    }
-    else{
-      artistText = 'By: ${track.artistNames[0]}';
     }
 
     return Row(
