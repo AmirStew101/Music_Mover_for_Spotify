@@ -4,18 +4,24 @@
 ///Stores the `accessToken`, `refreshToken`, and `expiresAt` (the time the access token expires).
 class CallbackModel{
   ///Access token expiration time.
-  final double expiresAt;
+  double expiresAt;
   ///Used to interact with Spotify API.
-  final String accessToken;
+  String accessToken;
   ///Used to refresh the Access token.
-  final String refreshToken;
+  String refreshToken;
 
   ///Model for a Spotify API callback object.
-  const CallbackModel({
+  CallbackModel({
     this.expiresAt = 0,
     this.accessToken = '',
     this.refreshToken = '',
   });
+
+  void updateTokens({required double expires, required String access, required String refresh}){
+    expiresAt = expires;
+    accessToken = access;
+    refreshToken = refresh;
+  }
 
   ///True if the callback doesn't have values.
   bool get isEmpty{
@@ -27,9 +33,14 @@ class CallbackModel{
 
   ///True if the callback does have values.
   bool get isNotEmpty{
-    if (expiresAt > 0 || accessToken != '' || refreshToken != ''){
+    if (expiresAt != 0 || accessToken != '' || refreshToken != ''){
       return true;
     }
     return false;
+  }
+
+  @override
+  String toString(){
+    return 'Expires At: ${expiresAt.toString()}, Access Token: $accessToken, Refresh Token: $refreshToken';
   }
 }

@@ -33,7 +33,7 @@ class ImageGridState extends State<ImageGridWidget> {
     if(_spotifyRequests.loadedIds.contains(id)){
       return playlistName;
     }
-    else if(!_spotifyRequests.loadedIds.contains(id) && _spotifyRequests.loading.value){
+    else if(!_spotifyRequests.loadedIds.contains(id) && _spotifyRequests.loading){
       return 'Loading $playlistName';
     }
     else{
@@ -64,7 +64,7 @@ class ImageGridState extends State<ImageGridWidget> {
                   // Displays Images that can be clicked
                   InkWell(
                     onTap: () async {
-                      if(_spotifyRequests.loadedIds.contains(currPlaylist.id) && !_spotifyRequests.loading.value){
+                      if(!_spotifyRequests.loading && _spotifyRequests.loadedIds.contains(currPlaylist.id)){
 
                         _spotifyRequests.currentPlaylist = currPlaylist;
                         _crashlytics.log('Navigate to Playlist Tracks');
@@ -73,7 +73,7 @@ class ImageGridState extends State<ImageGridWidget> {
                         if(success != null && !success){
                           _crashlytics.log('Home Body Request Tracks: TracksView returned false');
                           _spotifyRequests.loadedIds.remove(currPlaylist.id);
-                          _spotifyRequests.requestTracks(currPlaylist.id);
+                          _spotifyRequests.requestTracks(currPlaylist);
                         }
                       }
                     },
@@ -84,12 +84,12 @@ class ImageGridState extends State<ImageGridWidget> {
                         children: <Widget>[
 
                           // Error loading playlist Tracks
-                          if(!currPlaylist.loaded && !_spotifyRequests.loading.value)
+                          if(!currPlaylist.loaded && !_spotifyRequests.loading)
                           ...<Widget>[
                             InkWell(
                               onTap: () async{
                                 _crashlytics.log('Refresh Playlist in Error Ids');
-                                await _spotifyRequests.requestTracks(currPlaylist.id);
+                                await _spotifyRequests.requestTracks(currPlaylist);
                               },
                               child: 
                                 const SizedBox(
@@ -107,7 +107,7 @@ class ImageGridState extends State<ImageGridWidget> {
                             ),
                           ],
 
-                          if(!currPlaylist.loaded && _spotifyRequests.loading.value && _spotifyRequests.currentPlaylist.id == currPlaylist.id)
+                          if(!currPlaylist.loaded && _spotifyRequests.loading && _spotifyRequests.currentPlaylist.id == currPlaylist.id)
                           ... <Widget>[
                             const SizedBox(
                               height: 154,

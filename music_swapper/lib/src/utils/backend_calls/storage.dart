@@ -21,9 +21,10 @@ final FirebaseCrashlytics _crashlytics = FirebaseCrashlytics.instance;
 
 Future<bool> clearCache() async{
   try{
-    final SharedPreferences prefs = await SharedPreferences.getInstance();
-    await _storage.deleteAll();
-    return await prefs.clear();
+    await SecureStorage.instance.removeTokens();
+    await SecureStorage.instance.removeUser();
+    await PlaylistsCacheManager.instance.clearPlaylists();
+    return true;
   }
   catch (error, stack){
     _crashlytics.recordError(error, stack, reason: 'Error while trying to Clear Cache');
@@ -221,7 +222,7 @@ class PlaylistsCacheManager extends GetxController{
   }
 
   /// Cache a sorted list of playlists for the user.
-  Future<void> cachePlaylists(List<PlaylistModel> playlists) async {
+  Future<bool> cachePlaylists(List<PlaylistModel> playlists) async {
     try{
       final SharedPreferences prefs = await SharedPreferences.getInstance();
 
@@ -234,7 +235,10 @@ class PlaylistsCacheManager extends GetxController{
     }
     catch (error, stack){
       _crashlytics.recordError(error, stack, reason: 'Failed to cache Playlists');
+      return false;
     }
+
+    return true;
   }
 
   Future<void> clearPlaylists() async{

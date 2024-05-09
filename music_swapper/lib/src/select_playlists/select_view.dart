@@ -5,8 +5,8 @@ import 'dart:async';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:music_mover/src/home/home_view.dart';
 import 'package:music_mover/src/select_playlists/select_popups.dart';
-import 'package:music_mover/src/utils/exceptions.dart';
 import 'package:music_mover/src/utils/global_classes/global_objects.dart';
 import 'package:music_mover/src/utils/globals.dart';
 import 'package:music_mover/src/utils/backend_calls/spotify_requests.dart';
@@ -22,7 +22,6 @@ class SelectPlaylistsViewWidget extends StatefulWidget {
 }
 
 class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
-  late ScaffoldMessengerState scaffoldMessengerState;
   late SpotifyRequests _spotifyRequests ;
   final FirebaseCrashlytics _crashlytics = FirebaseCrashlytics.instance;
 
@@ -36,11 +35,7 @@ class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
 
   /// Page View state variables
   ValueNotifier loaded = ValueNotifier(false);
-  bool adding = false;
   bool error = false;
-  bool popup = false;
-
-  bool refresh = false;
 
   @override
   void initState() {
@@ -49,6 +44,7 @@ class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
 
     final TrackArguments? trackArgs = Get.arguments;
     if(trackArgs == null){
+      _crashlytics.recordError('Missing Track Arguments in Select View', StackTrace.current, reason: 'Missiing state argumentes');
       Get.back();
     }
     else{
@@ -59,108 +55,70 @@ class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
     }
   }
 
-  @override
-  void didChangeDependencies(){
-    super.didChangeDependencies();
-    scaffoldMessengerState = ScaffoldMessenger.of(context);
-  }
-
-
   /// Check if the playlists were passed correctly.
   Future<void> _checkPlaylists() async{
-    try{
       loaded.value = false;
 
-      if(mounted && !loaded.value && (_spotifyRequests.allPlaylists.isEmpty || refresh)){
-        _crashlytics.log('Select View: Request Playlists');
-        await _spotifyRequests.requestPlaylists();
-        selectedPlaylistList.clear();
-        loaded.value = true;
-      }
-      
-      if (mounted && !loaded.value){
-        loaded.value = true;
-      }
-    }
-    on CustomException catch (ee){
-      error = true;
-      loaded.value = true;
-      throw CustomException(stack: ee.stack, fileName: ee.fileName, functionName: ee.functionName, reason: ee.reason, error: ee.error);
-    }
-    catch (e, stack){
-      error = true;
-      loaded.value = true;
-      _crashlytics.recordError(e, stack, reason: 'Failed to Request playlists from Spotify', fatal: true);
+    if(mounted && _spotifyRequests.allPlaylists.isEmpty){
+      Get.offAll(const HomeView());
+      Get.closeAllSnackbars();
+      SelectPopups.failConnection();
     }
 
+    loaded.value = true;
   }
 
   /// Handles what to do when the user selects the Move/Add Tracks button
-  Future<void> handleOptionSelect() async {
-
-    List<PlaylistModel> selectedList = selectedPlaylistList;
-    loaded.value = false;
-    adding = true;
+  Future<bool> handleOptionSelect() async {
     //Move tracks to Playlists
     if (option == 'move') {
       try{
         //Add tracks to selected playlists
-        await _spotifyRequests.addTracks(selectedList, selectedTracksList);
+        bool response = await _spotifyRequests.addTracks(selectedPlaylistList, selectedTracksList);
+        if(!response){
+          error = true;
+          Get.closeAllSnackbars();
+          SelectPopups.failedAdd();
+          return false;
+        }
 
         //Remove tracks from current playlist
-        await _spotifyRequests.removeTracks(selectedTracksList, _spotifyRequests.currentPlaylist.snapshotId);
-      }
-      on CustomException catch (ee){
-        adding = false;
-        error = true;
-        loaded.value = true;
-        throw CustomException(stack: ee.stack, fileName: ee.fileName, functionName: ee.functionName, reason: ee.reason, error: ee.error);
+        response = await _spotifyRequests.removeTracks(selectedTracksList);
+        if(!response){
+          error = true;
+          Get.closeAllSnackbars();
+          SelectPopups.failedRemove();
+          return false;
+        }
       }
       catch (ee, stack){
-        adding = false;
         error = true;
-        loaded.value = true;
-        _crashlytics.recordError(ee, stack, reason: 'handleOptionSelect Failed to edit Tracks');
+        _crashlytics.recordError(ee, stack, reason: 'handleOptionSelect Failed to Move Tracks');
+        return false;
       }
-
     }
     //Adds tracks to Playlists
     else {
       try{
         //Update Spotify with the added tracks
-        await _spotifyRequests.addTracks(selectedList, selectedTracksList);
-
-        //Finished adding tracks to 
-        adding = false;
-      }
-      on CustomException catch (ee){
-        adding = false;
-        error = true;
-        loaded.value = true;
-        throw CustomException(stack: ee.stack, fileName: ee.fileName, functionName: ee.functionName, reason: ee.reason, error: ee.error);
+        bool response = await _spotifyRequests.addTracks(selectedPlaylistList, selectedTracksList);
+        if(!response){
+          error = true;
+          Get.closeAllSnackbars();
+          SelectPopups.failedAdd();
+          return false;
+        }
       }
       catch (ee, stack){
-        adding = false;
         error = true;
-        loaded.value = true;
-        _crashlytics.recordError(ee, stack, reason: 'handleOptionSelect Failed to edit Tracks');
+        _crashlytics.recordError(ee, stack, reason: 'handleOptionSelect Failed to Add Tracks');
+        return false;
       }
     }
 
-    adding = false;
-    loaded.value = true;
+    return true;
   }
 
-  Future<void> refreshPlaylists() async{
-    if(_spotifyRequests.shouldRefresh(loaded.value, refresh)){
-      _crashlytics.log('Refresh Playlists');
-      loaded.value = false;
-      error = false;
-      refresh = true;
-      selectedPlaylistList.clear();
-      _checkPlaylists();
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -173,28 +131,13 @@ class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
         ),
         centerTitle: true,
 
-        //Refresh Button
-        bottom: Tab(
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: <Widget>[
-              IconButton(
-                onPressed: () => refreshPlaylists(), 
-                icon: const Icon(Icons.refresh)
-              ),
-              InkWell(
-                onTap: () => refreshPlaylists(),
-                child: const Text('Refresh'),
-              )
-            ],),
-        ),
         actions: <Widget>[
 
           // Search Button
           IconButton(
               icon: const Icon(Icons.search),
               onPressed: () async {
-                if (loaded.value && !_spotifyRequests.loading.value){
+                if (loaded.value && !_spotifyRequests.loading){
                   _crashlytics.log('Search Selectable Playlists');
                   RxList<PlaylistModel> searchedPlaylists = _spotifyRequests.allPlaylists.obs;
 
@@ -316,7 +259,7 @@ class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
               )
             );
           }
-          if(adding || !loaded.value){
+          if(!loaded.value){
             return const Center(child: CircularProgressIndicator.adaptive());
           }
           else{
@@ -406,43 +349,35 @@ class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
             child: ListTile(
               onTap: () async {
                 if (selectedTracksList.isNotEmpty && selectedPlaylistList.isNotEmpty){
-                  if (!adding){
-                    adding = true;
+                  if (loaded.value){
+                    loaded.value = false;
 
                     optionMsg = option == move
-                    ? 'Successfully moved $selectedTracksList.length songs to ${selectedPlaylistList.length} playlists'
-                    : 'Successfully added $selectedTracksList.length songs to ${selectedPlaylistList.length} playlists';
+                    ? 'Successfully moved ${selectedTracksList.length} songs to ${selectedPlaylistList.length} playlists'
+                    : 'Successfully added ${selectedTracksList.length} songs to ${selectedPlaylistList.length} playlists';
 
-                    await handleOptionSelect();
+                    bool modified = await handleOptionSelect();
                     _crashlytics.log('Playlists edited Go back');
                     Get.back(result: true);
 
-                    //Notification for the User alerting them to the result
-                    if(!popup){
-                      popup = true;
-                      popup = await SelectPopups().success(context, optionMsg);
+                    if(modified){
+                      //Notification for the User alerting them to the result
+                      Get.closeAllSnackbars();
+                      SelectPopups.success(optionMsg);
                     }
 
                     if(!error){
                       for(PlaylistModel playlist in selectedPlaylistList){
-                        _spotifyRequests.requestTracks(playlist.id);
+                        _spotifyRequests.requestTracks(playlist);
                       }
                     }
+
+                    loaded.value = true;
                   }
                 }
                 else{
-                  Get.snackbar(
-                    '',
-                    '',
-                    titleText: const Text(
-                      'No Tracks Selected',
-                      textAlign: TextAlign.center,
-                      textScaler: TextScaler.linear(1.2),
-                    ),
-                    backgroundColor: snackBarGrey,
-                    isDismissible: true,
-                    snackPosition: SnackPosition.TOP,
-                  );
+                  Get.closeAllSnackbars();
+                  SelectPopups.noPlaylists();
                 }
               },
 
@@ -451,30 +386,27 @@ class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
                 icon: optionIcon,
                 onPressed: () async {
                   if (selectedTracksList.isNotEmpty && selectedPlaylistList.isNotEmpty){
-                    adding = true;
                     loaded.value = false;
 
                     optionMsg = option == move
-                    ? 'Successfully moved $selectedTracksList.length songs to ${selectedPlaylistList.length} playlists'
-                    : 'Successfully added $selectedTracksList.length songs to ${selectedPlaylistList.length} playlists';
+                    ? 'Successfully moved ${selectedTracksList.length} songs to ${selectedPlaylistList.length} playlists'
+                    : 'Successfully added ${selectedTracksList.length} songs to ${selectedPlaylistList.length} playlists';
 
-                    await handleOptionSelect();
+                    bool modified = await handleOptionSelect();
                     _crashlytics.log('Playlists edited Go back');
                     Get.back(result: true);
 
-                    if(!popup){
-                      popup = true;
-                      popup = await SelectPopups().success(context, optionMsg);
+                    if(modified){
+                      //Notification for the User alerting them to the result
+                      Get.closeAllSnackbars();
+                      SelectPopups.success(optionMsg);
                     }
+
+                    loaded.value = true;
                   }
                   else{
-                    Get.snackbar(
-                      'No Tracks Selected', 
-                      '',
-                      backgroundColor: snackBarGrey,
-                      isDismissible: true,
-                      snackPosition: SnackPosition.TOP
-                    );
+                    Get.closeAllSnackbars();
+                    SelectPopups.noPlaylists();
                   }
                 },
               ),

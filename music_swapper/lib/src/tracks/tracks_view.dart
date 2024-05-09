@@ -9,15 +9,12 @@ import 'package:music_mover/src/select_playlists/select_view.dart';
 import 'package:music_mover/src/utils/ads.dart';
 import 'package:music_mover/src/tracks/tracks_popups.dart';
 import 'package:music_mover/src/utils/class%20models/custom_sort.dart';
-import 'package:music_mover/src/utils/exceptions.dart';
 import 'package:music_mover/src/utils/global_classes/global_objects.dart';
 import 'package:music_mover/src/utils/globals.dart';
 import 'package:music_mover/src/utils/backend_calls/spotify_requests.dart';
 import 'package:music_mover/src/utils/global_classes/options_menu.dart';
 import 'package:music_mover/src/utils/class%20models/track_model.dart';
 import 'package:url_launcher/url_launcher.dart';
-
-const String _fileName = 'tracks_view.dart';
 
 class TracksView extends StatefulWidget {
   const TracksView({super.key});
@@ -38,18 +35,12 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
   late SpotifyRequests _spotifyRequests;
 
   /// All of the selected tracks.
-  /// 
-  /// key: Track ID
-  /// 
-  /// values: TrackModel {Id, Track Title, Artist, Image Url, PreviewUrl}
   RxList<TrackModel> selectedTracksList = <TrackModel>[].obs;
 
   final ValueNotifier loaded = ValueNotifier(false);
 
   bool refresh = false;
-
   bool error = false;
-  bool removing = false;
   
   late TabController tabController;
 
@@ -95,7 +86,7 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
       _spotifyRequests.sortTracks();
     }
 
-    setState(() {});
+    if(mounted) setState(() {});
   }
 
   ///Page state setup Function to setup the page.
@@ -103,52 +94,34 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
 
     // Keeps from repeating functions
     if(!loaded.value){
-      try{
-        if (mounted && (_spotifyRequests.currentPlaylist.tracks.isEmpty || refresh)){
-          await fetchSpotifyTracks();
-        }
-        else if(mounted){
-          loaded.value = true;
-        }
+      if (mounted && (_spotifyRequests.currentPlaylist.tracks.isEmpty || refresh)){
+        await fetchSpotifyTracks();
+        sortUpdate();
       }
-      on CustomException catch (ee, stack){
-        error = true;
-        loaded.value = true;
-        throw CustomException(stack: stack, fileName: ee.fileName, functionName: ee.functionName, reason: ee.reason, error: ee.error);
-      }
-      catch (ee, stack){
-        error = true;
-        loaded.value = true;
-        _crashlytics.recordError(ee, stack, reason: 'Failed while Fetching Spotify Tracks', fatal: true);
-      }
+      
+      refresh = false;
+      loaded.value = true;
     }
   }// checkLogin
 
   /// Gets the users tracks for the selected Playlist
   Future<void> fetchSpotifyTracks() async {
     _crashlytics.log('fetchSpotifyTracks function');
-    try{
-      await _spotifyRequests.requestTracks(_spotifyRequests.currentPlaylist.id);
 
-      if (mounted) {
-        loaded.value = true;
-        refresh = false;
-        error = false;
-      }
+    bool requested = await _spotifyRequests.requestTracks(_spotifyRequests.currentPlaylist);
+    if(!requested){
+      _crashlytics.recordError('Failed to Fetch Spotify Tracks', StackTrace.current, reason: 'Requests failed in fetchSpotifyTracks()');
+      error = true;
+      return;
     }
-    on CustomException catch (error){
-      throw CustomException(stack: error.stack, fileName: error.fileName, functionName: error.functionName, reason: error.reason, error: error.error);
-    }
-    catch (ee, stack){
-      throw CustomException(stack: stack, fileName: _fileName, functionName: 'fetchSpotifyTracks', reason: 'Failed to Fetch Spotify Tracks',  error: ee);
-    }
+    error = false;
   }
 
   void handleSelectAll(){
     _crashlytics.log('Select All');
-    if (selectedTracksList.length != _spotifyRequests.currentPlaylist.tracks.length){
+    if (selectedTracksList.length != _spotifyRequests.currentDuplicates.length){
       selectedTracksList.clear();
-      selectedTracksList.addAll(_spotifyRequests.currentPlaylist.tracks);
+      selectedTracksList.addAll(_spotifyRequests.currentDuplicates);
     }
     else{
       selectedTracksList.clear();
@@ -156,29 +129,15 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
   }
 
 
-  ///Refreshes the page with function constraints to skip unnecessary steps on page refresh after deleteing tracks.
-  ///
-  ///Clears the selected tracks to realign the view.
-  Future<void> handleDeleteRefresh() async{
-    _crashlytics.log('Delete Refresh');
-    loaded.value = false;
-    error = false;
-    removing = false;
-
-    selectedTracksList.clear();
-    _checkTracks();
-  }
-
   /// Refreshes the page with function constraints to skip unnecessary steps on page refresh.
-  Future<void> handleRefresh() async{
-    if (_spotifyRequests.shouldRefresh(loaded.value, refresh)){
-      _crashlytics.log('Refresh');
+  Future<void> handleRefresh({bool forceRefresh = false}) async{
+    if (forceRefresh || _spotifyRequests.shouldRefresh(loaded.value, refresh)){
       refresh = true;
-      loaded.value = false;
       error = false;
-
       selectedTracksList.clear();
-      _checkTracks();
+      loaded.value = false;
+
+      await _checkTracks();
     }
   }
 
@@ -194,7 +153,7 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
           child: ValueListenableBuilder<dynamic>(
             valueListenable: loaded, 
             builder: (_, __, ___) {
-              if (!loaded.value && !error){
+              if (!loaded.value){
                 return Center(
                     child: CircularProgressIndicator(color: spotHelperGreen,)
                 );
@@ -257,7 +216,7 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
         // Filter button
         IconButton(
           onPressed: (){
-            if(loaded.value && !_spotifyRequests.loading.value){
+            if(loaded.value && !_spotifyRequests.loading){
               Get.dialog(
                 AlertDialog.adaptive(
                   title: Row(
@@ -345,9 +304,9 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
           icon: const Icon(Icons.search),
 
           onPressed: () async {
-            if (loaded.value && !_spotifyRequests.loading.value){
+            if (loaded.value && !_spotifyRequests.loading){
               _crashlytics.log('Search Tracks');
-              RxList<TrackModel> searchedTracks = _spotifyRequests.currentPlaylist.tracks.obs;
+              RxList<TrackModel> searchedTracks = _spotifyRequests.currentDuplicates.obs;
               String searchType = Sort().title;
               Rx<bool> artistFilter = false.obs;
 
@@ -366,7 +325,7 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
                             hintText: 'Search'
                           ),
                           onChanged: (String query) {
-                            searchedTracks.value = _spotifyRequests.currentPlaylist.tracks.where((track){
+                            searchedTracks.value = _spotifyRequests.currentDuplicates.where((track){
                               final String result;
 
                               if(searchType == Sort().artist){
@@ -411,13 +370,13 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
                             backgroundColor: Colors.grey,
                             label: const Text('Select All'),
 
-                            selected: selectedTracksList.length == _spotifyRequests.currentPlaylist.tracks.length,
+                            selected: selectedTracksList.length == _spotifyRequests.currentDuplicates.length,
                             selectedColor: spotHelperGreen,
 
                             onSelected: (_) {
                               if(selectedTracksList.length != searchedTracks.length){
                                 selectedTracksList.clear();
-                                selectedTracksList.addAll(_spotifyRequests.currentPlaylist.tracks);
+                                selectedTracksList.addAll(_spotifyRequests.currentDuplicates);
                               }
                               else{
                                 selectedTracksList.clear();
@@ -448,14 +407,16 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
 
                             return ListTile(
                               onTap: () {
-                                setState(() {
-                                  if(!selectedTracksList.contains(currTrack)){
-                                    selectedTracksList.add(currTrack);
-                                  }
-                                  else{
-                                    selectedTracksList.remove(currTrack);
-                                  }
-                                });
+                                if(mounted) {
+                                    setState(() {
+                                    if(!selectedTracksList.contains(currTrack)){
+                                      selectedTracksList.add(currTrack);
+                                    }
+                                    else{
+                                      selectedTracksList.remove(currTrack);
+                                    }
+                                  });
+                                }
                               },
 
                               leading: Obx(() => Checkbox(
@@ -526,7 +487,7 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
                    Obx(() => Checkbox(
                     materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                     shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
-                    value: selectedTracksList.length == _spotifyRequests.currentPlaylist.tracks.length && loaded.value,
+                    value: selectedTracksList.length == _spotifyRequests.currentDuplicates.length && selectedTracksList.isNotEmpty,
                     onChanged: (_) => handleSelectAll(),
                   )),
                   const Text('Select All'),
@@ -547,9 +508,9 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
             Expanded(
               child: 
               ListView.builder(
-                itemCount: _spotifyRequests.playlistTracks.length,
+                itemCount: _spotifyRequests.currentDuplicates.length,
                 itemBuilder: (_, int index) {
-                  final TrackModel currTrack = _spotifyRequests.playlistTracks[index];
+                  final TrackModel currTrack = _spotifyRequests.currentDuplicates[index];
 
                   //Alligns the songs as a Column
                   return Column(
@@ -612,7 +573,7 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
                       ),
 
                       //Makes space so last item isn't behind ad
-                      if (index == _spotifyRequests.playlistTracks.length-1)
+                      if (index == _spotifyRequests.currentDuplicates.length-1)
                         const SizedBox(
                           height: 90,
                         ),
@@ -692,10 +653,10 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
                                 try{
                                   final bool response = await launchUrl(Uri.parse(track.albumLink));
 
-                                  if(!response) TracksViewPopups().errorLink('Track');
+                                  if(!response) TracksViewPopups.errorLink('Track');
                                 }
                                 catch (ee, stack){
-                                  TracksViewPopups().errorLink('Track');
+                                  TracksViewPopups.errorLink('Track');
                                   _crashlytics.recordError(ee, stack, reason: 'Failed to open Track Link');
                                 }
                               },
@@ -720,10 +681,10 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
                               try{
                                 final bool response = await launchUrl(Uri.parse(track.artistLinks[index-1]));
 
-                                if(!response) TracksViewPopups().errorLink('Artists');
+                                if(!response) TracksViewPopups.errorLink('Artists');
                               }
                               catch (ee, stack){
-                                TracksViewPopups().errorLink('Artists');
+                                TracksViewPopups.errorLink('Artists');
                                 _crashlytics.recordError(ee, stack, reason: 'Failed to open Artists Link');
                               }
                             }, 
@@ -777,7 +738,6 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
           ),
         ],
         onTap: (int value) async {
-          bool? changes;
 
           // Move to playlist(s)
           if (value == 0 && selectedTracksList.isNotEmpty && loaded.value) {
@@ -785,9 +745,8 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
 
             TrackArguments trackArgs = TrackArguments(selectedTracks: selectedTracksList, option: 'move', spotifyRequests: _spotifyRequests);
 
-            changes = await Get.to(const SelectPlaylistsViewWidget(), arguments: trackArgs);
-
-            if(changes != null && changes) await handleDeleteRefresh();
+            bool? changes = await Get.to(const SelectPlaylistsViewWidget(), arguments: trackArgs);
+            if(changes != null && changes) await handleRefresh(forceRefresh: true);
           }
           // Add to playlist(s)
           else if (value == 1 && selectedTracksList.isNotEmpty && loaded.value) {
@@ -795,8 +754,8 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
 
             TrackArguments trackArgs = TrackArguments(selectedTracks: selectedTracksList, option: 'add', spotifyRequests: _spotifyRequests);
 
-            changes = await Get.to(const SelectPlaylistsViewWidget(), arguments: trackArgs);
-            if(changes != null && changes) await handleRefresh();
+            await Get.to(const SelectPlaylistsViewWidget(), arguments: trackArgs);
+            await handleRefresh(forceRefresh: true);
           } 
           //Removes track(s) from current playlist
           else if (value == 2 && selectedTracksList.isNotEmpty && loaded.value){
@@ -837,21 +796,30 @@ class TracksViewState extends State<TracksView> with SingleTickerProviderStateMi
             );
 
             if (confirmed){
-              removing = true;
-
               loaded.value = false;
-              await _spotifyRequests.removeTracks(selectedTracksList, _spotifyRequests.currentPlaylist.snapshotId);
-              await handleDeleteRefresh();
 
-              Get.closeAllSnackbars();
-              TracksViewPopups().deletedTracks(selectedTracksList.length, _spotifyRequests.currentPlaylist.title);
+              int deleteing = selectedTracksList.length;
+              bool response = await _spotifyRequests.removeTracks(selectedTracksList);
+
+              if(response){
+                await handleRefresh(forceRefresh: true);
+                
+                Get.closeAllSnackbars();
+                TracksViewPopups.deletedSuccess(deleteing, _spotifyRequests.currentPlaylist.title);
+              }
+              else{
+                Get.closeAllSnackbars();
+                TracksViewPopups.deletedFailed();
+              }
+              loaded.value = true;
+
             }// User Confirmed Deletion
 
           }
           // User Hasn't selected a Track
           else {
             Get.closeAllSnackbars();
-            TracksViewPopups().noTracks();
+            TracksViewPopups.noTracks();
           }
         },
       );

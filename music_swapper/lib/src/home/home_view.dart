@@ -62,31 +62,39 @@ class HomeViewState extends State<HomeView> with SingleTickerProviderStateMixin{
   void sortUpdate() {
     _crashlytics.log('Sorting Playlists');
     _spotifyRequests.sortPlaylists();
-    setState(() {});
+    if(mounted) setState(() {});
   }
 
   /// Check the saved Tokens & User on device and on successful confirmation get Users playlists.
   Future<void> _checkPlaylists() async {
     try{
-      if(!_musicMover.isInitialized && !_musicMover.loading){
+
+      // Initialize the apps Requests and Database user
+      if(!_musicMover.isInitialized){
         await _musicMover.initializeApp();
       }
 
+      // App is not Initialized so return to start page
       if(!_musicMover.isInitialized){
         bool reLogin = true;
         Get.offAll(const StartViewWidget(), arguments: reLogin);
       }
       
-      if(_spotifyRequests.allPlaylists.isEmpty && !refresh){
+      // Refresh the Playlists if empty or refresh button is pressed
+      if(_spotifyRequests.allPlaylists.isEmpty && !refresh && _musicMover.isInitialized){
         List<PlaylistModel>? plays = await PlaylistsCacheManager().getCachedPlaylists();
-        if(plays != null) _spotifyRequests.allPlaylists = plays;
+        if(plays != null){
+          _spotifyRequests.allPlaylists = plays;
+          sortUpdate();
+        }
       }
 
       //Fetches Playlists if page is not loaded and on this Page
-      if (mounted && !_loaded.value){
+      if (mounted && !_loaded.value && _musicMover.isInitialized){
         if(mounted && (_spotifyRequests.allPlaylists.isEmpty || !_spotifyRequests.allLoaded || refresh)){
           await _crashlytics.log('Requesting all Playlists & Tracks');
           await _spotifyRequests.requestPlaylists();
+          sortUpdate();
           refresh = false;
           _loaded.value = true;
         }
@@ -96,15 +104,15 @@ class HomeViewState extends State<HomeView> with SingleTickerProviderStateMixin{
         }
       }
     }
-    on CustomException catch (ee){
+    on CustomException catch (ee, stack){
       error = true;
       _loaded.value = true;
-      throw CustomException(stack: ee.stack, fileName: ee.fileName, functionName: ee.functionName, reason: ee.reason, error: ee.error);
+      _crashlytics.recordError(ee, stack, reason: ee.reason, fatal: true);
     }
-    catch (e, stack){
+    catch (ee, stack){
       error = true;
       _loaded.value = true;
-      _crashlytics.recordError(e, stack, reason: 'Failed during Check Login', fatal: true);
+      _crashlytics.recordError(ee, stack, reason: 'Failed during Check Login', fatal: true);
     }
   }//checkLogin
 
@@ -141,7 +149,7 @@ class HomeViewState extends State<HomeView> with SingleTickerProviderStateMixin{
         return 'Loading';
       }
       else{
-        return 'Loading: ${_spotifyRequests.currentPlaylist.title}';
+        return 'Loading: ${_spotifyRequests.edittingPlaylist.title}';
       }
     }
 
@@ -187,10 +195,10 @@ class HomeViewState extends State<HomeView> with SingleTickerProviderStateMixin{
           child: ValueListenableBuilder(
             valueListenable: _loaded, 
             builder: (_, __, ___) {
-              if (_loaded.value && !error && _spotifyRequests.allPlaylists.isNotEmpty) {
+              if (_loaded.value && !error && _spotifyRequests.allPlaylists.isNotEmpty && _musicMover.isInitialized) {
                 return ImageGridWidget(playlists: _spotifyRequests.allPlaylists, spotifyRequests: _spotifyRequests,);
               }
-              else if(!_loaded.value || _spotifyRequests.loading.value) {
+              else if(!_loaded.value || _spotifyRequests.loading) {
                 return Center( 
                   child:Obx(() => Column(
                     mainAxisAlignment: MainAxisAlignment.center,
@@ -275,7 +283,7 @@ class HomeViewState extends State<HomeView> with SingleTickerProviderStateMixin{
       actions: <Widget>[
         IconButton(
           onPressed: () {
-            if(!_spotifyRequests.loading.value){
+            if(!_spotifyRequests.loading){
               _spotifyRequests.playlistsAsc = !_spotifyRequests.playlistsAsc;
               sortUpdate();
             }
@@ -288,7 +296,7 @@ class HomeViewState extends State<HomeView> with SingleTickerProviderStateMixin{
         IconButton(
             icon: const Icon(Icons.search),
             onPressed: () async {
-              if (_loaded.value && !_spotifyRequests.loading.value){
+              if (_loaded.value && !_spotifyRequests.loading){
                 _crashlytics.log('Searching Playlists');
                 RxList<PlaylistModel> searchedPlaylists = _spotifyRequests.allPlaylists.obs;
 

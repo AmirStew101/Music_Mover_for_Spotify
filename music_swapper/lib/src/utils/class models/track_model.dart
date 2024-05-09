@@ -216,13 +216,7 @@ class TrackModel extends Object{
     && other.title == title
     && other.imageUrl == imageUrl
     && other._type == _type
-    && other.liked == liked
-    && other.duplicates == duplicates
-    && other.addedAt == addedAt
-    && other._artistNames == _artistNames
-    && other._artistLinks == _artistLinks
-    && other._albumTitle == _albumTitle
-    && other._albumLink == _albumLink;
+    && other.dupeId == dupeId;
   }
   
   @override
@@ -231,13 +225,7 @@ class TrackModel extends Object{
   ^ title.hashCode
   ^ imageUrl.hashCode
   ^ _type.hashCode
-  ^ liked.hashCode
-  ^ duplicates.hashCode
-  ^ addedAt.hashCode
-  ^ _artistNames.hashCode
-  ^ _artistLinks.hashCode
-  ^ _albumTitle.hashCode
-  ^ _albumLink.hashCode;
+  ^ dupeId.hashCode;
   
   
 }

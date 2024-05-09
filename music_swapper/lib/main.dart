@@ -36,8 +36,6 @@ Future<void> main() async {
   //Firebase initialization
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 
-  FirebaseAnalytics.instance.setAnalyticsCollectionEnabled(true);
-
   AppleProvider appleProvider = AppleProvider.appAttestWithDeviceCheckFallback;
   if(kDebugMode || kProfileMode){
     appleProvider = AppleProvider.debug;
@@ -48,6 +46,10 @@ Future<void> main() async {
     appleProvider: appleProvider
   );
 
+  await FirebaseAppCheck.instance.setTokenAutoRefreshEnabled(true);
+
+  await FirebaseAnalytics.instance.setAnalyticsCollectionEnabled(true);
+
   // Pass all uncaught "fatal" errors from the framework to Crashlytics
   FlutterError.onError = (FlutterErrorDetails errorDetails) async{
     await FirebaseCrashlytics.instance.recordFlutterFatalError(errorDetails);
@@ -56,7 +58,7 @@ Future<void> main() async {
   // Pass all uncaught asynchronous errors that aren't handled by the Flutter framework to Crashlytics
   PlatformDispatcher.instance.onError = (Object error, StackTrace stack) {
     if(error is CustomException){
-      FirebaseCrashlytics.instance.recordError(error.error, error.stack, fatal: error.fatal);
+      FirebaseCrashlytics.instance.recordError(error.error, stack, fatal: error.fatal, reason: error.reason);
     }
     else{
       FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
@@ -121,28 +123,21 @@ class MusicMover extends GetxController{
   /// Signs out the user and removes all cached Data.
   Future<void> signOut() async{
     _loading.value = true;
-    await clearCache();
-    await UserAuth().signOutUser();
+    int retries = 0;
+    while(!await clearCache() && retries < 3){
+      retries++;
+    }
+
+    retries = 0;
+    while(!await UserAuth().signOutUser() && retries < 3){
+      retries++;
+    }
     _loading.value = false;
     _isInitialized = false;
   }
 
-  // Future<void> loadingWait() async{
-  //   int count = 0;
-  //   await Future.doWhile(() async{
-  //     count++;
-  //     await Future.delayed(const Duration(seconds: 1));
-  //     if(_loading.value || count >= 15){
-  //       return false;
-  //     }
-  //     return false;
-  //   });
-  // }
-
   /// Initializes the Music Mover app by Connecting to the Database and Spotify with the current User.
   Future<bool> initializeApp() async{
-    await Future.doWhile(() => _loading.value);
-    
     _loading.value = true;
 
     try{
