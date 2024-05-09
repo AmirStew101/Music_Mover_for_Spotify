@@ -69,11 +69,11 @@ class TrackArguments{
 /// Timer to check if Refresh has been pressed to many times.
 class RefreshTimer{
   int _refeshTimes = 0;
-  static const int refreshLimit = 5;
+  static const int refreshLimit = 10;
   bool _timerStart = false;
 
   /// Checks if the user has clicked refresh too many times.
-  bool shouldRefresh(bool loaded, bool loading, bool refresh, {bool buttonPressed = false}){
+  bool shouldRefresh(bool loaded, bool loading, bool refresh){
     if(!loaded || loading || refresh){
       return false;
     }
@@ -102,11 +102,8 @@ class RefreshTimer{
       );
       return false;
     }
-    else if(buttonPressed){
-      _refeshTimes++;
-      return true;
-    }
     else{
+      _refeshTimes++;
       return true;
     }
   }

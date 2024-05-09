@@ -21,9 +21,10 @@ final FirebaseCrashlytics _crashlytics = FirebaseCrashlytics.instance;
 
 Future<bool> clearCache() async{
   try{
-    final SharedPreferences prefs = await SharedPreferences.getInstance();
-    await _storage.deleteAll();
-    return await prefs.clear();
+    await SecureStorage.instance.removeTokens();
+    await SecureStorage.instance.removeUser();
+    await PlaylistsCacheManager.instance.clearPlaylists();
+    return true;
   }
   catch (error, stack){
     _crashlytics.recordError(error, stack, reason: 'Error while trying to Clear Cache');

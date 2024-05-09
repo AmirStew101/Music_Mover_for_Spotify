@@ -70,12 +70,11 @@ class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
 
   /// Handles what to do when the user selects the Move/Add Tracks button
   Future<bool> handleOptionSelect() async {
-    List<PlaylistModel> selectedList = selectedPlaylistList;
     //Move tracks to Playlists
     if (option == 'move') {
       try{
         //Add tracks to selected playlists
-        bool response = await _spotifyRequests.addTracks(selectedList, selectedTracksList);
+        bool response = await _spotifyRequests.addTracks(selectedPlaylistList, selectedTracksList);
         if(!response){
           error = true;
           Get.closeAllSnackbars();
@@ -94,7 +93,7 @@ class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
       }
       catch (ee, stack){
         error = true;
-        _crashlytics.recordError(ee, stack, reason: 'handleOptionSelect Failed to edit Tracks');
+        _crashlytics.recordError(ee, stack, reason: 'handleOptionSelect Failed to Move Tracks');
         return false;
       }
     }
@@ -102,7 +101,7 @@ class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
     else {
       try{
         //Update Spotify with the added tracks
-        bool response = await _spotifyRequests.addTracks(selectedList, selectedTracksList);
+        bool response = await _spotifyRequests.addTracks(selectedPlaylistList, selectedTracksList);
         if(!response){
           error = true;
           Get.closeAllSnackbars();
@@ -112,7 +111,7 @@ class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
       }
       catch (ee, stack){
         error = true;
-        _crashlytics.recordError(ee, stack, reason: 'handleOptionSelect Failed to edit Tracks');
+        _crashlytics.recordError(ee, stack, reason: 'handleOptionSelect Failed to Add Tracks');
         return false;
       }
     }
@@ -138,7 +137,7 @@ class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
           IconButton(
               icon: const Icon(Icons.search),
               onPressed: () async {
-                if (loaded.value && !_spotifyRequests.loading.value){
+                if (loaded.value && !_spotifyRequests.loading){
                   _crashlytics.log('Search Selectable Playlists');
                   RxList<PlaylistModel> searchedPlaylists = _spotifyRequests.allPlaylists.obs;
 
@@ -369,7 +368,7 @@ class SelectPlaylistsViewState extends State<SelectPlaylistsViewWidget> {
 
                     if(!error){
                       for(PlaylistModel playlist in selectedPlaylistList){
-                        _spotifyRequests.requestTracks(playlist.id);
+                        _spotifyRequests.requestTracks(playlist);
                       }
                     }
 

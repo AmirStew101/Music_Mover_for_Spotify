@@ -62,7 +62,7 @@ class HomeViewState extends State<HomeView> with SingleTickerProviderStateMixin{
   void sortUpdate() {
     _crashlytics.log('Sorting Playlists');
     _spotifyRequests.sortPlaylists();
-    setState(() {});
+    if(mounted) setState(() {});
   }
 
   /// Check the saved Tokens & User on device and on successful confirmation get Users playlists.
@@ -132,8 +132,8 @@ class HomeViewState extends State<HomeView> with SingleTickerProviderStateMixin{
     }
   }//navigateToTracks
 
-  Future<void> refreshPage({bool buttonPressed = false}) async{
-    if(_spotifyRequests.shouldRefresh(_loaded.value, refresh, buttonPressed: buttonPressed)){
+  Future<void> refreshPage() async{
+    if(_spotifyRequests.shouldRefresh(_loaded.value, refresh)){
       _crashlytics.log('Refresh Playlists Page');
       _loaded.value = false;
       error = false;
@@ -149,7 +149,7 @@ class HomeViewState extends State<HomeView> with SingleTickerProviderStateMixin{
         return 'Loading';
       }
       else{
-        return 'Loading: ${_spotifyRequests.currentPlaylist.title}';
+        return 'Loading: ${_spotifyRequests.edittingPlaylist.title}';
       }
     }
 
@@ -198,7 +198,7 @@ class HomeViewState extends State<HomeView> with SingleTickerProviderStateMixin{
               if (_loaded.value && !error && _spotifyRequests.allPlaylists.isNotEmpty && _musicMover.isInitialized) {
                 return ImageGridWidget(playlists: _spotifyRequests.allPlaylists, spotifyRequests: _spotifyRequests,);
               }
-              else if(!_loaded.value || _spotifyRequests.loading.value) {
+              else if(!_loaded.value || _spotifyRequests.loading) {
                 return Center( 
                   child:Obx(() => Column(
                     mainAxisAlignment: MainAxisAlignment.center,
@@ -263,13 +263,13 @@ class HomeViewState extends State<HomeView> with SingleTickerProviderStateMixin{
       // Refresh the page button
       bottom: Tab(
         child: InkWell(
-          onTap: () => refreshPage(buttonPressed: true),
+          onTap: () => refreshPage(),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: <Widget>[ 
               IconButton(
                 icon: const Icon(Icons.sync_sharp),
-                onPressed: () => refreshPage(buttonPressed: true),
+                onPressed: () => refreshPage(),
               ),
               const Text('Refresh'),
             ],
@@ -283,7 +283,7 @@ class HomeViewState extends State<HomeView> with SingleTickerProviderStateMixin{
       actions: <Widget>[
         IconButton(
           onPressed: () {
-            if(!_spotifyRequests.loading.value){
+            if(!_spotifyRequests.loading){
               _spotifyRequests.playlistsAsc = !_spotifyRequests.playlistsAsc;
               sortUpdate();
             }
@@ -296,7 +296,7 @@ class HomeViewState extends State<HomeView> with SingleTickerProviderStateMixin{
         IconButton(
             icon: const Icon(Icons.search),
             onPressed: () async {
-              if (_loaded.value && !_spotifyRequests.loading.value){
+              if (_loaded.value && !_spotifyRequests.loading){
                 _crashlytics.log('Searching Playlists');
                 RxList<PlaylistModel> searchedPlaylists = _spotifyRequests.allPlaylists.obs;
 

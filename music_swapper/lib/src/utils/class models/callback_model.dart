@@ -25,7 +25,7 @@ class CallbackModel{
 
   ///True if the callback doesn't have values.
   bool get isEmpty{
-    if (expiresAt == '' || accessToken == '' || refreshToken == ''){
+    if (expiresAt == 0 || accessToken == '' || refreshToken == ''){
       return true;
     }
     return false;
@@ -33,7 +33,7 @@ class CallbackModel{
 
   ///True if the callback does have values.
   bool get isNotEmpty{
-    if (expiresAt != '' || accessToken != '' || refreshToken != ''){
+    if (expiresAt != 0 || accessToken != '' || refreshToken != ''){
       return true;
     }
     return false;
